@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "plovane"
+version = "0.1.0"
+description = "Plovane recommendation models: retrieval embedding model and three-stage ranking stack"
+requires-python = ">=3.11"
+dependencies = ["numpy>=1.26"]
+
+[project.optional-dependencies]
+# Stage 1 and Stage 3 fall back to a hand-weighted linear score without this.
+boost = ["lightgbm>=4.3"]
+# The cross-encoder and the bi-encoder need torch; nothing else does.
+neural = ["torch>=2.2", "transformers>=4.40"]
+dev = ["pytest>=8.0"]
+
+[tool.setuptools.packages.find]
+include = ["plovane*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
