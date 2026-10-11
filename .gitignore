@@ -5,3 +5,6 @@ __pycache__/
 build/
 dist/
 .venv/
+
+# Git bundles produced for hand-off when a push is blocked
+*.bundle
