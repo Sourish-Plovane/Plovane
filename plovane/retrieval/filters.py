@@ -57,6 +57,15 @@ class FilterSpec:
     allowed_licenses: tuple[str, ...] = DEFAULT_ALLOWED_LICENSES
     installed_dependencies: tuple[str, ...] = ()
     drop_in_only: bool = False
+    entry_types: tuple[str, ...] = ()
+    """Restrict to these entry types, e.g. ``("template", "bundle")``.
+
+    Empty means every type. Filtering by type belongs here rather than after
+    retrieval: a type-restricted request that post-filters would hand ranking
+    far fewer than the 1,000 candidates recall@1000 is measured against, and
+    the shortfall would be invisible.
+    """
+
     extra_sql: tuple[str, ...] = field(default_factory=tuple)
 
     @classmethod
@@ -118,6 +127,10 @@ class FilterSpec:
             clauses.append("e.dependencies <@ :installed_dependencies")
             params["installed_dependencies"] = list(self.installed_dependencies)
 
+        if self.entry_types:
+            clauses.append("e.type = ANY(:entry_types)")
+            params["entry_types"] = list(self.entry_types)
+
         clauses.extend(self.extra_sql)
         return " AND ".join(clauses), params
 
@@ -129,6 +142,8 @@ class FilterSpec:
         Kept deliberately equivalent to :meth:`where_clause`; if the two ever
         disagree, the SQL is the one that is live and this one is the bug.
         """
+        if self.entry_types and entry.type.value not in self.entry_types:
+            return False
         if entry.visibility is Visibility.PRIVATE:
             if self.requester_id is None or entry.owner_id != self.requester_id:
                 return False

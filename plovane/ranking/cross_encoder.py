@@ -174,6 +174,17 @@ class CrossEncoderTokenizer:
 class CrossEncoder(nn.Module):
     """Pretrained code encoder plus the relevance head from the layer table."""
 
+    tokenizer_class: type[CrossEncoderTokenizer] = CrossEncoderTokenizer
+    """Which input format to build pairs with.
+
+    A specialisation overrides this rather than rebuilding the model. The spec
+    keeps separate rankers for templates and helpers, and they differ only in
+    how the candidate side is laid out -- a template has no signature to show
+    -- so the format is the part worth varying.
+    """
+
+    extra_special_tokens: tuple[str, ...] = ()
+
     def __init__(
         self,
         encoder_name: str = DEFAULT_ENCODER,
@@ -183,9 +194,21 @@ class CrossEncoder(nn.Module):
         max_tokens: int = CROSS_ENCODER_MAX_TOKENS,
         pretraining_languages: Iterable[str] = UNIXCODER_PRETRAINING_LANGUAGES,
         check_languages: bool = True,
+        tokenizer=None,
+        encoder=None,
     ) -> None:
+        """Build the model, downloading the pretrained encoder by name.
+
+        ``tokenizer`` and ``encoder`` override the download with objects you
+        already hold. That is what makes the input format, the truncation
+        order and the loss testable without pulling half a gigabyte of
+        pretrained weights, and it is the only way to exercise this class
+        where the Hugging Face hub is unreachable. Pass both or neither.
+        """
         super().__init__()
-        from transformers import AutoModel, AutoTokenizer
+
+        if (tokenizer is None) != (encoder is None):
+            raise ValueError("pass both tokenizer and encoder, or neither")
 
         if check_languages:
             self.missing_languages = check_language_coverage(pretraining_languages)
@@ -194,14 +217,28 @@ class CrossEncoder(nn.Module):
 
         self.encoder_name = encoder_name
         self.max_tokens = max_tokens
-        base_tokenizer = AutoTokenizer.from_pretrained(encoder_name)
+
+        if tokenizer is None:
+            from transformers import AutoTokenizer
+
+            base_tokenizer = AutoTokenizer.from_pretrained(encoder_name)
+        else:
+            base_tokenizer = tokenizer
 
         # The language tokens are added to the vocabulary rather than left to
         # split into pieces, so <lang:cuda> is one unambiguous signal.
-        added = base_tokenizer.add_tokens([language_token(lang) for lang in MVP_LANGUAGES], special_tokens=True)
-        self.tokenizer = CrossEncoderTokenizer(base_tokenizer, max_tokens=max_tokens)
+        added = base_tokenizer.add_tokens(
+            [*(language_token(lang) for lang in MVP_LANGUAGES), *self.extra_special_tokens],
+            special_tokens=True,
+        )
+        self.tokenizer = self.tokenizer_class(base_tokenizer, max_tokens=max_tokens)
 
-        self.encoder = AutoModel.from_pretrained(encoder_name)  # 12 layers, all fine-tuned
+        if encoder is None:
+            from transformers import AutoModel
+
+            self.encoder = AutoModel.from_pretrained(encoder_name)  # 12 layers, all fine-tuned
+        else:
+            self.encoder = encoder
         if added:
             self.encoder.resize_token_embeddings(len(base_tokenizer))
 
