@@ -98,6 +98,15 @@ class ExtractedUnit:
     required_imports: tuple[str, ...] = ()
     """Import statements the function needs, taken from its source module."""
 
+    annotation_only_names: tuple[str, ...] = ()
+    """Unresolvable names that appear only in type annotations.
+
+    Harmless at run time under ``from __future__ import annotations``, which
+    ``insertable_code`` adds when any are present. Recorded rather than
+    ignored, because the annotation is now a string the user's type checker
+    cannot resolve.
+    """
+
     unresolved_names: tuple[str, ...] = ()
     """Free names that resolve to something other than an import.
 
@@ -137,10 +146,18 @@ class ExtractedUnit:
     # Date: 2026-10-12
     @property
     def insertable_code(self) -> str:
-        """The code with its required imports prepended."""
-        if not self.required_imports:
+        """The code with its required imports prepended.
+
+        A ``from __future__ import annotations`` line leads when any annotation
+        name could not be resolved, which is what keeps those units runnable:
+        the annotation is never evaluated, so it cannot raise ``NameError``.
+        """
+        header = list(self.required_imports)
+        if self.annotation_only_names:
+            header.insert(0, "from __future__ import annotations")
+        if not header:
             return self.code
-        return "\n".join([*self.required_imports, "", self.code])
+        return "\n".join([*header, "", self.code])
 
 
 # Input: node (ast.FunctionDef | ast.AsyncFunctionDef)
@@ -187,26 +204,6 @@ def _module_imports(tree: ast.Module) -> dict[str, str]:
     return bindings
 
 
-# Input: tree (ast.Module)
-# Output: set[str]
-# Processing: Names the module defines itself: constants, functions, classes
-# Changed by: Claude Code
-# Date: 2026-10-12
-def _module_level_names(tree: ast.Module) -> set[str]:
-    """Names the module defines itself, which a lifted function cannot see."""
-    names: set[str] = set()
-    for node in tree.body:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            names.add(node.name)
-        elif isinstance(node, ast.Assign):
-            for target in node.targets:
-                if isinstance(target, ast.Name):
-                    names.add(target.id)
-        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-            names.add(node.target.id)
-    return names
-
-
 # Input: fn (ast.FunctionDef | ast.AsyncFunctionDef)
 # Output: set[str]
 # Processing: Every name the function binds itself, so it is not free
@@ -250,22 +247,46 @@ def _bound_locally(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
 # Processing: Names the function reads but does not bind
 # Changed by: Claude Code
 # Date: 2026-10-12
-def _free_names(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
-    """Names the function reads but does not bind."""
+def _free_names(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[set[str], set[str]]:
+    """Free names, split into ``(runtime, annotation_only)``.
+
+    The split is what makes a large share of real library code usable. A name
+    used only in a type annotation is never evaluated at run time once
+    ``from __future__ import annotations`` is in effect -- annotations become
+    strings. So a helper annotated with a type it cannot import still *runs*,
+    while one that calls a sibling function does not. Treating both as the same
+    failure rejected 58 pydantic helpers over ``CoreSchema`` alone.
+
+    Decorators count as runtime: they execute at definition time, so an
+    unimported ``@cache`` breaks the paste like a missing import.
+    """
     bound = _bound_locally(fn)
     builtin_names = set(dir(builtins))
-    free: set[str] = set()
-    for node in ast.walk(fn):
-        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
-            if node.id not in bound and node.id not in builtin_names:
-                free.add(node.id)
-    # Decorators belong to the definition, so their names are needed too: an
-    # unimported @cache breaks the paste just as surely as a missing import.
+
+    def names_in(node: ast.AST) -> set[str]:
+        found: set[str] = set()
+        for sub in ast.walk(node):
+            if isinstance(sub, ast.Name) and isinstance(sub.ctx, ast.Load):
+                if sub.id not in bound and sub.id not in builtin_names:
+                    found.add(sub.id)
+        return found
+
+    runtime: set[str] = set()
+    for statement in fn.body:
+        runtime |= names_in(statement)
     for dec in fn.decorator_list:
-        for node in ast.walk(dec):
-            if isinstance(node, ast.Name) and node.id not in builtin_names:
-                free.add(node.id)
-    return free
+        runtime |= names_in(dec)
+
+    annotations: set[str] = set()
+    args = fn.args
+    for arg in [*args.posonlyargs, *args.args, *args.kwonlyargs, args.vararg, args.kwarg]:
+        if arg is not None and arg.annotation is not None:
+            annotations |= names_in(arg.annotation)
+    if fn.returns is not None:
+        annotations |= names_in(fn.returns)
+
+    # A name in both places is a runtime name: the annotation is incidental.
+    return runtime, annotations - runtime
 
 
 # Input: fn (ast.FunctionDef | ast.AsyncFunctionDef), tree (ast.Module)
@@ -275,26 +296,33 @@ def _free_names(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
 # Date: 2026-10-12
 def analyse_dependencies(
     fn: ast.FunctionDef | ast.AsyncFunctionDef, tree: ast.Module
-) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    """Split a function's free names into imports it needs and names it cannot get."""
+) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
+    """Return ``(required_imports, unresolved_names, annotation_only_names)``."""
     imports = _module_imports(tree)
-    module_names = _module_level_names(tree)
     required: set[str] = set()
     unresolved: set[str] = set()
+    annotation_only: set[str] = set()
 
-    for name in sorted(_free_names(fn)):
+    runtime_names, annotation_names = _free_names(fn)
+
+    for name in sorted(runtime_names):
         if name in imports:
             required.add(imports[name])
         elif name == fn.name:
             continue  # direct recursion is fine
-        elif name in module_names:
-            # Defined in the same file but not imported: a sibling function or
-            # a module constant. Lifting the function alone leaves it dangling.
-            unresolved.add(name)
         else:
+            # An import would have resolved it. Anything else -- a sibling
+            # function, a module constant, a class alongside it -- is left
+            # behind when the function is lifted out.
             unresolved.add(name)
 
-    return tuple(sorted(required)), tuple(sorted(unresolved))
+    for name in sorted(annotation_names):
+        if name in imports:
+            required.add(imports[name])
+        elif name != fn.name:
+            annotation_only.add(name)
+
+    return tuple(sorted(required)), tuple(sorted(unresolved)), tuple(sorted(annotation_only))
 
 
 # Input: source (str)
@@ -323,7 +351,7 @@ def extract_python(source: str) -> list[ExtractedUnit]:
         start, end = node.lineno, (node.end_lineno or node.lineno)
         if not MIN_FUNCTION_LINES <= (end - start + 1) <= MAX_FUNCTION_LINES:
             continue
-        required, unresolved = analyse_dependencies(node, tree)
+        required, unresolved, annotation_only = analyse_dependencies(node, tree)
         units.append(
             ExtractedUnit(
                 name=node.name,
@@ -335,6 +363,8 @@ def extract_python(source: str) -> list[ExtractedUnit]:
                 docstring=ast.get_docstring(node) or "",
                 required_imports=required,
                 unresolved_names=unresolved,
+                annotation_only_names=annotation_only,
+                needs_review=bool(annotation_only),
             )
         )
     return units

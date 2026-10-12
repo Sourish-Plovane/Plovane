@@ -475,6 +475,78 @@ class TestSelfContainment:
         )
         tree = ast.parse(src)
         fn = [n for n in tree.body if isinstance(n, ast.FunctionDef)][0]
-        required, unresolved = analyse_dependencies(fn, tree)
+        required, unresolved, annotation_only = analyse_dependencies(fn, tree)
         assert required == ("import os",)
         assert unresolved == ("SENTINEL",)
+        assert annotation_only == ()
+
+
+class TestAnnotationOnlyNames:
+    """A type a helper cannot import does not stop the helper running."""
+
+    def test_unresolvable_annotation_does_not_block(self):
+        src = (
+            "import os\n\n"
+            "def f(x: CoreSchema, y: int) -> SerSchema:\n"
+            "    p = os.sep\n"
+            "    return p + str(y)\n"
+        )
+        u = extract_python(src)[0]
+        assert u.self_contained
+        assert u.unresolved_names == ()
+        assert u.annotation_only_names == ("CoreSchema", "SerSchema")
+
+    def test_future_import_leads_the_insertable_code(self):
+        """Without it the annotation is evaluated and raises NameError."""
+        src = "def f(x: Missing) -> Missing:\n    y = x\n    return y\n"
+        u = extract_python(src)[0]
+        assert u.insertable_code.startswith("from __future__ import annotations")
+
+    def test_insertable_code_actually_runs(self):
+        src = "import os\n\ndef f(x: Missing) -> Missing:\n    y = os.sep\n    return y + str(x)\n"
+        u = extract_python(src)[0]
+        namespace: dict = {}
+        exec(compile(u.insertable_code, "<entry>", "exec"), namespace)
+        assert namespace["f"](1) == os_sep_plus_one()
+
+    def test_runtime_use_outranks_an_annotation(self):
+        """A name used in the body is a real blocker even if also annotated."""
+        src = (
+            "HELPERS = {}\n\n"
+            "def f(x: HELPERS) -> int:\n"
+            "    y = HELPERS.get(x)\n"
+            "    return y\n"
+        )
+        u = extract_python(src)[0]
+        assert not u.self_contained
+        assert "HELPERS" in u.unresolved_names
+        assert "HELPERS" not in u.annotation_only_names
+
+    def test_importable_annotation_becomes_a_required_import(self):
+        src = (
+            "from typing import Sequence\n\n"
+            "def f(xs: Sequence[int]) -> int:\n"
+            "    n = len(xs)\n"
+            "    return n\n"
+        )
+        u = extract_python(src)[0]
+        assert u.required_imports == ("from typing import Sequence",)
+        assert u.annotation_only_names == ()
+        assert u.self_contained
+
+    def test_annotation_only_unit_is_flagged_for_review(self):
+        """Python runs it; the user's type checker still cannot resolve it."""
+        src = "def f(x: Missing) -> int:\n    y = 1\n    return y\n"
+        assert extract_python(src)[0].needs_review
+
+    def test_sibling_call_is_still_rejected(self):
+        """The looser rule must not let real blockers through."""
+        src = "def _h(x):\n    return x\n\ndef f(a):\n    b = _h(a)\n    return b\n"
+        f = [u for u in extract_python(src) if u.name == "f"][0]
+        assert not f.self_contained
+
+
+def os_sep_plus_one() -> str:
+    import os
+
+    return os.sep + "1"
