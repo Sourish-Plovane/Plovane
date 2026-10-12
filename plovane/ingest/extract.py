@@ -16,6 +16,7 @@ generated description, and neither exists at this stage.
 from __future__ import annotations
 
 import ast
+import builtins
 from dataclasses import dataclass
 
 MAX_FUNCTION_LINES = 120
@@ -94,6 +95,15 @@ class ExtractedUnit:
     docstring: str = ""
     is_template: bool = False
     needs_review: bool = False
+    required_imports: tuple[str, ...] = ()
+    """Import statements the function needs, taken from its source module."""
+
+    unresolved_names: tuple[str, ...] = ()
+    """Free names that resolve to something other than an import.
+
+    A module-level constant, a sibling function, a class defined alongside it.
+    Naming them beats a bare boolean: a reviewer can see what is missing.
+    """
 
     # Input: none
     # Output: int
@@ -103,6 +113,34 @@ class ExtractedUnit:
     @property
     def line_count(self) -> int:
         return self.end_line - self.start_line + 1
+
+    # Input: none
+    # Output: bool
+    # Processing: Whether the code plus required_imports runs on its own
+    # Changed by: Claude Code
+    # Date: 2026-10-12
+    @property
+    def self_contained(self) -> bool:
+        """Whether the code plus ``required_imports`` runs on its own.
+
+        The property the library actually needs. The spec has the server copy
+        the exact code into a user's project, so a unit depending on names left
+        behind in its source module is not an entry, however well it was
+        extracted or attributed.
+        """
+        return not self.unresolved_names
+
+    # Input: none
+    # Output: str
+    # Processing: The code with its imports prepended, ready to paste
+    # Changed by: Claude Code
+    # Date: 2026-10-12
+    @property
+    def insertable_code(self) -> str:
+        """The code with its required imports prepended."""
+        if not self.required_imports:
+            return self.code
+        return "\n".join([*self.required_imports, "", self.code])
 
 
 # Input: node (ast.FunctionDef | ast.AsyncFunctionDef)
@@ -119,6 +157,144 @@ def _python_signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
         args.append(f"**{node.args.kwarg.arg}")
     returns = f" -> {ast.unparse(node.returns)}" if node.returns else ""
     return f"({', '.join(args)}){returns}"
+
+
+# Input: tree (ast.Module)
+# Output: dict[str, str]
+# Processing: Map each name a module imports to the statement that binds it
+# Changed by: Claude Code
+# Date: 2026-10-12
+def _module_imports(tree: ast.Module) -> dict[str, str]:
+    """Map each imported name to the statement that binds it.
+
+    Module level only: an import inside another function is not in scope for
+    the one being extracted.
+    """
+    bindings: dict[str, str] = {}
+    for node in tree.body:
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                bound = alias.asname or alias.name.split(".")[0]
+                bindings[bound] = (
+                    f"import {alias.name} as {alias.asname}" if alias.asname else f"import {alias.name}"
+                )
+        elif isinstance(node, ast.ImportFrom):
+            module = ("." * node.level) + (node.module or "")
+            for alias in node.names:
+                bound = alias.asname or alias.name
+                piece = f"{alias.name} as {alias.asname}" if alias.asname else alias.name
+                bindings[bound] = f"from {module} import {piece}"
+    return bindings
+
+
+# Input: tree (ast.Module)
+# Output: set[str]
+# Processing: Names the module defines itself: constants, functions, classes
+# Changed by: Claude Code
+# Date: 2026-10-12
+def _module_level_names(tree: ast.Module) -> set[str]:
+    """Names the module defines itself, which a lifted function cannot see."""
+    names: set[str] = set()
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            names.add(node.name)
+        elif isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    names.add(target.id)
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            names.add(node.target.id)
+    return names
+
+
+# Input: fn (ast.FunctionDef | ast.AsyncFunctionDef)
+# Output: set[str]
+# Processing: Every name the function binds itself, so it is not free
+# Changed by: Claude Code
+# Date: 2026-10-12
+def _bound_locally(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
+    """Every name the function binds itself.
+
+    Parameters, assignments, comprehension and loop targets, ``with`` and
+    ``except`` aliases, nested definitions, and imports inside the body.
+    """
+    bound: set[str] = {"self", "cls"}
+    args = fn.args
+    for arg in [*args.posonlyargs, *args.args, *args.kwonlyargs]:
+        bound.add(arg.arg)
+    if args.vararg:
+        bound.add(args.vararg.arg)
+    if args.kwarg:
+        bound.add(args.kwarg.arg)
+
+    for node in ast.walk(fn):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+            bound.add(node.id)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            bound.add(node.name)
+        elif isinstance(node, ast.ExceptHandler) and node.name:
+            bound.add(node.name)
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                bound.add(alias.asname or alias.name.split(".")[0])
+        elif isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                bound.add(alias.asname or alias.name)
+        elif isinstance(node, (ast.Global, ast.Nonlocal)):
+            bound.update(node.names)
+    return bound
+
+
+# Input: fn (ast.FunctionDef | ast.AsyncFunctionDef)
+# Output: set[str]
+# Processing: Names the function reads but does not bind
+# Changed by: Claude Code
+# Date: 2026-10-12
+def _free_names(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
+    """Names the function reads but does not bind."""
+    bound = _bound_locally(fn)
+    builtin_names = set(dir(builtins))
+    free: set[str] = set()
+    for node in ast.walk(fn):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+            if node.id not in bound and node.id not in builtin_names:
+                free.add(node.id)
+    # Decorators belong to the definition, so their names are needed too: an
+    # unimported @cache breaks the paste just as surely as a missing import.
+    for dec in fn.decorator_list:
+        for node in ast.walk(dec):
+            if isinstance(node, ast.Name) and node.id not in builtin_names:
+                free.add(node.id)
+    return free
+
+
+# Input: fn (ast.FunctionDef | ast.AsyncFunctionDef), tree (ast.Module)
+# Output: tuple[tuple[str, ...], tuple[str, ...]]
+# Processing: Return (required_imports, unresolved_names) for one function
+# Changed by: Claude Code
+# Date: 2026-10-12
+def analyse_dependencies(
+    fn: ast.FunctionDef | ast.AsyncFunctionDef, tree: ast.Module
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Split a function's free names into imports it needs and names it cannot get."""
+    imports = _module_imports(tree)
+    module_names = _module_level_names(tree)
+    required: set[str] = set()
+    unresolved: set[str] = set()
+
+    for name in sorted(_free_names(fn)):
+        if name in imports:
+            required.add(imports[name])
+        elif name == fn.name:
+            continue  # direct recursion is fine
+        elif name in module_names:
+            # Defined in the same file but not imported: a sibling function or
+            # a module constant. Lifting the function alone leaves it dangling.
+            unresolved.add(name)
+        else:
+            unresolved.add(name)
+
+    return tuple(sorted(required)), tuple(sorted(unresolved))
 
 
 # Input: source (str)
@@ -147,6 +323,7 @@ def extract_python(source: str) -> list[ExtractedUnit]:
         start, end = node.lineno, (node.end_lineno or node.lineno)
         if not MIN_FUNCTION_LINES <= (end - start + 1) <= MAX_FUNCTION_LINES:
             continue
+        required, unresolved = analyse_dependencies(node, tree)
         units.append(
             ExtractedUnit(
                 name=node.name,
@@ -156,6 +333,8 @@ def extract_python(source: str) -> list[ExtractedUnit]:
                 end_line=end,
                 signature=_python_signature(node),
                 docstring=ast.get_docstring(node) or "",
+                required_imports=required,
+                unresolved_names=unresolved,
             )
         )
     return units

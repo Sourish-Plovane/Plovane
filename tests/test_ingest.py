@@ -10,7 +10,13 @@ from __future__ import annotations
 
 import pytest
 
-from plovane.ingest.extract import extract, extract_braced, extract_python, language_for_path
+from plovane.ingest.extract import (
+    analyse_dependencies,
+    extract,
+    extract_braced,
+    extract_python,
+    language_for_path,
+)
 from plovane.ingest.harvest import HarvestReport, search_query
 from plovane.ingest.licensing import (
     Eligibility,
@@ -364,3 +370,111 @@ class TestTemplateSplit:
 
     def test_summary_reports_the_split(self):
         assert "templates" in build_plan(1200, templates=600).summary()
+
+
+class TestSelfContainment:
+    """A unit that cannot run once pasted is not a library entry."""
+
+    def test_captures_the_imports_a_function_needs(self):
+        src = (
+            "import os\n"
+            "import sys\n"
+            "import json\n"
+            "\n"
+            "def f(path):\n"
+            "    p = os.path.realpath(path)\n"
+            "    sys.path.insert(0, p)\n"
+            "    return p\n"
+        )
+        u = extract_python(src)[0]
+        assert u.required_imports == ("import os", "import sys")
+        assert "import json" not in u.required_imports, "unused imports must not ride along"
+        assert u.self_contained
+
+    def test_insertable_code_prepends_the_imports(self):
+        src = "import os\n\ndef f(p):\n    q = os.sep\n    return q + p\n"
+        u = extract_python(src)[0]
+        assert u.insertable_code.startswith("import os\n\ndef f")
+
+    def test_no_imports_means_code_unchanged(self):
+        src = "def f(a, b):\n    c = a + b\n    return c\n"
+        u = extract_python(src)[0]
+        assert u.insertable_code == u.code
+
+    def test_sibling_function_makes_it_not_self_contained(self):
+        src = (
+            "def _helper(x):\n    return x\n\n"
+            "def f(a):\n    b = _helper(a)\n    return b\n"
+        )
+        f = [u for u in extract_python(src) if u.name == "f"][0]
+        assert not f.self_contained
+        assert "_helper" in f.unresolved_names
+
+    def test_module_constant_makes_it_not_self_contained(self):
+        src = "LIMIT = 10\n\ndef f(x):\n    y = x + LIMIT\n    return y\n"
+        u = extract_python(src)[0]
+        assert not u.self_contained
+        assert "LIMIT" in u.unresolved_names
+
+    def test_builtins_are_not_unresolved(self):
+        src = "def f(xs):\n    n = len(xs)\n    return str(n)\n"
+        u = extract_python(src)[0]
+        assert u.self_contained
+        assert u.unresolved_names == ()
+
+    def test_from_import_is_rendered_correctly(self):
+        src = "from os.path import join\n\ndef f(a, b):\n    c = join(a, b)\n    return c\n"
+        u = extract_python(src)[0]
+        assert u.required_imports == ("from os.path import join",)
+
+    def test_aliased_import_keeps_its_alias(self):
+        src = "import numpy as np\n\ndef f(x):\n    y = np.asarray(x)\n    return y\n"
+        u = extract_python(src)[0]
+        assert u.required_imports == ("import numpy as np",)
+
+    def test_locally_bound_names_are_not_free(self):
+        src = (
+            "def f(items):\n"
+            "    out = []\n"
+            "    for item in items:\n"
+            "        out.append(item)\n"
+            "    return out\n"
+        )
+        u = extract_python(src)[0]
+        assert u.self_contained
+
+    def test_recursion_is_allowed(self):
+        src = "def fact(n):\n    if n <= 1:\n        return 1\n    return n * fact(n - 1)\n"
+        u = extract_python(src)[0]
+        assert u.self_contained
+
+    def test_decorator_must_be_importable(self):
+        """An unimported decorator breaks the paste like a missing import."""
+        src = "def f(x):\n    y = x\n    return y\n"
+        decorated = "@cache\n" + src
+        u = extract_python(decorated)[0]
+        assert not u.self_contained
+        assert "cache" in u.unresolved_names
+
+    def test_imported_decorator_is_captured(self):
+        src = "from functools import cache\n\n@cache\ndef f(x):\n    y = x\n    return y\n"
+        u = extract_python(src)[0]
+        assert u.required_imports == ("from functools import cache",)
+        assert u.self_contained
+
+    def test_analyse_dependencies_on_a_real_file(self):
+        import ast
+
+        src = (
+            "import os\n"
+            "SENTINEL = 1\n"
+            "def f(p):\n"
+            "    a = os.sep\n"
+            "    b = SENTINEL\n"
+            "    return a, b\n"
+        )
+        tree = ast.parse(src)
+        fn = [n for n in tree.body if isinstance(n, ast.FunctionDef)][0]
+        required, unresolved = analyse_dependencies(fn, tree)
+        assert required == ("import os",)
+        assert unresolved == ("SENTINEL",)
