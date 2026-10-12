@@ -16,12 +16,13 @@ ineligible, the same as no licence at all.
 from __future__ import annotations
 
 import json
+from functools import cached_property
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
 from ml.ingest.description import DescriptionGenerator, describe_record
-from ml.ingest.extract import extract, language_for_path
+from ml.ingest.extract import dependency_names, extract, language_for_path
 from ml.ingest.licensing import LicenseVerdict, classify_license, extract_copyright_holder
 from ml.ingest.metrics import measure
 from ml.ingest.provenance import Attribution, SourceRef, build_attribution
@@ -78,9 +79,49 @@ class LocalRepo:
     verdict: LicenseVerdict
     copyright_holder: str | None
 
+    # Input: none
+    # Output: str
+    # Processing: The owner/repo slug
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @property
     def full_name(self) -> str:
         return f"{self.owner}/{self.repo}"
+
+    # Input: none
+    # Output: frozenset[str]
+    # Processing: Top-level Python module names defined inside this clone
+    # Changed by: Claude Code
+    # Date: 2026-10-12
+    @cached_property
+    def local_modules(self) -> frozenset[str]:
+        """Module names that resolve inside this repository, not from an index.
+
+        A project's own top-level module is imported absolutely -- ``import
+        utils`` -- and looks exactly like a third-party package. Without this
+        set a harvest of pydantic declares ``utils`` and ``release`` as
+        installable dependencies, which is a guess recorded as a fact.
+
+        Scans the root and the usual source layouts rather than the whole
+        tree: a module nested deeper is not importable as a top-level name
+        anyway, and a full walk of a large clone costs more than it returns.
+        Cached because the answer is the same for every unit in the clone.
+        """
+        names: set[str] = set()
+        for parent in (self.root, self.root / "src", self.root / "lib"):
+            if not parent.is_dir():
+                continue
+            for child in parent.iterdir():
+                if child.suffix == ".py":
+                    names.add(child.stem)
+                elif child.is_dir() and any(child.glob("*.py")):
+                    # Any directory holding Python files, not just one with an
+                    # __init__.py: since namespace packages, a plain script
+                    # directory is importable too. pydantic's release/ has no
+                    # __init__.py, and requiring one let "release" through as
+                    # an installable package six times.
+                    names.add(child.name)
+        return frozenset(names)
 
 
 # Input: root (Path | str)
@@ -154,6 +195,14 @@ def missing_fields(unit, attribution: Attribution, repo: LocalRepo) -> list[str]
         missing.append("notice")
     if unit.annotation_only_names:
         missing.append("resolvable_annotations")
+    if unit.language != "python" and not unit.is_template:
+        # Only the Python path can name packages. The brace analyser reports
+        # imports as binding names rather than module paths, and the C++ one
+        # reads no #include at all, so for those languages the package list is
+        # unknown rather than empty. Recorded as missing for the same reason an
+        # unanalysed dependency set is not self-contained: a gap nobody
+        # declared reads as a clean result.
+        missing.append("dependencies")
     return missing
 
 
@@ -191,6 +240,15 @@ def build_record(
         "description": unit.docstring.strip().splitlines()[0] if unit.docstring.strip() else None,
         "code": unit.insertable_code,
         "required_imports": list(unit.required_imports),
+        # The literal text to paste is required_imports; this is the list of
+        # packages a project must install, which is what the ranker reads as
+        # Entry.dependencies. Until this was populated dependency_compat was
+        # constant across the whole library and could not be learned from.
+        "dependencies": list(
+            dependency_names(
+                unit.required_imports, unit.language, local_modules=repo.local_modules
+            )
+        ),
         # source is the platform; author is who owns the repository there.
         # copyright_holder comes from the licence and is the better authorship
         # signal, since an owner is often an organisation or a later transferee.

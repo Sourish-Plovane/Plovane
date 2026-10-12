@@ -18,6 +18,7 @@ from __future__ import annotations
 import ast
 import builtins
 import re
+import sys
 from dataclasses import dataclass
 
 MAX_FUNCTION_LINES = 120
@@ -775,6 +776,102 @@ def extract_file_as_template(
         required_imports=remote,
         unresolved_names=local,
     )
+
+
+# Node's built-in modules. A builtin is not a dependency: "fs" needs no
+# install, so reporting it as one would make every Node helper look like it
+# carries friction it does not have. Kept explicit because there is no
+# runtime list to query the way Python has sys.stdlib_module_names.
+NODE_BUILTINS = frozenset(
+    {
+        "assert", "async_hooks", "buffer", "child_process", "cluster", "console",
+        "constants", "crypto", "dgram", "diagnostics_channel", "dns", "domain",
+        "events", "fs", "http", "http2", "https", "inspector", "module", "net",
+        "os", "path", "perf_hooks", "process", "punycode", "querystring",
+        "readline", "repl", "stream", "string_decoder", "sys", "timers", "tls",
+        "trace_events", "tty", "url", "util", "v8", "vm", "wasi", "worker_threads",
+        "zlib",
+    }
+)
+
+
+# Input: statement (str)
+# Output: str | None
+# Processing: Top-level package a Python import statement names
+# Changed by: Claude Code
+# Date: 2026-10-12
+def _python_import_root(statement: str) -> str | None:
+    """The installable package an import statement refers to, or None.
+
+    Returns None for a relative import and for anything in the standard
+    library, since neither is something a project has to install.
+    """
+    parts = statement.split()
+    if not parts:
+        return None
+    if parts[0] == "from":
+        module = parts[1] if len(parts) > 1 else ""
+    elif parts[0] == "import":
+        module = parts[1] if len(parts) > 1 else ""
+    else:
+        return None
+    if module.startswith("."):
+        return None  # relative: inside the source project, not installable
+    root = module.split(".", 1)[0]
+    if not root or root == "__future__" or root in sys.stdlib_module_names:
+        return None
+    return root
+
+
+# Input: required_imports (Sequence[str]), language (str), local_modules (Collection[str])
+# Output: tuple[str, ...]
+# Processing: Installable package names behind a unit's imports
+# Changed by: Claude Code
+# Date: 2026-10-12
+def dependency_names(
+    required_imports, language: str, *, local_modules=()
+) -> tuple[str, ...]:
+    """The packages a project must install to use this unit. Python only.
+
+    Distinct from ``required_imports``, which is the literal text to paste.
+    This is the list the ranker reads: ``Entry.dependencies`` feeds
+    :func:`ml.retrieval.filters.classify_dependency_compat`, which compares it
+    against what the requesting project already has. Until this existed the
+    field was never populated, so ``dependency_compat`` was constant across
+    the whole library and the feature could not be learned from.
+
+    Three exclusions, each because including it would record a guess as a fact:
+
+    **Standard library and builtins.** They need no install, so counting them
+    would report friction that is not there.
+
+    **First-party modules.** A repository's own top-level module -- ``utils``,
+    ``release`` -- is an absolute import that resolves inside the project and
+    is not installable. ``local_modules`` carries the names found in the source
+    repository so they can be dropped; without it a harvest reports ``utils``
+    as a package 14 times.
+
+    **Every language but Python.** The brace analyser documents that it
+    reports imports "as names, not statements", because recovering the module
+    path would mean guessing. Those names are *bindings*: ``AxiosError`` comes
+    from ``./core/AxiosError`` and ``_`` is a local alias for lodash. Treating
+    them as package names produced exactly the fabrications that comment warns
+    about. C++ and CUDA capture no includes at all. For those languages the
+    package list is unknown rather than empty, and ``missing_fields`` records
+    it as such.
+    """
+    if language != "python":
+        return ()
+
+    excluded = {name.lower() for name in local_modules}
+    names: list[str] = []
+    for statement in required_imports:
+        package = _python_import_root(statement)
+        if not package or package.lower() in excluded:
+            continue
+        if package not in names:
+            names.append(package)
+    return tuple(names)
 
 
 # Input: source (str), path (str), want_template (bool)

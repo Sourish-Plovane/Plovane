@@ -12,6 +12,7 @@ import pytest
 
 from ml.ingest.extract import (
     analyse_dependencies,
+    dependency_names,
     extract,
     extract_braced,
     extract_python,
@@ -972,3 +973,110 @@ class TestMinifiedFilesAreSkipped:
     def test_an_ordinary_stylesheet_is_kept(self):
         assert language_for_path("scss/_alert.scss") == "css"
         assert language_for_path("src/components/nav.html") == "html"
+
+
+# Input: none
+# Output: LicenseVerdict
+# Processing: A usable permissive verdict for building a test repo
+# Changed by: Claude Code
+# Date: 2026-10-12
+def _mit_verdict():
+    from ml.ingest.licensing import classify_license
+
+    return classify_license("MIT")
+
+
+class TestDependencyNames:
+    """``Entry.dependencies`` was never populated, so ``dependency_compat``
+    was constant across the library and the feature could not be learned."""
+
+    def test_maps_python_imports_to_packages(self):
+        assert dependency_names(("import numpy as np", "from pandas.io import x"), "python") == (
+            "numpy",
+            "pandas",
+        )
+
+    def test_excludes_the_standard_library(self):
+        # Stdlib needs no install, so counting it reports friction that is
+        # not there.
+        assert dependency_names(("import os", "from typing import Any"), "python") == ()
+
+    def test_excludes_relative_imports(self):
+        assert dependency_names(("from . import sibling", "from .mod import x"), "python") == ()
+
+    def test_excludes_the_future_import(self):
+        assert dependency_names(("from __future__ import annotations",), "python") == ()
+
+    def test_excludes_first_party_modules(self):
+        # A repository's own top-level module is an absolute import that
+        # resolves inside the project. Without this, a pydantic harvest
+        # declared "utils" as an installable package 14 times.
+        assert dependency_names(
+            ("import numpy", "import utils", "import release"),
+            "python",
+            local_modules={"utils", "release"},
+        ) == ("numpy",)
+
+    def test_deduplicates(self):
+        assert dependency_names(("import numpy", "from numpy import array"), "python") == (
+            "numpy",
+        )
+
+    def test_brace_languages_yield_nothing(self):
+        # The brace analyser reports imports as binding names, not module
+        # paths -- "AxiosError" comes from "./core/AxiosError" and "_" is a
+        # local alias. Treating those as package names fabricated
+        # dependencies, which is what the analyser's own comment warns about.
+        for language in ("javascript", "typescript"):
+            assert dependency_names(("axios", "AxiosError", "_", "getConfig"), language) == ()
+
+    def test_cpp_yields_nothing(self):
+        # The brace extractor captures no #include at all.
+        assert dependency_names(("vector", "fmt/format.h"), "cpp") == ()
+        assert dependency_names((), "cuda") == ()
+
+
+class TestLocalModules:
+    # Input: tmp_path (Path)
+    # Output: LocalRepo
+    # Processing: A minimal clone-like repo object rooted at tmp_path
+    # Changed by: Claude Code
+    # Date: 2026-10-12
+    def repo(self, tmp_path):
+        from ml.ingest.local_source import LocalRepo
+
+        return LocalRepo(
+            root=tmp_path,
+            owner="o",
+            repo="r",
+            commit_sha="deadbeef",
+            license_text="MIT",
+            verdict=_mit_verdict(),
+            copyright_holder="o",
+        )
+
+    def test_finds_a_package_with_an_init(self, tmp_path):
+        (tmp_path / "mypkg").mkdir()
+        (tmp_path / "mypkg" / "__init__.py").write_text("", encoding="utf-8")
+        assert "mypkg" in self.repo(tmp_path).local_modules
+
+    def test_finds_a_namespace_directory_without_an_init(self, tmp_path):
+        # pydantic's release/ has no __init__.py; requiring one let "release"
+        # through as an installable package.
+        (tmp_path / "release").mkdir()
+        (tmp_path / "release" / "prepare.py").write_text("", encoding="utf-8")
+        assert "release" in self.repo(tmp_path).local_modules
+
+    def test_finds_a_top_level_module(self, tmp_path):
+        (tmp_path / "utils.py").write_text("", encoding="utf-8")
+        assert "utils" in self.repo(tmp_path).local_modules
+
+    def test_finds_modules_under_src(self, tmp_path):
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "thing.py").write_text("", encoding="utf-8")
+        assert "thing" in self.repo(tmp_path).local_modules
+
+    def test_ignores_a_directory_with_no_python(self, tmp_path):
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "docs" / "index.md").write_text("", encoding="utf-8")
+        assert "docs" not in self.repo(tmp_path).local_modules

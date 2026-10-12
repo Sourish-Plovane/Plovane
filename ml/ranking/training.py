@@ -64,17 +64,45 @@ direction: calling the fit worthless understates a genuine result, and calling
 it Stage 1 overstates one. Hence :class:`TrainingScope`."""
 
 
+SIGNAL_GROUPS: dict[str, frozenset[str]] = {
+    "retrieval": frozenset({"bm25_score", "cosine_score", "rrf_rank"}),
+    "usage": frozenset({"co_usage_lift", "usage_log", "acceptance_smoothed"}),
+    "trust": frozenset({"mutation_score", "days_since_retest"}),
+    "friction": frozenset({"dependency_compat", "owner_match"}),
+}
+"""The four things the spec asks Stage 1 to weigh, and which features carry each.
+
+Scope is reported over these groups rather than over a feature count, because
+a count answers the wrong question. Populating ``dependencies`` made
+``dependency_compat`` vary, which took the run from three varying features to
+four and -- under an earlier definition keyed on "any feature beyond
+retrieval" -- flipped the scope to ``full_stage1``. That reading was
+generous to the point of being wrong: the feature earned 34 of 7,025 gain,
+under 1%, and nothing about usage or trust had changed at all. A reader seeing
+``full_stage1`` would infer coverage the run did not have."""
+
+NEGLIGIBLE_GAIN_SHARE = 0.02
+"""Gain share below which a varying feature is reported as barely used.
+
+A feature can vary, be split on, and still carry almost none of the model's
+decision. Saying it is "trained" without saying that invites the same
+over-reading the scope definition did."""
+
+
 class TrainingScope(str, Enum):
-    """What a run is entitled to claim, given which features varied."""
+    """What a run is entitled to claim, given which signal groups it saw."""
 
     RETRIEVAL_FUSION = "retrieval_fusion"
-    """Only retrieval features varied. The fit learns to fuse keyword and
-    vector evidence better than the hand-set weights -- which is Stage 1's
+    """Only retrieval evidence varied. The fit learns to fuse keyword and
+    vector signals better than the hand-set weights -- which is Stage 1's
     day-one job -- and says nothing about usage, trust or friction."""
 
+    PARTIAL = "partial"
+    """Retrieval plus some but not all of usage, trust and friction."""
+
     FULL_STAGE1 = "full_stage1"
-    """At least one signal beyond retrieval varied, so the fit covers more of
-    what the spec asks Stage 1 to weigh."""
+    """Every group the spec names varied, so the fit covers Stage 1 as
+    specified."""
 
 
 @dataclass(frozen=True)
@@ -403,17 +431,59 @@ class TrainingReport:
     cross_validation: CrossValidationResult | None = None
 
     # Input: none
+    # Output: tuple[str, ...]
+    # Processing: Which of the spec's signal groups had a feature that varied
+    # Changed by: Claude Code
+    # Date: 2026-10-12
+    @property
+    def covered_groups(self) -> tuple[str, ...]:
+        """Signal groups with at least one varying feature, in spec order."""
+        varying = set(self.informative_features)
+        return tuple(
+            group for group, features in SIGNAL_GROUPS.items() if features & varying
+        )
+
+    # Input: none
+    # Output: tuple[str, ...]
+    # Processing: Signal groups with no varying feature at all
+    # Changed by: Claude Code
+    # Date: 2026-10-12
+    @property
+    def uncovered_groups(self) -> tuple[str, ...]:
+        covered = set(self.covered_groups)
+        return tuple(group for group in SIGNAL_GROUPS if group not in covered)
+
+    # Input: none
+    # Output: tuple[str, ...]
+    # Processing: Features that varied but carry almost none of the decision
+    # Changed by: Claude Code
+    # Date: 2026-10-12
+    @property
+    def barely_used_features(self) -> tuple[str, ...]:
+        """Varying features below :data:`NEGLIGIBLE_GAIN_SHARE` of total gain."""
+        total = sum(self.importance.values())
+        if total <= 0:
+            return ()
+        return tuple(
+            name
+            for name in self.informative_features
+            if self.importance.get(name, 0.0) / total < NEGLIGIBLE_GAIN_SHARE
+        )
+
+    # Input: none
     # Output: TrainingScope
     # Processing: What this run is entitled to claim
     # Changed by: Claude Code
     # Date: 2026-10-12
     @property
     def scope(self) -> TrainingScope:
-        """Retrieval fusion, or the full Stage 1, depending on what varied."""
-        beyond_retrieval = set(self.informative_features) - RETRIEVAL_FEATURES
-        return (
-            TrainingScope.FULL_STAGE1 if beyond_retrieval else TrainingScope.RETRIEVAL_FUSION
-        )
+        """Scope over the spec's four signal groups, not over a feature count."""
+        covered = set(self.covered_groups)
+        if covered == set(SIGNAL_GROUPS):
+            return TrainingScope.FULL_STAGE1
+        if covered - {"retrieval"}:
+            return TrainingScope.PARTIAL
+        return TrainingScope.RETRIEVAL_FUSION
 
     # Input: none
     # Output: list[str]
@@ -475,10 +545,17 @@ class TrainingReport:
                 f"therefore untrained -- the model has learned nothing about them: "
                 f"{', '.join(untrained)}"
             )
-        if self.scope is TrainingScope.RETRIEVAL_FUSION:
+        if self.uncovered_groups:
             notes.append(
-                "scope is retrieval fusion, not full Stage 1: usage, trust and friction "
-                "signals need live traffic before they can be weighed"
+                f"no feature varied for: {', '.join(self.uncovered_groups)} -- those "
+                f"signals need live traffic before they can be weighed, so the run "
+                f"covers {', '.join(self.covered_groups)} only"
+            )
+        barely = self.barely_used_features
+        if barely:
+            notes.append(
+                f"varied but carries under {NEGLIGIBLE_GAIN_SHARE:.0%} of the model's "
+                f"gain, so counting it as trained overstates it: {', '.join(barely)}"
             )
         notes.append(
             "queries were written by a party that had read the entries, so the held-out "
@@ -510,7 +587,8 @@ class TrainingReport:
             f"features       {len(self.informative_features)}/{len(FEATURE_NAMES)} vary: "
             f"{', '.join(self.informative_features)}",
             "split          " + ", ".join(f"{k}={v}" for k, v in self.split_sizes.items()),
-            f"scope          {self.scope.value}",
+            f"scope          {self.scope.value} "
+            f"(groups: {', '.join(self.covered_groups) or 'none'})",
             "",
             f"{'metric':<12} {'baseline':>10} {'trained':>10} {'delta':>10}",
         ]
@@ -608,7 +686,9 @@ def run_stage1_training(
 
 
 __all__ = [
+    "NEGLIGIBLE_GAIN_SHARE",
     "RETRIEVAL_FEATURES",
+    "SIGNAL_GROUPS",
     "CrossValidationResult",
     "cross_validate",
     "TrainingScope",

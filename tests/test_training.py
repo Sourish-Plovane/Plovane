@@ -655,3 +655,72 @@ class TestCrossValidate:
         groups = assemble_groups(service, queries, FeatureContext.build(usage_index=UsageIndex()))
         with pytest.raises(ValueError, match="no fold produced"):
             cross_validate(groups, folds=5)
+
+
+class TestSignalGroupScope:
+    """Scope is reported over the spec's four signal groups, not a feature count.
+
+    An earlier definition keyed on "any feature beyond retrieval" flipped the
+    scope to ``full_stage1`` the moment ``dependency_compat`` began to vary --
+    while that feature carried under 1% of the model's gain and nothing about
+    usage or trust had changed. The label promised coverage the run lacked.
+    """
+
+    # Input: features (tuple[str, ...]), importance (dict | None)
+    # Output: TrainingReport
+    # Processing: A report whose varying features and gains are chosen
+    # Changed by: Claude Code
+    # Date: 2026-10-12
+    def report(self, features, importance=None):
+        from ml.evaluation.synthetic import OverlapReport
+
+        return TrainingReport(
+            overlap=OverlapReport(100, 0.2, 0.2, 0.1, 0.0),
+            varying_features={},
+            informative_features=tuple(features),
+            split_sizes={"train": 70, "valid": 15, "test": 15},
+            baseline={"ndcg": 0.5},
+            trained={"ndcg": 0.8},
+            importance=importance or {},
+        )
+
+    def test_retrieval_only_is_retrieval_fusion(self):
+        report = self.report(("bm25_score", "cosine_score", "rrf_rank"))
+        assert report.scope is TrainingScope.RETRIEVAL_FUSION
+        assert report.covered_groups == ("retrieval",)
+        assert set(report.uncovered_groups) == {"usage", "trust", "friction"}
+
+    def test_one_friction_feature_is_partial_not_full(self):
+        # The exact case that exposed the defect.
+        report = self.report(("bm25_score", "cosine_score", "rrf_rank", "dependency_compat"))
+        assert report.scope is TrainingScope.PARTIAL
+        assert report.covered_groups == ("retrieval", "friction")
+
+    def test_all_four_groups_is_full_stage1(self):
+        report = self.report(
+            ("bm25_score", "usage_log", "mutation_score", "dependency_compat")
+        )
+        assert report.scope is TrainingScope.FULL_STAGE1
+        assert report.uncovered_groups == ()
+
+    def test_uncovered_groups_are_named_in_a_caveat(self):
+        report = self.report(("bm25_score",))
+        assert any("usage, trust, friction" in c for c in report.caveats)
+
+    def test_a_barely_used_feature_is_flagged(self):
+        # Varying, split on, and carrying almost none of the decision.
+        report = self.report(
+            ("bm25_score", "dependency_compat"),
+            importance={"bm25_score": 3424.0, "dependency_compat": 34.0},
+        )
+        assert report.barely_used_features == ("dependency_compat",)
+        assert any("overstates it" in c for c in report.caveats)
+
+    def test_a_well_used_feature_is_not_flagged(self):
+        report = self.report(
+            ("bm25_score", "rrf_rank"), importance={"bm25_score": 3424.0, "rrf_rank": 2990.0}
+        )
+        assert report.barely_used_features == ()
+
+    def test_no_importance_data_flags_nothing(self):
+        assert self.report(("bm25_score",), importance={}).barely_used_features == ()
