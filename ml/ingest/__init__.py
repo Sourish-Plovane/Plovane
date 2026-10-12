@@ -7,6 +7,13 @@ notice that MIT and BSD require to travel with the code -- a credit line alone
 does not satisfy them.
 """
 
+from ml.ingest.description import (
+    DescriptionGenerator,
+    DescriptionSource,
+    LLMDescriber,
+    NameSignatureDescriber,
+    describe_record,
+)
 from ml.ingest.extract import ExtractedUnit, extract, language_for_path
 from ml.ingest.github_client import GitHubClient, GitHubError, RateLimited
 from ml.ingest.licensing import (
@@ -29,6 +36,11 @@ from ml.ingest.harvest import HarvestedEntry, HarvestReport, harvest, search_que
 
 __all__ = [
     "CATEGORIES",
+    "DescriptionGenerator",
+    "DescriptionSource",
+    "LLMDescriber",
+    "NameSignatureDescriber",
+    "describe_record",
     "COPYLEFT_SPDX",
     "PERMISSIVE_SPDX",
     "Attribution",

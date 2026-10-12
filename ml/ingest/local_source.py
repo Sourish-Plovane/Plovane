@@ -20,6 +20,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from ml.ingest.description import DescriptionGenerator, describe_record
 from ml.ingest.extract import extract, language_for_path
 from ml.ingest.licensing import LicenseVerdict, classify_license, extract_copyright_holder
 from ml.ingest.metrics import measure
@@ -156,12 +157,18 @@ def missing_fields(unit, attribution: Attribution, repo: LocalRepo) -> list[str]
     return missing
 
 
-# Input: repo (LocalRepo), unit (ExtractedUnit), rel_path (str), category (str)
+# Input: repo (LocalRepo), unit (ExtractedUnit), rel_path (str), category (str), describer (DescriptionGenerator | None)
 # Output: dict[str, object]
 # Processing: Build the entry record for one extracted unit
 # Changed by: Claude Code
 # Date: 2026-10-12
-def build_record(repo: LocalRepo, unit, rel_path: str, category: str) -> dict[str, object]:
+def build_record(
+    repo: LocalRepo,
+    unit,
+    rel_path: str,
+    category: str,
+    describer: DescriptionGenerator | None = None,
+) -> dict[str, object]:
     """One dataset row, with provenance, metrics and explicit gaps."""
     attribution = build_attribution(
         SourceRef(
@@ -174,7 +181,7 @@ def build_record(repo: LocalRepo, unit, rel_path: str, category: str) -> dict[st
         parsed_holder=repo.copyright_holder,
     )
     metrics = measure(unit)
-    return {
+    record = {
         "id": f"{repo.owner}_{repo.repo}:{unit.name}",
         "name": unit.name,
         "type": "template" if unit.is_template else "helper",
@@ -204,6 +211,9 @@ def build_record(repo: LocalRepo, unit, rel_path: str, category: str) -> dict[st
         "annotation_only_names": list(unit.annotation_only_names),
         "missing": missing_fields(unit, attribution, repo),
     }
+    # Filled after the record exists, so the generator sees the same signature
+    # and code a consumer would, and so the source is recorded either way.
+    return describe_record(record, describer)
 
 
 # Input: roots (list of Path | str), out_path (Path), category (str), min_quality (float)
@@ -218,6 +228,7 @@ def harvest_clones(
     category: str = "data-processing",
     min_quality: float = 0.0,
     target: int | None = None,
+    describer: DescriptionGenerator | None = None,
 ) -> dict[str, object]:
     """Walk each clone, write eligible entries as JSONL, return a report.
 
@@ -262,7 +273,7 @@ def harvest_clones(
                         break
                     if not unit.self_contained:
                         continue
-                    record = build_record(repo, unit, rel, category)
+                    record = build_record(repo, unit, rel, category, describer)
                     if record["code_metrics"]["quality"] < min_quality:
                         report["skipped_quality"] += 1
                         continue
