@@ -16,8 +16,8 @@ the source, not the database.
 ## Run it
 
 ```bash
-python -m plovane.ingest.harvest --target 1200 --plan-only     # no API calls
-GITHUB_TOKEN=... python -m plovane.ingest.harvest --target 1200 --out seed/
+python -m plovane.ingest --target 1200 --plan-only     # no API calls
+GITHUB_TOKEN=... python -m plovane.ingest --target 1200 --out seed/
 ```
 
 Output is `seed/entries.jsonl`, written and flushed per entry so a run that

@@ -7,8 +7,8 @@ runs first and a rejected repository costs one request instead of fifty.
 
 Run it as a CLI:
 
-    GITHUB_TOKEN=... python -m plovane.ingest.harvest --target 1200 --out seed/
-    python -m plovane.ingest.harvest --target 1200 --plan-only   # no API calls
+    GITHUB_TOKEN=... python -m plovane.ingest --target 1200 --out seed/
+    python -m plovane.ingest --target 1200 --plan-only   # no API calls
 
 Output is JSONL -- one entry per line with its provenance -- plus a report
 counting what was rejected and why. JSONL because a harvest is resumable and
