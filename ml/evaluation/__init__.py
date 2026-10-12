@@ -2,6 +2,20 @@
 
 from ml.evaluation.gates import GATED_METRICS, GateResult, MetricDelta, ReleaseGate
 from ml.evaluation.gold_set import GoldQuery, GoldSet, assign_split
+from ml.evaluation.labelling import (
+    GRADE_EXACT,
+    GRADE_PARTIAL,
+    SHORTLIST_SIZE,
+    Label,
+    Labeller,
+    LLMLabeller,
+    Shortlist,
+    agreement,
+    build_shortlists,
+    gold_set_from_labels,
+    shortlist_recall,
+    verification_sample,
+)
 from ml.evaluation.metrics import (
     MetricSnapshot,
     QueryOutcome,
@@ -18,6 +32,18 @@ from ml.evaluation.metrics import (
 
 __all__ = [
     "GATED_METRICS",
+    "GRADE_EXACT",
+    "GRADE_PARTIAL",
+    "LLMLabeller",
+    "Label",
+    "Labeller",
+    "SHORTLIST_SIZE",
+    "Shortlist",
+    "agreement",
+    "build_shortlists",
+    "gold_set_from_labels",
+    "shortlist_recall",
+    "verification_sample",
     "GateResult",
     "GoldQuery",
     "GoldSet",
