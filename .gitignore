@@ -8,3 +8,12 @@ dist/
 
 # Git bundles produced for hand-off when a push is blocked
 *.bundle
+
+# Skills installed by `npx skills add`. Ignored rather than committed because
+# their upstream licence could not be verified from this session (GitHub scope
+# is limited to this repo), and vendoring third-party code of unknown licence
+# is exactly what plovane/ingest/licensing.py refuses to do. Commit them
+# deliberately, with attribution, once the licence is confirmed permissive.
+.agents/
+.claude/skills/
+skills-lock.json
