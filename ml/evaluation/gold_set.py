@@ -57,6 +57,17 @@ class GoldQuery:
     # Changed by: Claude Code
     # Date: 2026-10-12
     def __post_init__(self) -> None:
+        if self.source and "synthetic" in self.source.lower():
+            # A query generated from an entry's description makes that entry
+            # the correct answer by construction, so NDCG@10 measured on it
+            # reports paraphrase matching as relevance -- and reports it as a
+            # high score. The check lives here, where the object is built,
+            # because that failure produces plausible numbers rather than an
+            # error and so would never be caught by review.
+            raise ValueError(
+                f"gold query {self.query_id} is synthetic ({self.source!r}); synthetic "
+                "queries are training data and must not enter an evaluation set"
+            )
         if not self.relevance:
             raise ValueError(f"gold query {self.query_id} has no relevant entries")
         if any(grade < 0 for grade in self.relevance.values()):

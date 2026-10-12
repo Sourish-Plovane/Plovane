@@ -16,6 +16,15 @@ from ml.evaluation.labelling import (
     shortlist_recall,
     verification_sample,
 )
+from ml.evaluation.synthetic import (
+    QUERY_PROVENANCE_SYNTHETIC,
+    DeepSeekQueryGenerator,
+    QueryGenerator,
+    SyntheticQuery,
+    TemplatedQueryGenerator,
+    action_phrase,
+    generate_training_queries,
+)
 from ml.evaluation.metrics import (
     MetricSnapshot,
     QueryOutcome,
@@ -32,6 +41,13 @@ from ml.evaluation.metrics import (
 
 __all__ = [
     "GATED_METRICS",
+    "QUERY_PROVENANCE_SYNTHETIC",
+    "DeepSeekQueryGenerator",
+    "QueryGenerator",
+    "SyntheticQuery",
+    "TemplatedQueryGenerator",
+    "action_phrase",
+    "generate_training_queries",
     "GRADE_EXACT",
     "GRADE_PARTIAL",
     "LLMLabeller",
