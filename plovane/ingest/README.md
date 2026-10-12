@@ -16,9 +16,17 @@ the source, not the database.
 ## Run it
 
 ```bash
-python -m plovane.ingest --target 1200 --plan-only     # no API calls
+python -m plovane.ingest --target 1200 --plan-only          # no API calls
 GITHUB_TOKEN=... python -m plovane.ingest --target 1200 --out seed/
+
+# Choose the template/helper split. One or neither, never both.
+python -m plovane.ingest --target 1200 --templates 900 --plan-only
+python -m plovane.ingest --target 1200 --template-share 0.75 --plan-only
 ```
+
+Without either flag a quarter of the target is harvested as templates. The
+count is approximate: the split is applied per (category, language) cell and
+the rounding accumulates, so `--templates 900` yields about 902.
 
 Output is `seed/entries.jsonl`, written and flushed per entry so a run that
 dies at 900 leaves 900 usable entries, plus a report counting what was

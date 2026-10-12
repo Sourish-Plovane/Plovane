@@ -52,6 +52,8 @@ class HarvestReport:
 
     planned: int = 0
     harvested: int = 0
+    templates: int = 0
+    helpers: int = 0
     repos_considered: int = 0
     repos_accepted: int = 0
     rejections: Counter[str] = field(default_factory=Counter)
@@ -64,7 +66,8 @@ class HarvestReport:
 
     def summary(self) -> str:
         lines = [
-            f"planned {self.planned} / harvested {self.harvested}",
+            f"planned {self.planned} / harvested {self.harvested} "
+            f"({self.templates} templates, {self.helpers} helpers)",
             f"repositories: {self.repos_accepted} accepted of {self.repos_considered} considered",
             f"entries needing human review: {self.needs_review}",
             f"API requests: {self.requests_made}",
@@ -198,9 +201,16 @@ def harvest_repository(
     cell: Cell,
     report: HarvestReport,
     *,
-    limit: int,
+    template_budget: int,
+    helper_budget: int,
 ) -> list[HarvestedEntry]:
-    """Vet, then extract up to ``limit`` entries from one repository."""
+    """Vet, then extract from one repository within the two budgets.
+
+    Templates and helpers are counted separately rather than sharing one
+    limit, so asking for a template-heavy corpus actually produces one. With a
+    single limit the first files encountered fill the quota and the split is
+    whatever the repository's file order happened to give.
+    """
     vetted = vet_repository(client, owner, repo, report)
     if vetted is None:
         return []
@@ -221,18 +231,26 @@ def harvest_repository(
     ][:MAX_FILES_PER_REPO]
 
     entries: list[HarvestedEntry] = []
-    want_templates = cell.templates > 0
+    templates_left, helpers_left = template_budget, helper_budget
     for path in paths:
-        if len(entries) >= limit:
+        if templates_left <= 0 and helpers_left <= 0:
             break
         try:
             source = client.file_contents(owner, repo, path, ref=sha)
         except GitHubError:
             continue
 
-        for unit in extract(source, path, want_template=want_templates and not entries):
-            if len(entries) >= limit:
-                break
+        # Ask for a whole-file template only while template budget remains;
+        # otherwise slice functions out of the same file.
+        for unit in extract(source, path, want_template=templates_left > 0):
+            if unit.is_template:
+                if templates_left <= 0:
+                    continue
+                templates_left -= 1
+            else:
+                if helpers_left <= 0:
+                    continue
+                helpers_left -= 1
             attribution = build_attribution(
                 SourceRef(
                     owner=owner,
@@ -285,7 +303,7 @@ def harvest(
     seen_names: set[tuple[str, str]] = set()
     try:
         for cell in plan.cells:
-            collected = 0
+            templates_left, helpers_left = cell.templates, cell.helpers
             try:
                 results = client.search_repositories(
                     search_query(cell, allowed_spdx=allowed_spdx), per_page=MAX_REPOS_PER_CELL
@@ -298,10 +316,12 @@ def harvest(
                 continue
 
             for item in results.get("items", []):
-                if collected >= cell.total:
+                if templates_left <= 0 and helpers_left <= 0:
                     break
                 owner = item["owner"]["login"]
                 repo = item["name"]
+                # Cap per repository so one project cannot fill a whole cell.
+                room = min(MAX_ENTRIES_PER_REPO, templates_left + helpers_left)
                 try:
                     entries = harvest_repository(
                         client,
@@ -309,11 +329,12 @@ def harvest(
                         repo,
                         cell,
                         report,
-                        limit=min(MAX_ENTRIES_PER_REPO, cell.total - collected),
+                        template_budget=min(templates_left, room),
+                        helper_budget=min(helpers_left, room),
                     )
                 except RateLimited as error:
                     report.errors.append(f"rate limited, stopping early: {error}")
-                    collected = cell.total
+                    templates_left = helpers_left = 0
                     break
 
                 for entry in entries:
@@ -323,7 +344,12 @@ def harvest(
                         continue
                     seen_names.add(key)
                     report.harvested += 1
-                    collected += 1
+                    if entry.is_template:
+                        report.templates += 1
+                        templates_left -= 1
+                    else:
+                        report.helpers += 1
+                        helpers_left -= 1
                     if handle:
                         handle.write(entry.to_json() + "\n")
                         handle.flush()
@@ -341,9 +367,23 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path, default=Path("seed"))
     parser.add_argument("--plan-only", action="store_true", help="print the plan, make no API calls")
     parser.add_argument("--min-per-language", type=int, default=60)
+    split = parser.add_mutually_exclusive_group()
+    split.add_argument(
+        "--templates", type=int, default=None,
+        help="how many of --target to harvest as templates (default: a quarter)",
+    )
+    split.add_argument(
+        "--template-share", type=float, default=None,
+        help="fraction of --target to harvest as templates, 0.0 to 1.0",
+    )
     args = parser.parse_args(argv)
 
-    plan = build_plan(args.target, minimum_per_language=args.min_per_language)
+    plan = build_plan(
+        args.target,
+        minimum_per_language=args.min_per_language,
+        templates=args.templates,
+        template_share=args.template_share,
+    )
     print(plan.summary())
 
     if args.plan_only:

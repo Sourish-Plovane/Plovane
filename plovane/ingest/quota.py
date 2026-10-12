@@ -84,10 +84,12 @@ it if the gold set grows.
 """
 
 TEMPLATE_SHARE = 0.25
-"""Share of each cell harvested as templates rather than helpers.
+"""Default share of each cell harvested as templates rather than helpers.
 
-The library serves both, and the template recommender needs its own training
-population. A quarter is a guess to revise once real query mix is known.
+A default, not a constant: pass ``template_share`` or ``templates`` to
+:func:`build_plan` to change it. The library serves both kinds, and the
+template recommender needs its own training population, so a quarter is only a
+starting guess until the real query mix is known.
 """
 
 
@@ -98,10 +100,11 @@ class Cell:
     category: str
     language: str
     total: int
+    template_share: float = TEMPLATE_SHARE
 
     @property
     def templates(self) -> int:
-        return round(self.total * TEMPLATE_SHARE)
+        return round(self.total * self.template_share)
 
     @property
     def helpers(self) -> int:
@@ -116,6 +119,14 @@ class HarvestPlan:
     @property
     def allocated(self) -> int:
         return sum(cell.total for cell in self.cells)
+
+    @property
+    def templates(self) -> int:
+        return sum(cell.templates for cell in self.cells)
+
+    @property
+    def helpers(self) -> int:
+        return sum(cell.helpers for cell in self.cells)
 
     def by_language(self) -> dict[str, int]:
         totals: dict[str, int] = {}
@@ -145,6 +156,7 @@ class HarvestPlan:
         lines = [
             f"Harvest plan: {self.allocated} entries across "
             f"{len(self.by_category())} categories and {len(self.by_language())} languages",
+            f"  {self.templates} templates, {self.helpers} helpers",
             "",
             "By language:",
         ]
@@ -161,15 +173,44 @@ def _cells_for_language(language: str) -> list[str]:
     return [cat for cat, langs in CATEGORY_LANGUAGES.items() if language in langs]
 
 
+def resolve_template_share(
+    target: int, *, templates: int | None = None, template_share: float | None = None
+) -> float:
+    """Turn either way of asking for templates into one share.
+
+    ``templates`` is an absolute count out of ``target``; ``template_share`` is
+    a fraction. Passing both is rejected rather than silently preferring one,
+    because the two disagreeing is a caller bug, not a preference to resolve.
+    """
+    if templates is not None and template_share is not None:
+        raise ValueError("pass templates or template_share, not both")
+    if templates is not None:
+        if not 0 <= templates <= target:
+            raise ValueError(f"templates must be between 0 and target ({target}), got {templates}")
+        return templates / target
+    if template_share is not None:
+        if not 0.0 <= template_share <= 1.0:
+            raise ValueError(f"template_share must be in [0, 1], got {template_share}")
+        return template_share
+    return TEMPLATE_SHARE
+
+
 def build_plan(
     target: int = 1200,
     *,
     minimum_per_language: int = MINIMUM_PER_LANGUAGE,
     languages: tuple[str, ...] = MVP_LANGUAGES,
+    templates: int | None = None,
+    template_share: float | None = None,
 ) -> HarvestPlan:
-    """Allocate ``target`` entries across the feasible (category, language) cells."""
+    """Allocate ``target`` entries across the feasible (category, language) cells.
+
+    ``templates`` asks for an absolute number of templates out of ``target``;
+    ``template_share`` asks for a fraction. Give one or neither.
+    """
     if target <= 0:
         raise ValueError(f"target must be positive, got {target}")
+    share = resolve_template_share(target, templates=templates, template_share=template_share)
 
     floor_total = minimum_per_language * len(languages)
     if floor_total > target:
@@ -204,6 +245,8 @@ def build_plan(
         for index, category in enumerate(sorted(categories)):
             total = base + (1 if index < extra else 0)
             if total > 0:
-                cells.append(Cell(category=category, language=lang, total=total))
+                cells.append(
+                    Cell(category=category, language=lang, total=total, template_share=share)
+                )
 
     return HarvestPlan(target=target, cells=tuple(cells))

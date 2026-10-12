@@ -24,7 +24,7 @@ from plovane.ingest.provenance import (
     build_attribution,
     render_third_party_licenses,
 )
-from plovane.ingest.quota import MINIMUM_PER_LANGUAGE, build_plan
+from plovane.ingest.quota import MINIMUM_PER_LANGUAGE, build_plan, resolve_template_share
 
 MIT_TEXT = "MIT License\n\nCopyright (c) 2024 Jane Doe\n\nPermission is hereby granted, free of charge..."
 
@@ -309,3 +309,58 @@ class TestReport:
         summary = report.summary()
         assert "copyleft licence" in summary
         assert report.rejections["copyleft licence"] == 2
+
+
+class TestTemplateSplit:
+    """You choose how many of the target are templates."""
+
+    def test_default_is_a_quarter(self):
+        plan = build_plan(1200)
+        assert 0.2 < plan.templates / plan.allocated < 0.3
+
+    def test_absolute_count_is_honoured(self):
+        plan = build_plan(1200, templates=900)
+        # Per-cell rounding makes this approximate, not exact.
+        assert abs(plan.templates - 900) <= 10
+        assert plan.templates + plan.helpers == plan.allocated
+
+    def test_fraction_is_honoured(self):
+        plan = build_plan(1200, template_share=0.75)
+        assert abs(plan.templates - 900) <= 10
+
+    def test_all_templates(self):
+        plan = build_plan(1200, templates=1200)
+        assert plan.helpers == 0
+        assert plan.templates == plan.allocated
+
+    def test_no_templates(self):
+        plan = build_plan(1200, templates=0)
+        assert plan.templates == 0
+        assert plan.helpers == plan.allocated
+
+    def test_split_holds_in_every_cell(self):
+        for cell in build_plan(1200, templates=600).cells:
+            assert cell.templates + cell.helpers == cell.total
+
+    def test_both_arguments_is_rejected(self):
+        """Disagreeing arguments are a caller bug, not a preference."""
+        with pytest.raises(ValueError, match="not both"):
+            build_plan(1200, templates=600, template_share=0.5)
+
+    @pytest.mark.parametrize("bad", [-1, 5000])
+    def test_count_outside_target_is_rejected(self, bad):
+        with pytest.raises(ValueError, match="templates must be"):
+            build_plan(1200, templates=bad)
+
+    @pytest.mark.parametrize("bad", [-0.1, 1.5])
+    def test_share_outside_range_is_rejected(self, bad):
+        with pytest.raises(ValueError, match="template_share"):
+            build_plan(1200, template_share=bad)
+
+    def test_resolve_falls_back_to_the_default(self):
+        from plovane.ingest.quota import TEMPLATE_SHARE
+
+        assert resolve_template_share(1200) == TEMPLATE_SHARE
+
+    def test_summary_reports_the_split(self):
+        assert "templates" in build_plan(1200, templates=600).summary()
