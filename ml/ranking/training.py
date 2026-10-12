@@ -190,20 +190,48 @@ def assemble_group(
     query: SyntheticQuery,
     ctx: FeatureContext,
     *,
-    negatives: int = HARD_NEGATIVES_PER_GROUP,
+    negatives: int | None = None,
     query_id: str | None = None,
 ) -> LabelledGroup | None:
-    """Build one lambdarank group: the target plus its hardest rivals.
+    """Build one lambdarank group: the target plus the candidates it is ranked against.
 
     Returns ``None`` when retrieval misses the target entirely. Such a query
     cannot teach a ranker anything -- the right answer is not among the rows
     it would score -- and keeping it as an all-negative group would push the
     model to drive every score down.
 
-    The negatives are the highest-ranked wrong candidates rather than a random
-    sample, because a random negative out of 515 is almost always obviously
-    wrong and separating it from the target is free. The rivals retrieval
-    already ranks highly are the ones the model has to learn to beat.
+    ``negatives=None``, the default, keeps **every** retrieved candidate, so a
+    training group is shaped exactly like a serving request. That default
+    exists because the obvious alternative is a trap, and this code shipped
+    with the trap in it: taking only the 15 hardest negatives produced a model
+    that scored NDCG@10 0.7736 in cross-validation and **0.0066** when asked
+    to rank a real retrieved set, against 0.3428 for the hand-weighted
+    baseline it was supposed to replace.
+
+    The mechanism is distribution mismatch. The hardest 15 negatives are all
+    candidates retrieval already liked -- high BM25, high cosine. The model
+    never saw the long tail of weak candidates, so at serving time, where that
+    tail is most of the 200-odd rows, it has no idea what to do with them and
+    effectively randomises. Measuring on the same 16-row groups it trained on
+    hid this completely: the evaluation was of a task nobody performs.
+
+    Measured on this library, ranking the full retrieved set:
+
+    ======================  =========
+    negatives per group     NDCG@10
+    ======================  =========
+    hand-weighted baseline     0.3428
+    15 hardest                 0.0066
+    15 hardest + 15 random     0.4204
+    15 hardest + 60 random     0.4892
+    all (this default)         0.5337
+    ======================  =========
+
+    Passing an integer truncates to that many hardest negatives. It is kept
+    for the sampling experiment above and for a library too large to train on
+    whole, and :attr:`TrainingReport.caveats` reports the truncation, because
+    a run that trains on a shape it will never serve cannot be read as a
+    measurement of serving quality.
     """
     request = Request(
         query=query.query,
@@ -214,7 +242,9 @@ def assemble_group(
     if target is None:
         return None
 
-    rivals = [c for c in candidates if c.id != query.entry_id][:negatives]
+    rivals = [c for c in candidates if c.id != query.entry_id]
+    if negatives is not None:
+        rivals = rivals[:negatives]
     chosen = [target, *rivals]
     labels = np.array([1.0] + [0.0] * len(rivals), dtype=np.float32)
     return LabelledGroup(
@@ -238,7 +268,7 @@ def assemble_groups(
     queries: Sequence[SyntheticQuery],
     ctx: FeatureContext,
     *,
-    negatives: int = HARD_NEGATIVES_PER_GROUP,
+    negatives: int | None = None,
 ) -> list[LabelledGroup]:
     """Assemble every query that retrieval can actually serve."""
     groups: list[LabelledGroup] = []
@@ -429,6 +459,9 @@ class TrainingReport:
     importance: Mapping[str, float] = field(default_factory=dict)
     model_path: str | None = None
     cross_validation: CrossValidationResult | None = None
+    negatives_per_group: int | None = None
+    """``None`` when groups held the full retrieved set, as serving does."""
+    median_group_size: int = 0
 
     # Input: none
     # Output: tuple[str, ...]
@@ -516,6 +549,12 @@ class TrainingReport:
                 f"trained NDCG@10 {self.trained.get('ndcg', 0.0):.4f} does not beat "
                 f"the hand-weighted baseline {self.baseline.get('ndcg', 0.0):.4f}"
             )
+        if self.negatives_per_group is not None:
+            reasons.append(
+                f"groups were truncated to {self.negatives_per_group} hardest negatives, so "
+                f"the model trained and was scored on a shape it will never serve; the same "
+                f"setup once read 0.7736 in cross-validation and 0.0066 on a real retrieved set"
+            )
         if self.cross_validation is not None and not self.cross_validation.consistent:
             cv = self.cross_validation
             reasons.append(
@@ -587,6 +626,8 @@ class TrainingReport:
             f"features       {len(self.informative_features)}/{len(FEATURE_NAMES)} vary: "
             f"{', '.join(self.informative_features)}",
             "split          " + ", ".join(f"{k}={v}" for k, v in self.split_sizes.items()),
+            f"groups         median {self.median_group_size} candidates"
+            + ("" if self.negatives_per_group is None else f", TRUNCATED to {self.negatives_per_group}"),
             f"scope          {self.scope.value} "
             f"(groups: {', '.join(self.covered_groups) or 'none'})",
             "",
@@ -626,6 +667,7 @@ def run_stage1_training(
     config: LightGBMConfig | None = None,
     model_path: str | None = None,
     cv_folds: int = 5,
+    negatives: int | None = None,
 ) -> TrainingReport:
     """Train Stage 1 end to end and return a report that states its own limits.
 
@@ -641,7 +683,10 @@ def run_stage1_training(
     varying = feature_support(entries)
 
     splits = split_by_entry(queries)
-    assembled = {name: assemble_groups(service, qs, ctx) for name, qs in splits.items()}
+    assembled = {
+        name: assemble_groups(service, qs, ctx, negatives=negatives)
+        for name, qs in splits.items()
+    }
 
     # Which columns actually move once the features are built. This is the
     # honest version of the question -- a field can vary across entries and
@@ -672,7 +717,10 @@ def run_stage1_training(
     if cv_folds >= 2 and len(all_groups) >= cv_folds:
         cv = cross_validate(all_groups, folds=cv_folds, config=config)
 
+    sizes = sorted(int(g.features.shape[0]) for g in all_groups) or [0]
     return TrainingReport(
+        negatives_per_group=negatives,
+        median_group_size=sizes[len(sizes) // 2],
         overlap=overlap,
         varying_features=varying,
         informative_features=informative,
@@ -731,7 +779,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="hand-written queries; falls back to the templated generator when absent",
     )
     parser.add_argument("--per-entry", type=int, default=3, help="queries generated per entry")
-    parser.add_argument("--negatives", type=int, default=HARD_NEGATIVES_PER_GROUP)
+    parser.add_argument(
+        "--negatives",
+        type=int,
+        default=None,
+        help="truncate groups to this many hardest negatives; omit to keep the full "
+        "retrieved set, which is what serving ranks",
+    )
     parser.add_argument("--out", default=None, help="where to save the fitted booster")
     parser.add_argument(
         "--cv-folds", type=int, default=5, help="cross-validation folds; 0 or 1 skips it"
@@ -771,7 +825,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not queries:
         parser.error("no queries to train on")
     report = run_stage1_training(
-        service, entries, queries, model_path=args.out, cv_folds=args.cv_folds
+        service,
+        entries,
+        queries,
+        model_path=args.out,
+        cv_folds=args.cv_folds,
+        negatives=args.negatives,
     )
     print(report.summary())
     return 0 if report.certified else 1

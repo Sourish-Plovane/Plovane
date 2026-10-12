@@ -297,4 +297,16 @@ class RecommendationLog:
     returned: tuple[str, ...]
     scores: tuple[float, ...]
     cutoff: float
+    cutoff_enforced: bool = True
+    """Whether the relevance cutoff could actually be applied.
+
+    False when no calibrator was fitted. The spec's promise to return nothing
+    rather than a poor match rests on the score being a probability, and an
+    uncalibrated score is not one -- on this library the uncalibrated sigmoid
+    spans 0.73 to 0.98, so a 0.5 cutoff passed 100 candidates out of 100 and a
+    nonsense query came back with three confident results. Logging the flag
+    keeps a response that skipped the cutoff distinguishable from one that
+    passed it, which matters when these records become training data.
+    """
+
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))

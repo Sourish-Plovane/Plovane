@@ -29,6 +29,19 @@ from ml.retrieval.service import RetrievalService
 from ml.schemas import Candidate, RecommendationLog, Request, Response, SlimCard
 
 NO_MATCH_REASON = "no entry above the relevance cutoff"
+
+UNCALIBRATED_REASON = (
+    "scores are uncalibrated: no relevance cutoff was applied, so these are the "
+    "best available matches rather than matches known to be good"
+)
+"""Said out loud when the cutoff could not be enforced.
+
+Without a fitted calibrator a score is an ordering, not a probability, and a
+fixed cutoff on it rejects whatever it happens to reject. Applying 0.5 to the
+uncalibrated sigmoid on this library passed every one of 100 candidates and
+returned three confident results for a query about warp cores. Serving the
+list and saying it is unfiltered is honest; serving it while reporting a
+cutoff that never fired is not."""
 """Returned instead of a weak match, so the agent writes new code rather than
 pasting something it will have to undo."""
 
@@ -133,7 +146,16 @@ class RecommendationPipeline:
             self.cross_encoder.score_candidates(retrieved.query.cross_encoder_text, shortlist)
 
         ordered = self.final_ranker.rank(shortlist, ctx)
-        above_cutoff = [c for c in ordered if (c.calibrated_score or 0.0) >= self.cutoff]
+
+        # The cutoff is only meaningful once the scores are calibrated. Before
+        # then it is applied to a sigmoid whose range never reaches it, so it
+        # filters nothing while appearing to -- the worst of both. Skip it and
+        # say so instead.
+        cutoff_enforced = self.final_ranker.is_calibrated
+        if cutoff_enforced:
+            above_cutoff = [c for c in ordered if (c.calibrated_score or 0.0) >= self.cutoff]
+        else:
+            above_cutoff = list(ordered)
 
         # MMR runs after the cutoff, not before: diversifying first would let a
         # distinct-but-irrelevant entry into the list, and the cutoff is the
@@ -141,11 +163,11 @@ class RecommendationPipeline:
         selected = maximal_marginal_relevance(above_cutoff, k=request.k, lambda_=self.mmr_lambda)
 
         cards = tuple(SlimCard.from_candidate(c, c.calibrated_score or 0.0) for c in selected)
-        response = Response(
-            query_id=query_id,
-            results=cards,
-            reason=None if cards else NO_MATCH_REASON,
-        )
+        if not cards:
+            reason = NO_MATCH_REASON if cutoff_enforced else UNCALIBRATED_REASON
+        else:
+            reason = None if cutoff_enforced else UNCALIBRATED_REASON
+        response = Response(query_id=query_id, results=cards, reason=reason)
         log = RecommendationLog(
             query_id=query_id,
             model_versions=self.versions.as_dict(),
@@ -155,6 +177,7 @@ class RecommendationPipeline:
             returned=tuple(card.id for card in cards),
             scores=tuple(card.score for card in cards),
             cutoff=self.cutoff,
+            cutoff_enforced=cutoff_enforced,
         )
         return response, log
 
