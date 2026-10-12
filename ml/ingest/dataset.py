@@ -43,6 +43,7 @@ from pathlib import Path
 from ml.schemas import Entry, EntryType, Visibility
 
 DEFAULT_DATASET = Path("seed/entries.jsonl")
+DEFAULT_QUERIES = Path("seed/queries.jsonl")
 
 DESCRIPTION_AUTHORED = "docstring"
 """``description_source`` value meaning the description is the author's own."""
@@ -229,10 +230,57 @@ def feature_support(entries: Sequence[Entry]) -> dict[str, bool]:
 
 __all__ = [
     "DEFAULT_DATASET",
+    "DEFAULT_QUERIES",
     "DESCRIPTION_AUTHORED",
     "Dataset",
     "entry_from_record",
     "feature_support",
     "iter_entries",
     "load_dataset",
+    "load_queries",
 ]
+
+
+# Input: path (Path | str), entry_ids (Collection[str] | None)
+# Output: list[SyntheticQuery]
+# Processing: Load hand-written training queries from a JSONL file
+# Changed by: Claude Code
+# Date: 2026-10-12
+def load_queries(path: Path | str = DEFAULT_QUERIES, entry_ids=None):
+    """Load training queries written by hand rather than generated.
+
+    Every row keeps the ``source`` recorded in the file, and the writer puts
+    ``synthetic`` in that string on purpose: ``GoldQuery`` refuses any source
+    containing it, so a query loaded here cannot be promoted into an
+    evaluation set no matter what later code does with it. Queries written by
+    someone who has read the entry make that entry correct by construction --
+    the same defect as a generated query, however natural the wording.
+
+    A query naming an entry that is not in ``entry_ids`` is dropped: the
+    dataset and the query file are regenerated independently, so a stale query
+    file would otherwise contribute groups whose target cannot be retrieved.
+    """
+    from ml.evaluation.synthetic import SyntheticQuery
+
+    queries = []
+    with Path(path).open(encoding="utf-8") as handle:
+        for line_number, line in enumerate(handle, start=1):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"{path}:{line_number} is not valid JSON: {exc}") from exc
+            if entry_ids is not None and row["entry_id"] not in entry_ids:
+                continue
+            queries.append(
+                SyntheticQuery(
+                    query=row["query"],
+                    entry_id=row["entry_id"],
+                    language=row["language"],
+                    source=row.get("source", "synthetic"),
+                    generator=row.get("generator", "hand"),
+                )
+            )
+    return queries

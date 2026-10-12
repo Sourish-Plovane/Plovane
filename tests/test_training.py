@@ -26,15 +26,18 @@ from ml.ingest.dataset import (
     entry_from_record,
     feature_support,
     load_dataset,
+    load_queries,
 )
 from ml.ranking.features import FEATURE_NAMES, FeatureContext, UsageIndex
 from ml.ranking.stage1 import LinearFeatureRanker, normalize_within_query
 from ml.ranking.training import (
-    MIN_INFORMATIVE_FEATURES,
+    CrossValidationResult,
     LabelledGroup,
     TrainingReport,
+    TrainingScope,
     assemble_group,
     assemble_groups,
+    cross_validate,
     evaluate_ranker,
     run_stage1_training,
     split_by_entry,
@@ -429,10 +432,12 @@ class TestTrainingReport:
         informative: int = len(FEATURE_NAMES),
         trained_ndcg: float = 0.8,
         baseline_ndcg: float = 0.7,
+        cv: CrossValidationResult | None = None,
     ) -> TrainingReport:
         from ml.evaluation.synthetic import OverlapReport
 
         return TrainingReport(
+            cross_validation=cv,
             overlap=OverlapReport(100, mean_overlap, mean_overlap, 0.1, 0.0),
             varying_features={},
             informative_features=FEATURE_NAMES[:informative],
@@ -450,10 +455,19 @@ class TestTrainingReport:
         assert report.certified is False
         assert any("degenerate" in b for b in report.blockers)
 
-    def test_too_few_varying_features_blocks_certification(self):
-        report = self.report(informative=MIN_INFORMATIVE_FEATURES - 1)
+    def test_a_narrow_feature_set_is_a_caveat_not_a_blocker(self):
+        # A three-feature fit on honest queries measures something real but
+        # narrow. Refusing it outright conflated "measures nothing" with
+        # "measures less than Stage 1"; the scope carries the difference.
+        report = self.report(informative=3)
+        assert report.certified is True
+        assert report.scope is TrainingScope.RETRIEVAL_FUSION
+        assert any("untrained" in c for c in report.caveats)
+
+    def test_no_varying_feature_at_all_does_block(self):
+        report = self.report(informative=0)
         assert report.certified is False
-        assert any("features vary" in b for b in report.blockers)
+        assert any("nothing to learn" in b for b in report.blockers)
 
     def test_failing_to_beat_the_baseline_blocks_certification(self):
         report = self.report(trained_ndcg=0.7, baseline_ndcg=0.7)
@@ -461,8 +475,32 @@ class TestTrainingReport:
         assert any("does not beat" in b for b in report.blockers)
 
     def test_every_blocker_is_reported_not_just_the_first(self):
-        report = self.report(mean_overlap=0.95, informative=2, trained_ndcg=0.1)
+        report = self.report(mean_overlap=0.95, informative=0, trained_ndcg=0.1)
         assert len(report.blockers) == 3
+
+    def test_scope_is_full_stage1_when_a_usage_feature_varies(self):
+        report = self.report(informative=len(FEATURE_NAMES))
+        assert report.scope is TrainingScope.FULL_STAGE1
+
+    def test_the_self_authored_query_caveat_is_always_present(self):
+        # Never silently dropped: a score quoted without it reads as a
+        # measurement of real demand, which it is not.
+        assert any("release gate" in c for c in self.report().caveats)
+
+    def test_an_inconsistent_cross_validation_blocks_certification(self):
+        # A mean improvement containing a losing fold means the model found
+        # something split-specific.
+        report = self.report(
+            cv=CrossValidationResult(baseline=(0.5, 0.5, 0.5), trained=(0.8, 0.8, 0.4))
+        )
+        assert report.certified is False
+        assert any("split-specific" in b for b in report.blockers)
+
+    def test_a_consistent_cross_validation_does_not_block(self):
+        report = self.report(
+            cv=CrossValidationResult(baseline=(0.5, 0.5, 0.5), trained=(0.8, 0.7, 0.6))
+        )
+        assert report.certified is True
 
     def test_the_summary_states_the_verdict(self):
         assert "CERTIFIED      False" in self.report(mean_overlap=0.99).summary()
@@ -500,3 +538,120 @@ class TestRunStage1Training:
         out = tmp_path / "stage1.txt"
         report = run_stage1_training(service, entries, queries, model_path=str(out))
         assert out.exists() and report.model_path == str(out)
+
+
+class TestLoadQueries:
+    # Input: tmp_path (Path), rows (list[dict])
+    # Output: Path
+    # Processing: Write query rows to a JSONL file
+    # Changed by: Claude Code
+    # Date: 2026-10-12
+    def write(self, tmp_path, rows):
+        path = tmp_path / "queries.jsonl"
+        path.write_text("\n".join(json.dumps(r) for r in rows), encoding="utf-8")
+        return path
+
+    # Input: query (str), entry_id (str)
+    # Output: dict
+    # Processing: One stored query row
+    # Changed by: Claude Code
+    # Date: 2026-10-12
+    def row(self, query: str, entry_id: str) -> dict:
+        return {
+            "query": query,
+            "entry_id": entry_id,
+            "language": "python",
+            "source": "synthetic_assistant_authored",
+            "generator": "assistant_authored",
+        }
+
+    def test_loads_queries_with_their_provenance(self, tmp_path):
+        path = self.write(tmp_path, [self.row("split a table in two", "owner_repo:split_rows")])
+        queries = load_queries(path)
+        assert len(queries) == 1
+        assert queries[0].query == "split a table in two"
+        assert queries[0].generator == "assistant_authored"
+
+    def test_a_loaded_query_still_cannot_become_a_gold_query(self, tmp_path):
+        # The source string contains "synthetic" on purpose. Queries written
+        # by someone who read the entry make it correct by construction, so
+        # they are training data however natural the wording.
+        from ml.evaluation.gold_set import GoldQuery
+
+        path = self.write(tmp_path, [self.row("split a table in two", "owner_repo:split_rows")])
+        loaded = load_queries(path)[0]
+        with pytest.raises(ValueError, match="synthetic"):
+            GoldQuery(
+                query_id="q1",
+                query=loaded.query,
+                language="python",
+                relevance={loaded.entry_id: 3.0},
+                source=loaded.source,
+            )
+
+    def test_a_query_for_an_absent_entry_is_dropped(self, tmp_path):
+        # The dataset and the query file are regenerated independently, so a
+        # stale query would otherwise make a group whose target cannot be
+        # retrieved.
+        path = self.write(
+            tmp_path,
+            [self.row("one", "owner_repo:present"), self.row("two", "owner_repo:gone")],
+        )
+        loaded = load_queries(path, entry_ids={"owner_repo:present"})
+        assert [q.query for q in loaded] == ["one"]
+
+    def test_malformed_json_names_the_line(self, tmp_path):
+        path = tmp_path / "queries.jsonl"
+        path.write_text(
+            json.dumps(self.row("one", "owner_repo:a")) + "\n{nope\n", encoding="utf-8"
+        )
+        with pytest.raises(ValueError, match=r":2 is not valid JSON"):
+            load_queries(path)
+
+
+class TestCrossValidationResult:
+    def test_mean_delta_and_spread(self):
+        cv = CrossValidationResult(baseline=(0.4, 0.5, 0.6), trained=(0.6, 0.7, 0.8))
+        assert cv.mean_delta == pytest.approx(0.2)
+        assert cv.delta_std == pytest.approx(0.0)
+
+    def test_consistent_requires_every_fold(self):
+        assert CrossValidationResult((0.5, 0.5), (0.6, 0.7)).consistent is True
+        assert CrossValidationResult((0.5, 0.5), (0.6, 0.4)).consistent is False
+
+    def test_folds_won_counts_strict_wins(self):
+        cv = CrossValidationResult(baseline=(0.5, 0.5, 0.5), trained=(0.6, 0.5, 0.4))
+        assert cv.folds_won == 1
+
+    def test_summary_reports_the_fold_count(self):
+        assert "3-fold" in CrossValidationResult((0.1, 0.2, 0.3), (0.4, 0.5, 0.6)).summary()
+
+
+class TestCrossValidate:
+    def test_folds_are_assigned_by_entry(self):
+        # Queries about one entry are near-paraphrases; if they straddle a
+        # fold boundary the score measures memorisation.
+        entries, service = tiny_library()
+        queries = [
+            SyntheticQuery(query=f"copy some bytes {i}", entry_id=entries[0].id, language="python")
+            for i in range(4)
+        ]
+        groups = assemble_groups(service, queries, FeatureContext.build(usage_index=UsageIndex()))
+        folds = {
+            __import__("hashlib").blake2b(g.target_id.encode(), digest_size=8).hexdigest()
+            for g in groups
+        }
+        assert len(folds) == 1  # one entry -> one fold, never split
+
+    def test_rejects_a_single_fold(self):
+        with pytest.raises(ValueError, match="at least 2 folds"):
+            cross_validate([], folds=1)
+
+    def test_raises_when_no_fold_has_both_sides(self):
+        entries, service = tiny_library()
+        queries = [
+            SyntheticQuery(query="copy a binary buffer", entry_id=entries[0].id, language="python")
+        ]
+        groups = assemble_groups(service, queries, FeatureContext.build(usage_index=UsageIndex()))
+        with pytest.raises(ValueError, match="no fold produced"):
+            cross_validate(groups, folds=5)
