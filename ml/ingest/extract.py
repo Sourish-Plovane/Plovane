@@ -95,6 +95,16 @@ class ExtractedUnit:
     docstring: str = ""
     is_template: bool = False
     needs_review: bool = False
+    dependencies_analysed: bool = False
+    """Whether an extractor actually resolved this unit's free names.
+
+    False by default, and only the Python extractor sets it. Without it
+    ``self_contained`` read ``not unresolved_names``, so a brace-language unit
+    with an empty tuple reported itself clean by construction: 1,030 of 1,242
+    harvested records passed a check that never ran. Same principle as the
+    licence gate -- unknown is rejected, not assumed good.
+    """
+
     required_imports: tuple[str, ...] = ()
     """Import statements the function needs, taken from its source module."""
 
@@ -136,8 +146,11 @@ class ExtractedUnit:
         the exact code into a user's project, so a unit depending on names left
         behind in its source module is not an entry, however well it was
         extracted or attributed.
+
+        An unanalysed unit is not self-contained. It is unknown, and unknown is
+        rejected here for the same reason an unknown licence is.
         """
-        return not self.unresolved_names
+        return self.dependencies_analysed and not self.unresolved_names
 
     # Input: none
     # Output: str
@@ -361,6 +374,7 @@ def extract_python(source: str) -> list[ExtractedUnit]:
                 end_line=end,
                 signature=_python_signature(node),
                 docstring=ast.get_docstring(node) or "",
+                dependencies_analysed=True,
                 required_imports=required,
                 unresolved_names=unresolved,
                 annotation_only_names=annotation_only,

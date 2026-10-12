@@ -693,3 +693,31 @@ def pathlib_Path(p):
     import pathlib
 
     return pathlib.Path(p)
+
+
+class TestUnanalysedIsNotSelfContained:
+    """An unverified dependency set is unknown, and unknown is rejected."""
+
+    def test_python_extractor_marks_units_analysed(self):
+        unit = extract_python("import os\n\ndef f(p):\n    q = os.sep\n    return q + p\n")[0]
+        assert unit.dependencies_analysed
+        assert unit.self_contained
+
+    def test_braced_extractor_does_not_claim_self_containment(self):
+        """1,030 of 1,242 harvested records passed a check that never ran."""
+        units = extract_braced("function f(a) {\n  const b = a;\n  return b;\n}\n", "javascript")
+        assert units
+        for unit in units:
+            assert not unit.dependencies_analysed
+            assert not unit.self_contained
+
+    def test_default_is_unanalysed(self):
+        from ml.ingest.extract import ExtractedUnit
+
+        bare = ExtractedUnit(name="x", code="x", language="javascript", start_line=1, end_line=4)
+        assert not bare.dependencies_analysed
+        assert not bare.self_contained
+
+    def test_a_template_is_not_claimed_self_contained_either(self):
+        units = extract("a{color:red}\nb{x:1}\nc{y:2}\n", "styles/main.css")
+        assert units and not units[0].self_contained
