@@ -550,3 +550,146 @@ def os_sep_plus_one() -> str:
     import os
 
     return os.sep + "1"
+
+
+class TestLicenseTextDetection:
+    """Clone harvesting has no SPDX field, so the id comes from the text."""
+
+    @pytest.mark.parametrize(
+        ("spdx", "text"),
+        [
+            ("MIT", "Permission is hereby granted, free of charge, to any person"),
+            ("Apache-2.0", "Apache License\nVersion 2.0, January 2004"),
+            ("ISC", "Permission to use, copy, modify, and/or distribute this software"),
+            ("GPL-3.0", "GNU GENERAL PUBLIC LICENSE\nVersion 3, 29 June 2007"),
+        ],
+    )
+    def test_matches_known_licences(self, spdx, text):
+        from plovane.ingest.local_source import detect_license
+
+        assert detect_license(text) == spdx
+
+    def test_bsd3_is_not_mistaken_for_bsd2(self):
+        """BSD-3 contains BSD-2's text, so order matters in the signature list."""
+        from plovane.ingest.local_source import detect_license
+
+        bsd3 = (
+            "Redistribution and use in source and binary forms are permitted.\n"
+            "Neither the name of the copyright holder nor the names of its contributors"
+        )
+        assert detect_license(bsd3) == "BSD-3-Clause"
+        assert detect_license("Redistribution and use in source and binary forms") == "BSD-2-Clause"
+
+    @pytest.mark.parametrize("text", ["", "   ", "Some bespoke terms nobody recognises"])
+    def test_unrecognised_text_returns_none(self, text):
+        """None is rejected by the gate, which is the safe answer."""
+        from plovane.ingest.local_source import detect_license
+
+        assert detect_license(text) is None
+
+
+class TestCodeMetrics:
+    def test_measures_a_real_function(self):
+        from plovane.ingest.metrics import measure
+
+        src = (
+            "import os\n\n"
+            "def f(path: str, flag: bool) -> str:\n"
+            '    """Doc."""\n'
+            "    if flag:\n"
+            "        return os.sep\n"
+            "    return path\n"
+        )
+        unit = extract_python(src)[0]
+        m = measure(unit)
+        assert m.has_description
+        assert m.self_contained
+        assert m.import_count == 1
+        assert m.param_count == 2 and m.annotated_params == 2
+        assert m.annotation_coverage == 1.0
+        assert m.has_return_annotation
+        assert m.branch_count >= 1
+
+    def test_quality_rewards_self_containment_most(self):
+        from plovane.ingest.metrics import CodeMetrics
+
+        base = dict(
+            lines=10, import_count=0, param_count=1, annotated_params=1,
+            has_return_annotation=True, branch_count=0,
+        )
+        contained = CodeMetrics(has_description=False, self_contained=True, **base)
+        described = CodeMetrics(has_description=True, self_contained=False, **base)
+        assert contained.quality > described.quality
+
+    def test_quality_is_bounded(self):
+        from plovane.ingest.metrics import CodeMetrics
+
+        best = CodeMetrics(
+            lines=10, has_description=True, self_contained=True, import_count=1,
+            param_count=2, annotated_params=2, has_return_annotation=True, branch_count=2,
+        )
+        worst = CodeMetrics(
+            lines=900, has_description=False, self_contained=False, import_count=0,
+            param_count=3, annotated_params=0, has_return_annotation=False, branch_count=0,
+        )
+        assert best.quality == 1.0
+        assert worst.quality == 0.0
+
+    def test_no_parameters_counts_as_full_coverage(self):
+        from plovane.ingest.metrics import CodeMetrics
+
+        m = CodeMetrics(
+            lines=5, has_description=True, self_contained=True, import_count=0,
+            param_count=0, annotated_params=0, has_return_annotation=True, branch_count=0,
+        )
+        assert m.annotation_coverage == 1.0
+
+    def test_unparseable_code_does_not_raise(self):
+        """One bad slice must not abort a repository's harvest."""
+        from plovane.ingest.extract import ExtractedUnit
+        from plovane.ingest.metrics import measure
+
+        unit = ExtractedUnit(
+            name="broken", code="function f( {", language="javascript",
+            start_line=1, end_line=3,
+        )
+        m = measure(unit)
+        assert m.param_count == 0
+        assert m.branch_count == 0
+
+
+class TestMissingFields:
+    def test_always_names_what_harvest_cannot_supply(self):
+        from plovane.ingest.local_source import LocalRepo, missing_fields
+
+        unit = extract_python("def f(a):\n    b = a\n    return b\n")[0]
+        repo = LocalRepo(
+            root=pathlib_Path("."), owner="acme", repo="utils", commit_sha="a" * 40,
+            license_text=MIT_TEXT, verdict=classify_license("mit"), copyright_holder="Jane Doe",
+        )
+        attribution = build_attribution(
+            source(), classify_license("mit"), license_text=MIT_TEXT, parsed_holder="Jane Doe"
+        )
+        missing = missing_fields(unit, attribution, repo)
+        assert {"tests", "mutation_score", "embedding"} <= set(missing)
+
+    def test_names_an_absent_description(self):
+        from plovane.ingest.local_source import LocalRepo, missing_fields
+
+        unit = extract_python("def f(a):\n    b = a\n    return b\n")[0]
+        repo = LocalRepo(
+            root=pathlib_Path("."), owner="acme", repo="utils", commit_sha="a" * 40,
+            license_text=MIT_TEXT, verdict=classify_license("mit"), copyright_holder=None,
+        )
+        attribution = build_attribution(
+            source(), classify_license("mit"), license_text=MIT_TEXT, parsed_holder=None
+        )
+        missing = missing_fields(unit, attribution, repo)
+        assert "description" in missing
+        assert "copyright_holder" in missing
+
+
+def pathlib_Path(p):
+    import pathlib
+
+    return pathlib.Path(p)
