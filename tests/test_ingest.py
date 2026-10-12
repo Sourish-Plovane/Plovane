@@ -11,6 +11,8 @@ from __future__ import annotations
 import pytest
 
 from ml.ingest.extract import (
+    _brace_parameter_names,
+    _strip_literals,
     analyse_dependencies,
     dependency_names,
     extract,
@@ -1080,3 +1082,157 @@ class TestLocalModules:
         (tmp_path / "docs").mkdir()
         (tmp_path / "docs" / "index.md").write_text("", encoding="utf-8")
         assert "docs" not in self.repo(tmp_path).local_modules
+
+
+class TestBraceFreeNames:
+    """The brace analyser reported only names it recognised and dropped the rest.
+
+    ``analyse_brace_dependencies`` resolved an identifier against the module's
+    imports and its top-level declarations. Anything in neither was silently
+    skipped, so a member variable, a macro, a namespace or a type from a header
+    left no trace and the unit reported itself self-contained. 223 of 303
+    brace-language entries carried at least one such name. Same false pass
+    ``dependencies_analysed`` was added to stop, one level further in: the
+    check ran and did not look at everything it needed to.
+    """
+
+    # Input: source (str), language (str)
+    # Output: ExtractedUnit
+    # Processing: Extract one brace-language unit, asserting it was found
+    # Changed by: Claude Code
+    # Date: 2026-10-12
+    def unit(self, source: str, language: str = "javascript"):
+        units = extract_braced(source, language)
+        assert units, "expected a unit"
+        return units[0]
+
+    def test_a_member_variable_is_unresolved(self):
+        unit = self.unit("function pushBack(arg) {\n  data_.emplace(arg);\n  return data_;\n}\n")
+        assert unit.self_contained is False
+        assert "data_" in unit.unresolved_names
+
+    def test_a_macro_in_the_body_is_unresolved(self):
+        unit = self.unit("int f(int a) {\n  FMT_THROW(a);\n  return a;\n}\n", "cpp")
+        assert "FMT_THROW" in unit.unresolved_names
+
+    def test_a_macro_in_the_signature_is_unresolved(self):
+        # Subtler, and it was passing: binding every identifier in the
+        # signature hid the return type and anything in front of it, which
+        # still has to resolve for the pasted code to compile.
+        unit = self.unit(
+            "template <typename Char>\nFMT_CONSTEXPR void on_text(const Char*) {\n  return;\n}\n",
+            "cpp",
+        )
+        assert unit.self_contained is False
+        assert "FMT_CONSTEXPR" in unit.unresolved_names
+
+    def test_a_sibling_function_is_unresolved(self):
+        unit = self.unit("function a(x) {\n  const y = helper(x);\n  return y;\n}\n")
+        assert "helper" in unit.unresolved_names
+
+    def test_a_member_access_is_not_a_free_name(self):
+        # obj.size() resolves through obj. Counting the name after the dot
+        # reported "size" and "length" as missing on almost every unit.
+        unit = self.unit("function f(xs) {\n  const n = xs.length;\n  return n;\n}\n")
+        assert unit.self_contained is True
+
+    def test_words_inside_a_string_are_not_names(self):
+        unit = self.unit(
+            'import fs from "fs";\n\nfunction read(p) {\n'
+            '  const t = fs.readFileSync(p, "utf8");\n  return t;\n}\n'
+        )
+        assert unit.self_contained is True
+        assert "utf8" not in unit.unresolved_names
+
+    def test_words_inside_a_comment_are_not_names(self):
+        unit = self.unit(
+            "function f(a) {\n  // calls someMissingThing eventually\n  const b = a;\n  return b;\n}\n"
+        )
+        assert unit.self_contained is True
+
+    def test_an_inner_callback_binds_its_own_parameters(self):
+        # Binding only the outer signature rejected baseArity over a and b,
+        # which its own inner function declares.
+        unit = self.unit(
+            "function wrap(func) {\n  return function (a, b) {\n    return func(a, b);\n  };\n}\n"
+        )
+        assert unit.self_contained is True
+
+    def test_a_single_parameter_arrow_binds_its_parameter(self):
+        unit = self.unit("function f(xs) {\n  const out = xs.map(x => x * 2);\n  return out;\n}\n")
+        assert unit.self_contained is True
+
+    def test_destructuring_binds_its_names(self):
+        unit = self.unit("function f(opts) {\n  const { a, b } = opts;\n  return a + b;\n}\n")
+        assert unit.self_contained is True
+
+    def test_a_catch_binding_is_bound(self):
+        unit = self.unit("function f(x) {\n  try {\n    return x();\n  } catch (err) {\n    return err;\n  }\n}\n")
+        assert unit.self_contained is True
+
+    def test_browser_globals_are_ambient(self):
+        unit = self.unit(
+            "function enc(data) {\n  const b = new Uint8Array(data);\n  return btoa(String.fromCharCode(b));\n}\n"
+        )
+        assert unit.self_contained is True
+
+    def test_a_cpp_local_with_a_templated_type_is_bound(self):
+        unit = self.unit("void f(int a) {\n  std::vector<int> v;\n  v.push_back(a);\n}\n", "cpp")
+        assert unit.self_contained is True
+
+    def test_a_template_parameter_is_bound(self):
+        unit = self.unit("template <typename T> T twice(T x) {\n  T y = x + x;\n  return y;\n}\n", "cpp")
+        assert unit.self_contained is True
+
+    def test_a_return_statement_does_not_declare_its_value(self):
+        # `return data_;` must not read as a declaration of data_, or the
+        # member reference it really is disappears.
+        unit = self.unit("function f() {\n  const x = 1;\n  return data_;\n}\n")
+        assert "data_" in unit.unresolved_names
+
+
+class TestBraceParameterNames:
+    def test_cpp_takes_the_last_identifier(self):
+        # C++ writes `Type name`.
+        names = _brace_parameter_names("int& arg_index, const T& value", "cpp")
+        assert names == {"arg_index", "value"}
+
+    def test_cpp_unnamed_parameters_bind_nothing(self):
+        assert _brace_parameter_names("const Char*, int&", "cpp") == set()
+
+    def test_typescript_takes_the_first_identifier(self):
+        # TypeScript writes `name: Type`. Reading it the C++ way bound
+        # "string" and left "a" unbound, so a function's own parameters were
+        # reported as dependencies.
+        assert _brace_parameter_names("a: string, count: number", "typescript") == {"a", "count"}
+
+    def test_javascript_takes_the_bare_identifier(self):
+        assert _brace_parameter_names("a, b, opts = {}", "javascript") == {"a", "b", "opts"}
+
+    def test_a_nested_generic_does_not_split_the_list(self):
+        assert _brace_parameter_names("m: Record<string, number>, n: number", "typescript") == {
+            "m",
+            "n",
+        }
+
+
+class TestStripLiterals:
+    def test_blanks_a_string_but_keeps_offsets(self):
+        out = _strip_literals('f(path, "utf8")')
+        assert len(out) == len('f(path, "utf8")')
+        assert "utf8" not in out
+        assert out.startswith("f(path, ")
+
+    def test_blanks_a_line_comment(self):
+        assert "note" not in _strip_literals("a = b; // note")
+
+    def test_blanks_a_block_comment(self):
+        assert "note" not in _strip_literals("a = /* note */ b;")
+
+    def test_keeps_newlines_so_line_numbers_survive(self):
+        source = 'a = "one\ntwo";\nb = 1;'
+        assert _strip_literals(source).count("\n") == source.count("\n")
+
+    def test_an_escaped_quote_does_not_end_the_string(self):
+        out = _strip_literals('a = "he said \\"hi\\" there"; b = c;')
+        assert "said" not in out and "b = c;" in out

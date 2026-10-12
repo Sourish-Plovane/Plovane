@@ -471,6 +471,59 @@ _BRACE_DECL_PATTERNS = (
 
 _IDENTIFIER = re.compile(r"\b[A-Za-z_]\w*\b")
 
+_FREE_IDENTIFIER = re.compile(r"(?<![.\w])(?<!->)(?<!::)([A-Za-z_]\w*)")
+"""An identifier that is not a member or scope access.
+
+``obj.size()``, ``p->next`` and ``std::vector`` all resolve through whatever
+owns them, so the name after the operator says nothing about what the unit
+needs from its surroundings. Counting those as free names reported ``size``
+and ``length`` as missing on almost every unit."""
+
+_BRACE_LOCAL_DECL = re.compile(
+    r"\b(?:const\s+|constexpr\s+|static\s+)*"
+    # The type slot must not be a statement keyword, or `return data_;` reads
+    # as a declaration of `data_` and the member reference it really is
+    # disappears.
+    r"(?!(?:return|throw|new|delete|case|else|do|typedef|using|namespace|sizeof|"
+    r"co_return|co_await|co_yield|export|default|goto|break|continue)\b)"
+    r"(?:let|var|auto|int|unsigned|float|double|char|bool|size_t|long|short|"
+    r"std::\w+|[A-Za-z_]\w*(?:::\w+)*)"
+    r"(?:\s*<[^;{}<>]*>)?"          # template arguments: std::vector<int>
+    r"(?:\s*[*&]+)?"                 # pointer or reference: const char* p
+    r"\s+([a-z_]\w*)\s*(?=[=;),\[])"
+)
+"""A variable declared inside the unit: bound by the code as pasted.
+
+Has to see past the type's template arguments and pointer markers, or
+``std::vector<int> v;`` leaves ``v`` looking like a name borrowed from the
+surrounding module."""
+
+_CPP_QUALIFIERS = frozenset(
+    "const volatile static constexpr inline unsigned signed struct class "
+    "typename enum union register mutable restrict".split()
+)
+"""Words that can precede a type without being one."""
+
+_BRACE_PARAM_LIST = re.compile(r"^[^(){]*\(([^)]*)\)", re.S)
+
+_BRACE_INNER_PARAMS = re.compile(
+    r"\(([^()]*)\)\s*(?::\s*[\w<>\[\],.\s|]+?)?\s*(?:=>|\{)"
+)
+"""Any parameter list in the body, not just the outer signature.
+
+Callbacks and arrows declare their own parameters, and binding only the outer
+signature reported those as dependencies on the module: ``baseArity`` was
+rejected over ``a`` and ``b``, which its own inner function declares."""
+
+_BRACE_ARROW_SINGLE = re.compile(r"(?<![.\w])([A-Za-z_]\w*)\s*=>")
+"""``x => x * 2`` -- a single-parameter arrow with no parentheses."""
+
+_BRACE_DESTRUCTURE = re.compile(r"(?:const|let|var)\s*[{\[]([^}\]]*)[}\]]")
+"""``const { a, b } = opts`` binds a and b."""
+
+_BRACE_CATCH = re.compile(r"catch\s*\(\s*([A-Za-z_]\w*)")
+_BRACE_TEMPLATE_PARAMS = re.compile(r"template\s*<([^>]*)>")
+
 # Language keywords and globals a lifted function can rely on existing.
 _BRACE_AMBIENT = frozenset(
     """
@@ -487,6 +540,21 @@ _BRACE_AMBIENT = frozenset(
     explicit constexpr noexcept mutable decltype
     __global__ __device__ __host__ __shared__ __constant__ __restrict__
     threadIdx blockIdx blockDim gridDim warpSize
+    and or not xor bitand bitor compl and_eq or_eq xor_eq not_eq
+    arguments
+    true_type false_type string string_view wstring size_type value_type difference_type
+    iterator const_iterator vector array basic_string char_traits allocator
+    uint8_t uint16_t uint32_t uint64_t int8_t int16_t int32_t int64_t intptr_t uintptr_t
+    ptrdiff_t nullptr_t FILE
+    number boolean any unknown never object symbol bigint
+    Record Partial Required Readonly Pick Omit Exclude Extract NonNullable ReturnType
+    Iterable Iterator AsyncIterable ArrayLike
+    Uint8Array Uint16Array Uint32Array Int8Array Int16Array Int32Array
+    Float32Array Float64Array BigInt64Array BigUint64Array ArrayBuffer SharedArrayBuffer
+    DataView Buffer Blob File FormData URL URLSearchParams TextEncoder TextDecoder
+    btoa atob setTimeout clearTimeout setInterval clearInterval queueMicrotask
+    structuredClone fetch Headers Request Response AbortController AbortSignal
+    Proxy Reflect Intl escape unescape isFinite Function arguments
     """.split()
 )
 
@@ -523,13 +591,133 @@ def _brace_module_names(source: str) -> tuple[set[str], set[str]]:
     return imported, defined - imported
 
 
-# Input: source (str), code (str), own_name (str)
+# Input: code (str)
+# Output: str
+# Processing: Blank out string literals and comments, keeping offsets
+# Changed by: Claude Code
+# Date: 2026-10-12
+def _strip_literals(code: str) -> str:
+    """Replace the contents of strings and comments with spaces.
+
+    Required before any identifier scan: the words inside a literal are not
+    names. Without this, ``fs.readFileSync(path, "utf8")`` reports ``utf8`` as
+    an unresolved dependency, and a unit holding an error message or a regex
+    is rejected over its own prose.
+
+    Characters are replaced one for one rather than removed, so every offset
+    into the result still matches the original -- the signature split on the
+    first ``{`` depends on that.
+    """
+    out = list(code)
+    index = 0
+    length = len(code)
+    while index < length:
+        char = code[index]
+        if char in "\"'`":
+            quote = char
+            index += 1
+            while index < length:
+                if code[index] == "\\":
+                    out[index] = " "
+                    if index + 1 < length:
+                        out[index + 1] = " "
+                    index += 2
+                    continue
+                if code[index] == quote:
+                    break
+                if code[index] != "\n":
+                    out[index] = " "
+                index += 1
+            index += 1
+            continue
+        if char == "/" and index + 1 < length and code[index + 1] == "/":
+            while index < length and code[index] != "\n":
+                out[index] = " "
+                index += 1
+            continue
+        if char == "/" and index + 1 < length and code[index + 1] == "*":
+            while index < length and not (code[index] == "*" and index + 1 < length and code[index + 1] == "/"):
+                if code[index] != "\n":
+                    out[index] = " "
+                index += 1
+            for offset in range(2):
+                if index + offset < length:
+                    out[index + offset] = " "
+            index += 2
+            continue
+        index += 1
+    return "".join(out)
+
+
+# Input: parameter_text (str), language (str)
+# Output: set[str]
+# Processing: Names bound by a brace-language parameter list
+# Changed by: Claude Code
+# Date: 2026-10-12
+def _brace_parameter_names(parameter_text: str, language: str) -> set[str]:
+    """Parameter *names* only, not the types beside them.
+
+    Binding every identifier in the list would bind the types too, and an
+    unresolvable parameter type breaks pasted code just as surely as an
+    unresolvable call does.
+
+    Which identifier is the name depends on the language, and the three
+    conventions disagree:
+
+    * C++ and CUDA write ``Type name``, so the name is the chunk's last
+      identifier -- and a chunk with only one (``const Char*``, ``int&``)
+      declares an unnamed parameter and binds nothing.
+    * TypeScript writes ``name: Type``, so the name is the *first*.
+    * JavaScript has no types, so a chunk's single identifier is the name.
+
+    Reading all three the C++ way bound ``string`` from ``a: string`` and left
+    plain ``a`` unbound, which reported a function's own parameters as
+    dependencies on its module.
+
+    The rule errs toward binding too little, which rejects a usable unit. That
+    is the safer direction: the opposite error admits one that does not
+    compile.
+    """
+    names: set[str] = set()
+    depth = 0
+    chunk: list[str] = []
+    chunks: list[str] = []
+    for char in parameter_text:
+        if char in "<([{":
+            depth += 1
+        elif char in ">)]}":
+            depth -= 1
+        if char == "," and depth <= 0:
+            chunks.append("".join(chunk))
+            chunk = []
+            continue
+        chunk.append(char)
+    chunks.append("".join(chunk))
+
+    for piece in chunks:
+        # A default value is not part of the name.
+        identifiers = _IDENTIFIER.findall(piece.split("=")[0])
+        if not identifiers:
+            continue
+        if language in {"cpp", "cuda"}:
+            # Qualifiers are not the type, so `const Char*` holds one type
+            # name and no parameter name -- counting `const` toward the two
+            # bound `Char`, hiding a type the pasted code still has to resolve.
+            identifiers = [n for n in identifiers if n not in _CPP_QUALIFIERS]
+            if len(identifiers) >= 2:
+                names.add(identifiers[-1])
+        else:
+            names.add(identifiers[0])
+    return names
+
+
+# Input: source (str), code (str), own_name (str), language (str)
 # Output: tuple[tuple[str, ...], tuple[str, ...]]
 # Processing: Heuristic dependency split for a brace-language unit
 # Changed by: Claude Code
 # Date: 2026-10-12
 def analyse_brace_dependencies(
-    source: str, code: str, own_name: str
+    source: str, code: str, own_name: str, language: str = "javascript"
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
     """``(required_imports, unresolved_names)`` for a brace-language unit.
 
@@ -540,23 +728,56 @@ def analyse_brace_dependencies(
     weaker than the Python path's and the record should say so rather than
     presenting the two as equivalent.
     """
-    imported, defined = _brace_module_names(source)
+    imported, _defined = _brace_module_names(source)
 
-    # Names the unit binds itself: its own declarations and parameters.
+    # Every identifier scan below runs on the literal-free text.
+    code = _strip_literals(code)
+
+    # Names the unit binds itself: its declarations, parameters, template
+    # parameters and locals. Anything bound here travels with the pasted code.
     bound = {own_name}
     for pattern in _BRACE_DECL_PATTERNS:
         bound.update(match.group(1) for match in pattern.finditer(code))
+    bound.update(_BRACE_LOCAL_DECL.findall(code))
+
     head = code.split("{", 1)[0]
-    bound.update(_IDENTIFIER.findall(head))
+    for match in _BRACE_TEMPLATE_PARAMS.finditer(head):
+        bound.update(_IDENTIFIER.findall(match.group(1)))
+    params = _BRACE_PARAM_LIST.search(head)
+    if params:
+        bound.update(_brace_parameter_names(params.group(1), language))
+    # Parameters declared anywhere inside the body: callbacks, arrows, nested
+    # functions. These are bound by the pasted code, not borrowed from it.
+    for match in _BRACE_INNER_PARAMS.finditer(code):
+        bound.update(_brace_parameter_names(match.group(1), language))
+    bound.update(_BRACE_ARROW_SINGLE.findall(code))
+    for match in _BRACE_DESTRUCTURE.finditer(code):
+        bound.update(_IDENTIFIER.findall(match.group(1)))
+    bound.update(_BRACE_CATCH.findall(code))
+    # Deliberately *not* binding every identifier in the signature. Doing that
+    # hid the return type and any macro in front of it, and those have to
+    # resolve for the pasted code to compile: it let
+    # `FMT_CONSTEXPR void on_text(...)` through as self-contained while
+    # FMT_CONSTEXPR is a macro from the source project's own headers.
 
     required: set[str] = set()
     unresolved: set[str] = set()
-    for name in sorted(set(_IDENTIFIER.findall(code))):
+    for name in sorted(set(_FREE_IDENTIFIER.findall(code))):
         if name in bound or name in _BRACE_AMBIENT:
             continue
         if name in imported:
             required.add(name)
-        elif name in defined:
+        else:
+            # Everything else is unresolved -- including a name this module
+            # never declared at top level. The earlier version reported only
+            # names it could find in the module's own declarations and silently
+            # dropped the rest, so a member variable (``data_``), a macro
+            # (``FMT_THROW``), a namespace (``detail``) or a type from a header
+            # all vanished and the unit reported itself self-contained. 223 of
+            # 303 brace-language entries carried at least one such name. It is
+            # the same false pass ``dependencies_analysed`` was added to stop,
+            # one level further in: the check ran, and did not look at
+            # everything it needed to.
             unresolved.add(name)
 
     # Imports are reported as names, not statements: reconstructing the exact
@@ -618,7 +839,7 @@ def extract_braced(source: str, language: str) -> list[ExtractedUnit]:
         if not MIN_FUNCTION_LINES <= (end_line - start_line + 1) <= MAX_FUNCTION_LINES:
             continue
         body = "\n".join(lines[start_line - 1 : end_line])
-        required, unresolved = analyse_brace_dependencies(source, body, name)
+        required, unresolved = analyse_brace_dependencies(source, body, name, language)
         units.append(
             ExtractedUnit(
                 name=name,

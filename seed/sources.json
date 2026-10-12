@@ -1,6 +1,6 @@
 {
   "note": "Repositories and commits the harvested library was built from. seed/entries.jsonl is gitignored as regenerable output; this file is what makes it regenerable. Clone each repo at its recorded commit and run ml.ingest.local_source.harvest_clones over the clones.",
-  "entries": 537,
+  "entries": 378,
   "sources": [
     {
       "repo": "pydantic/pydantic",
@@ -13,39 +13,19 @@
       }
     },
     {
-      "repo": "fmtlib/fmt",
-      "commit": "b4ffa39b9994c961418406f47358791d89a5aa48",
-      "entries": 158,
-      "languages": {
-        "cpp": 142,
-        "css": 1,
-        "python": 15
-      }
-    },
-    {
       "repo": "lodash/lodash",
       "commit": "2b5e6f7399a7b48005140b5d5c6bc6c0e62919a8",
-      "entries": 73,
+      "entries": 80,
       "languages": {
-        "javascript": 73
+        "javascript": 80
       }
     },
     {
       "repo": "axios/axios",
       "commit": "cf744d227a103067d09d5d07aed5a1f2f243791d",
-      "entries": 67,
+      "entries": 53,
       "languages": {
-        "javascript": 67
-      }
-    },
-    {
-      "repo": "twbs/bootstrap",
-      "commit": "8a350789689484bf76b9e1d981505ba1acfcec8a",
-      "entries": 39,
-      "languages": {
-        "css": 19,
-        "javascript": 1,
-        "typescript": 19
+        "javascript": 53
       }
     },
     {
@@ -54,6 +34,25 @@
       "entries": 25,
       "languages": {
         "python": 25
+      }
+    },
+    {
+      "repo": "twbs/bootstrap",
+      "commit": "8a350789689484bf76b9e1d981505ba1acfcec8a",
+      "entries": 25,
+      "languages": {
+        "css": 19,
+        "typescript": 6
+      }
+    },
+    {
+      "repo": "fmtlib/fmt",
+      "commit": "b4ffa39b9994c961418406f47358791d89a5aa48",
+      "entries": 20,
+      "languages": {
+        "cpp": 4,
+        "css": 1,
+        "python": 15
       }
     },
     {
