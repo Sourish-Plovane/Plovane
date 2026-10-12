@@ -102,10 +102,20 @@ class Cell:
     total: int
     template_share: float = TEMPLATE_SHARE
 
+    # Input: none
+    # Output: int
+    # Processing: Templates
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @property
     def templates(self) -> int:
         return round(self.total * self.template_share)
 
+    # Input: none
+    # Output: int
+    # Processing: Helpers
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @property
     def helpers(self) -> int:
         return self.total - self.templates
@@ -116,30 +126,60 @@ class HarvestPlan:
     target: int
     cells: tuple[Cell, ...]
 
+    # Input: none
+    # Output: int
+    # Processing: Allocated
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @property
     def allocated(self) -> int:
         return sum(cell.total for cell in self.cells)
 
+    # Input: none
+    # Output: int
+    # Processing: Templates
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @property
     def templates(self) -> int:
         return sum(cell.templates for cell in self.cells)
 
+    # Input: none
+    # Output: int
+    # Processing: Helpers
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @property
     def helpers(self) -> int:
         return sum(cell.helpers for cell in self.cells)
 
+    # Input: none
+    # Output: dict[str, int]
+    # Processing: By language
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def by_language(self) -> dict[str, int]:
         totals: dict[str, int] = {}
         for cell in self.cells:
             totals[cell.language] = totals.get(cell.language, 0) + cell.total
         return dict(sorted(totals.items()))
 
+    # Input: none
+    # Output: dict[str, int]
+    # Processing: By category
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def by_category(self) -> dict[str, int]:
         totals: dict[str, int] = {}
         for cell in self.cells:
             totals[cell.category] = totals.get(cell.category, 0) + cell.total
         return dict(sorted(totals.items()))
 
+    # Input: minimum (int)
+    # Output: tuple[str, ...]
+    # Processing: Languages the plan cannot bring up to the floor.
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def thin_languages(self, minimum: int = MINIMUM_PER_LANGUAGE) -> tuple[str, ...]:
         """Languages the plan cannot bring up to the floor.
 
@@ -152,6 +192,11 @@ class HarvestPlan:
             lang for lang in MVP_LANGUAGES if counts.get(lang, 0) < minimum
         )
 
+    # Input: none
+    # Output: str
+    # Processing: Summary
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def summary(self) -> str:
         lines = [
             f"Harvest plan: {self.allocated} entries across "
@@ -169,10 +214,20 @@ class HarvestPlan:
         return "\n".join(lines)
 
 
+# Input: language (str)
+# Output: list[str]
+# Processing: Cells for language
+# Changed by: Claude Code
+# Date: 2026-10-12
 def _cells_for_language(language: str) -> list[str]:
     return [cat for cat, langs in CATEGORY_LANGUAGES.items() if language in langs]
 
 
+# Input: target (int), templates (int | None), template_share (float | None)
+# Output: float
+# Processing: Turn either way of asking for templates into one share.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def resolve_template_share(
     target: int, *, templates: int | None = None, template_share: float | None = None
 ) -> float:
@@ -195,6 +250,11 @@ def resolve_template_share(
     return TEMPLATE_SHARE
 
 
+# Input: target (int), minimum_per_language (int), languages (tuple[str, ...]), templates (int | None), template_share (float | None)
+# Output: HarvestPlan
+# Processing: Allocate ``target`` entries across the feasible (category, language) cells.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def build_plan(
     target: int = 1200,
     *,

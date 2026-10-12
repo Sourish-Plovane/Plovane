@@ -60,6 +60,11 @@ NDCG@10 per language either way.
 """
 
 
+# Input: encoder_pretraining_languages (Iterable[str]), mvp_languages (Sequence[str])
+# Output: tuple[str, ...]
+# Processing: Return the MVP languages the encoder was not pretrained on, and warn.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def check_language_coverage(
     encoder_pretraining_languages: Iterable[str],
     *,
@@ -81,6 +86,11 @@ def check_language_coverage(
     return missing
 
 
+# Input: language (str)
+# Output: str
+# Processing: ``<lang:cuda>`` and friends.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def language_token(language: str) -> str:
     """``<lang:cuda>`` and friends.
 
@@ -92,6 +102,11 @@ def language_token(language: str) -> str:
     return f"<lang:{language.strip().lower()}>"
 
 
+# Input: entry (Entry)
+# Output: tuple[str, str]
+# Processing: The candidate side, split into the part that must survive truncation
+# Changed by: Claude Code
+# Date: 2026-10-12
 def entry_text(entry: Entry) -> tuple[str, str]:
     """The candidate side, split into the part that must survive truncation
     and the part that gets cut first.
@@ -119,6 +134,11 @@ class CrossEncoderTokenizer:
     first -- is not one of the strategies the tokenizer offers.
     """
 
+    # Input: tokenizer, max_tokens (int), query_max_tokens (int)
+    # Output: None
+    # Processing: Init
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def __init__(self, tokenizer, *, max_tokens: int = CROSS_ENCODER_MAX_TOKENS, query_max_tokens: int = 192) -> None:
         self.tokenizer = tokenizer
         self.max_tokens = max_tokens
@@ -130,11 +150,21 @@ class CrossEncoderTokenizer:
         if self.cls_id is None or self.sep_id is None:
             raise ValueError(f"tokenizer {tokenizer!r} has no [CLS]/[SEP]; the pair format needs both")
 
+    # Input: text (str)
+    # Output: list[int]
+    # Processing: Ids
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def _ids(self, text: str) -> list[int]:
         if not text:
             return []
         return self.tokenizer(text, add_special_tokens=False)["input_ids"]
 
+    # Input: query_text (str), entry (Entry)
+    # Output: EncodedPair
+    # Processing: Encode
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def encode(self, query_text: str, entry: Entry) -> EncodedPair:
         # [CLS] ... [SEP] ... [SEP]
         budget = self.max_tokens - 3
@@ -152,6 +182,11 @@ class CrossEncoderTokenizer:
         input_ids = [self.cls_id, *query_ids, self.sep_id, *head_ids, *code_ids, self.sep_id]
         return EncodedPair(input_ids=input_ids, attention_mask=[1] * len(input_ids))
 
+    # Input: pairs (Sequence[EncodedPair])
+    # Output: dict[str, Tensor]
+    # Processing: Pad a batch to its longest member, not to 512.
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def collate(self, pairs: Sequence[EncodedPair]) -> dict[str, Tensor]:
         """Pad a batch to its longest member, not to 512.
 
@@ -185,6 +220,11 @@ class CrossEncoder(nn.Module):
 
     extra_special_tokens: tuple[str, ...] = ()
 
+    # Input: encoder_name (str), hidden_dropout (float), head_dim (int), max_tokens (int), pretraining_languages (Iterable[str]), check_languages (bool), tokenizer, encoder
+    # Output: None
+    # Processing: Build the model, downloading the pretrained encoder by name.
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def __init__(
         self,
         encoder_name: str = DEFAULT_ENCODER,
@@ -251,6 +291,11 @@ class CrossEncoder(nn.Module):
             nn.Linear(head_dim, 1),
         )
 
+    # Input: input_ids (Tensor), attention_mask (Tensor)
+    # Output: Tensor
+    # Processing: Return one relevance logit per row.
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def forward(self, input_ids: Tensor, attention_mask: Tensor) -> Tensor:
         """Return one relevance logit per row.
 
@@ -265,6 +310,11 @@ class CrossEncoder(nn.Module):
 
     # -- Inference ---------------------------------------------------------
 
+    # Input: query_text (str), candidates (Sequence[Candidate]), batch_size (int)
+    # Output: np.ndarray
+    # Processing: Score one query against its candidates, writing scores back on them.
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @torch.inference_mode()
     def score_candidates(
         self,
@@ -311,11 +361,21 @@ class CrossEncoderGroup:
     positive: Entry
     negatives: tuple[Entry, ...]
 
+    # Input: none
+    # Output: tuple[Entry, ...]
+    # Processing: Entries
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @property
     def entries(self) -> tuple[Entry, ...]:
         return (self.positive, *self.negatives)
 
 
+# Input: retrieved (Sequence[Candidate]), positive_ids (Sequence[str]), count (int)
+# Output: list[Entry]
+# Processing: Wrong entries that retrieval ranked highly.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def mine_hard_negatives(
     retrieved: Sequence[Candidate],
     positive_ids: Sequence[str],
@@ -334,6 +394,11 @@ def mine_hard_negatives(
     return [c.entry for c in retrieved if c.id not in positives][:count]
 
 
+# Input: logits (Tensor), positive_index (int)
+# Output: Tensor
+# Processing: Softmax cross-entropy over the group.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def listwise_softmax_loss(logits: Tensor, *, positive_index: int = 0) -> Tensor:
     """Softmax cross-entropy over the group.
 
@@ -352,6 +417,11 @@ def listwise_softmax_loss(logits: Tensor, *, positive_index: int = 0) -> Tensor:
     return nn.functional.cross_entropy(logits, targets)
 
 
+# Input: optimizer, total_steps (int), warmup_fraction (float)
+# Output: unannotated
+# Processing: Linear warmup over the first ``warmup_fraction`` of steps, then linear decay.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def linear_warmup_schedule(optimizer, *, total_steps: int, warmup_fraction: float):
     """Linear warmup over the first ``warmup_fraction`` of steps, then linear decay.
 
@@ -363,6 +433,11 @@ def linear_warmup_schedule(optimizer, *, total_steps: int, warmup_fraction: floa
         raise ValueError(f"total_steps must be positive, got {total_steps}")
     warmup_steps = max(1, int(total_steps * warmup_fraction))
 
+    # Input: step (int)
+    # Output: float
+    # Processing: Lr lambda
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def lr_lambda(step: int) -> float:
         if step < warmup_steps:
             return step / warmup_steps
@@ -372,6 +447,11 @@ def linear_warmup_schedule(optimizer, *, total_steps: int, warmup_fraction: floa
     return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
 
+# Input: model (CrossEncoder), groups (Sequence[CrossEncoderGroup]), config (TrainingConfig | None), device (str | torch.device | None)
+# Output: list[float]
+# Processing: Fine-tune all layers with the spec's optimiser settings.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def train_cross_encoder(
     model: CrossEncoder,
     groups: Sequence[CrossEncoderGroup],

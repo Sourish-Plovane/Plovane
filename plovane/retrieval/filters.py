@@ -19,6 +19,11 @@ DEFAULT_ALLOWED_LICENSES: tuple[str, ...] = ("MIT", "Apache-2.0", "BSD-2-Clause"
 unless the requester's own policy lists them."""
 
 
+# Input: entry (Entry), installed (Sequence[str])
+# Output: DependencyCompat
+# Processing: How the entry's dependencies sit against the project's installed set.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def classify_dependency_compat(entry: Entry, installed: Sequence[str]) -> DependencyCompat:
     """How the entry's dependencies sit against the project's installed set.
 
@@ -68,6 +73,11 @@ class FilterSpec:
 
     extra_sql: tuple[str, ...] = field(default_factory=tuple)
 
+    # Input: request (Request), allowed_licenses (Sequence[str])
+    # Output: FilterSpec
+    # Processing: From request
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @classmethod
     def from_request(
         cls,
@@ -88,6 +98,11 @@ class FilterSpec:
 
     # -- SQL ---------------------------------------------------------------
 
+    # Input: none
+    # Output: tuple[str, dict[str, Any]]
+    # Processing: Render the filters as a parameterised SQL ``WHERE`` body.
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def where_clause(self) -> tuple[str, dict[str, Any]]:
         """Render the filters as a parameterised SQL ``WHERE`` body.
 
@@ -136,6 +151,11 @@ class FilterSpec:
 
     # -- Python ------------------------------------------------------------
 
+    # Input: entry (Entry)
+    # Output: bool
+    # Processing: The same predicate in Python, for the in-memory backends and tests.
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def matches(self, entry: Entry) -> bool:
         """The same predicate in Python, for the in-memory backends and tests.
 

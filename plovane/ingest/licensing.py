@@ -77,6 +77,11 @@ class Eligibility(str, Enum):
     UNLICENSED = "unlicensed"
     UNKNOWN = "unknown"
 
+    # Input: none
+    # Output: bool
+    # Processing: Usable
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @property
     def usable(self) -> bool:
         return self is Eligibility.ELIGIBLE
@@ -91,11 +96,21 @@ class LicenseVerdict:
     reason: str
     requires_notice: bool = False
 
+    # Input: none
+    # Output: bool
+    # Processing: Usable
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @property
     def usable(self) -> bool:
         return self.eligibility.usable
 
 
+# Input: raw (str | None)
+# Output: str | None
+# Processing: Canonicalise a GitHub licence id, or None when it says nothing.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def normalize_spdx(raw: str | None) -> str | None:
     """Canonicalise a GitHub licence id, or None when it says nothing.
 
@@ -115,6 +130,11 @@ def normalize_spdx(raw: str | None) -> str | None:
     return cleaned
 
 
+# Input: raw_spdx (str | None), allowed (frozenset[str])
+# Output: LicenseVerdict
+# Processing: Decide eligibility from a repository's SPDX identifier.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def classify_license(
     raw_spdx: str | None,
     *,
@@ -155,6 +175,11 @@ def classify_license(
     )
 
 
+# Input: license_text (str)
+# Output: str | None
+# Processing: Pull the copyright holder out of a licence body.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def extract_copyright_holder(license_text: str) -> str | None:
     """Pull the copyright holder out of a licence body.
 

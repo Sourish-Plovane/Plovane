@@ -59,6 +59,11 @@ class TrainingGroup:
     labels: np.ndarray  # graded relevance, higher is better
     query_id: str | None = None
 
+    # Input: none
+    # Output: None
+    # Processing: Post init
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def __post_init__(self) -> None:
         self.features = np.asarray(self.features, dtype=np.float32)
         self.labels = np.asarray(self.labels, dtype=np.float32)
@@ -70,6 +75,11 @@ class TrainingGroup:
             )
 
 
+# Input: groups (Sequence[TrainingGroup])
+# Output: tuple[np.ndarray, np.ndarray, list[int]]
+# Processing: Flatten
+# Changed by: Claude Code
+# Date: 2026-10-12
 def _flatten(groups: Sequence[TrainingGroup]) -> tuple[np.ndarray, np.ndarray, list[int]]:
     if not groups:
         raise ValueError("no training groups given")
@@ -81,9 +91,19 @@ def _flatten(groups: Sequence[TrainingGroup]) -> tuple[np.ndarray, np.ndarray, l
 class FeatureRanker(Protocol):
     """Scores a feature matrix. Higher is better."""
 
+    # Input: features (np.ndarray)
+    # Output: np.ndarray
+    # Processing: Score
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def score(self, features: np.ndarray) -> np.ndarray: ...
 
 
+# Input: features (np.ndarray)
+# Output: np.ndarray
+# Processing: Min-max each column across this query's candidates.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def normalize_within_query(features: np.ndarray) -> np.ndarray:
     """Min-max each column across this query's candidates.
 
@@ -109,6 +129,11 @@ def normalize_within_query(features: np.ndarray) -> np.ndarray:
 class LinearFeatureRanker:
     """Hand-weighted linear score over the normalised features."""
 
+    # Input: weights (dict[str, float] | None)
+    # Output: None
+    # Processing: Init
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def __init__(self, weights: dict[str, float] | None = None) -> None:
         weights = weights or HAND_WEIGHTS
         unknown = set(weights) - set(FEATURE_NAMES)
@@ -117,6 +142,11 @@ class LinearFeatureRanker:
         self.weights = weights
         self._vector = np.asarray([weights.get(name, 0.0) for name in FEATURE_NAMES], dtype=np.float32)
 
+    # Input: features (np.ndarray)
+    # Output: np.ndarray
+    # Processing: Score
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def score(self, features: np.ndarray) -> np.ndarray:
         features = np.asarray(features, dtype=np.float32)
         if features.size == 0:
@@ -129,10 +159,20 @@ class LinearFeatureRanker:
 class LightGBMFeatureRanker:
     """LightGBM lambdarank over the same features. Requires lightgbm."""
 
+    # Input: config (LightGBMConfig | None)
+    # Output: None
+    # Processing: Init
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def __init__(self, config: LightGBMConfig | None = None) -> None:
         self.config = config or LightGBMConfig()
         self.booster = None
 
+    # Input: groups (Sequence[TrainingGroup]), validation (Sequence[TrainingGroup] | None)
+    # Output: LightGBMFeatureRanker
+    # Processing: Fit
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def fit(
         self,
         groups: Sequence[TrainingGroup],
@@ -170,6 +210,11 @@ class LightGBMFeatureRanker:
         )
         return self
 
+    # Input: features (np.ndarray)
+    # Output: np.ndarray
+    # Processing: Score
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def score(self, features: np.ndarray) -> np.ndarray:
         if self.booster is None:
             raise RuntimeError("LightGBMFeatureRanker is not fitted; call fit() or load()")
@@ -178,6 +223,11 @@ class LightGBMFeatureRanker:
             return np.zeros(features.shape[0], dtype=np.float32)
         return np.asarray(self.booster.predict(features), dtype=np.float32)
 
+    # Input: none
+    # Output: dict[str, float]
+    # Processing: Gain per feature. Worth reading before adding another one.
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def feature_importance(self) -> dict[str, float]:
         """Gain per feature. Worth reading before adding another one."""
         if self.booster is None:
@@ -185,11 +235,21 @@ class LightGBMFeatureRanker:
         gains = self.booster.feature_importance(importance_type="gain")
         return dict(zip(FEATURE_NAMES, (float(g) for g in gains), strict=True))
 
+    # Input: path (str | Path)
+    # Output: None
+    # Processing: Save
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def save(self, path: str | Path) -> None:
         if self.booster is None:
             raise RuntimeError("LightGBMFeatureRanker is not fitted")
         self.booster.save_model(str(path))
 
+    # Input: path (str | Path)
+    # Output: LightGBMFeatureRanker
+    # Processing: Load
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def load(self, path: str | Path) -> LightGBMFeatureRanker:
         import lightgbm as lgb
 
@@ -197,6 +257,11 @@ class LightGBMFeatureRanker:
         return self
 
 
+# Input: candidates (Sequence[Candidate]), ctx (FeatureContext), ranker (FeatureRanker), top_k (int)
+# Output: list[Candidate]
+# Processing: Score every candidate, keep the best ``top_k``.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def rank_stage1(
     candidates: Sequence[Candidate],
     ctx: FeatureContext,

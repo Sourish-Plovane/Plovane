@@ -20,6 +20,11 @@ from plovane.retrieval.vector import l2_normalize
 from plovane.schemas import Candidate
 
 
+# Input: candidates (Sequence[Candidate]), k (int), lambda_ (float)
+# Output: list[Candidate]
+# Processing: Select at most ``k`` candidates, diversity-aware, best match first.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def maximal_marginal_relevance(
     candidates: Sequence[Candidate],
     *,

@@ -39,11 +39,21 @@ from plovane.schemas import Entry, EntryType
 TEMPLATE_TYPE_TOKENS: tuple[str, ...] = ("<type:template>", "<type:bundle>", "<type:helper>")
 
 
+# Input: entry (Entry)
+# Output: str
+# Processing: ``<type:template>`` and friends, so one model can serve both arms.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def type_token(entry: Entry) -> str:
     """``<type:template>`` and friends, so one model can serve both arms."""
     return f"<type:{entry.type.value}>"
 
 
+# Input: entry (Entry)
+# Output: str
+# Processing: The candidate side's non-code half: name and description, no signature.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def template_head(entry: Entry) -> str:
     """The candidate side's non-code half: name and description, no signature."""
     parts = [entry.name, entry.description, entry.docstring]
@@ -59,6 +69,11 @@ class TemplateCrossEncoderTokenizer(CrossEncoderTokenizer):
     text least likely to distinguish it from nine near-identical starters.
     """
 
+    # Input: tokenizer, max_tokens (int), query_max_tokens (int), min_code_tokens (int), head_max_tokens (int)
+    # Output: None
+    # Processing: Init
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def __init__(
         self,
         tokenizer,
@@ -72,6 +87,11 @@ class TemplateCrossEncoderTokenizer(CrossEncoderTokenizer):
         self.min_code_tokens = min_code_tokens
         self.head_max_tokens = head_max_tokens
 
+    # Input: query_text (str), entry (Entry)
+    # Output: EncodedPair
+    # Processing: Encode
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def encode(self, query_text: str, entry: Entry) -> EncodedPair:
         budget = self.max_tokens - 3  # [CLS] ... [SEP] ... [SEP]
         if budget <= 0:
@@ -108,6 +128,11 @@ class TemplateCrossEncoder(CrossEncoder):
     extra_special_tokens = TEMPLATE_TYPE_TOKENS
 
 
+# Input: entries (Sequence[Entry]), include_bundles (bool)
+# Output: list[Entry]
+# Processing: Filter a library down to what the template model is trained to score.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def template_entries(entries: Sequence[Entry], *, include_bundles: bool = True) -> list[Entry]:
     """Filter a library down to what the template model is trained to score."""
     allowed = {EntryType.TEMPLATE}

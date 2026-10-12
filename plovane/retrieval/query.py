@@ -17,6 +17,11 @@ from plovane.schemas import Request
 class RetrievalQuery:
     request: Request
 
+    # Input: none
+    # Output: str
+    # Processing: Lexical surface. Identifiers in the request text matter most here --
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @property
     def keyword_text(self) -> str:
         """Lexical surface. Identifiers in the request text matter most here --
@@ -30,6 +35,11 @@ class RetrievalQuery:
             parts.append(ctx.category)
         return " ".join(parts)
 
+    # Input: none
+    # Output: str
+    # Processing: Semantic surface: the full context, written out, so the embedding
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @property
     def vector_text(self) -> str:
         """Semantic surface: the full context, written out, so the embedding
@@ -48,11 +58,21 @@ class RetrievalQuery:
             lines.append(f"editing: {ctx.file_summary}")
         return "\n".join(lines)
 
+    # Input: none
+    # Output: str
+    # Processing: The query half of the cross-encoder's input pair.
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @property
     def cross_encoder_text(self) -> str:
         """The query half of the cross-encoder's input pair."""
         return self.vector_text
 
 
+# Input: request (Request)
+# Output: RetrievalQuery
+# Processing: Build query
+# Changed by: Claude Code
+# Date: 2026-10-12
 def build_query(request: Request) -> RetrievalQuery:
     return RetrievalQuery(request=request)

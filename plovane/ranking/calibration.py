@@ -22,6 +22,11 @@ from pathlib import Path
 import numpy as np
 
 
+# Input: x (np.ndarray), y (np.ndarray), weights (np.ndarray | None)
+# Output: tuple[np.ndarray, np.ndarray]
+# Processing: Fit a non-decreasing step function to ``(x, y)`` by PAVA.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def pool_adjacent_violators(
     x: np.ndarray, y: np.ndarray, weights: np.ndarray | None = None
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -81,15 +86,30 @@ def pool_adjacent_violators(
 class IsotonicCalibrator:
     """Maps a ranker score to a calibrated acceptance probability."""
 
+    # Input: clip (tuple[float, float])
+    # Output: None
+    # Processing: Init
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def __init__(self, *, clip: tuple[float, float] = (0.0, 1.0)) -> None:
         self.clip = clip
         self.thresholds: np.ndarray | None = None
         self.values: np.ndarray | None = None
 
+    # Input: none
+    # Output: bool
+    # Processing: Fitted
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @property
     def fitted(self) -> bool:
         return self.thresholds is not None
 
+    # Input: scores (np.ndarray), accepted (np.ndarray), weights (np.ndarray | None)
+    # Output: IsotonicCalibrator
+    # Processing: Fit on a held-out set of ``(score, accepted)`` observations.
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def fit(
         self, scores: np.ndarray, accepted: np.ndarray, *, weights: np.ndarray | None = None
     ) -> IsotonicCalibrator:
@@ -105,6 +125,11 @@ class IsotonicCalibrator:
         self.values = np.clip(values, *self.clip)
         return self
 
+    # Input: scores (np.ndarray)
+    # Output: np.ndarray
+    # Processing: Interpolate between fitted points; clamp outside the fitted range.
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def predict(self, scores: np.ndarray) -> np.ndarray:
         """Interpolate between fitted points; clamp outside the fitted range.
 
@@ -124,11 +149,21 @@ class IsotonicCalibrator:
         out = np.interp(scores, self.thresholds, self.values)
         return np.clip(out, *self.clip).astype(np.float32)
 
+    # Input: path (str | Path)
+    # Output: None
+    # Processing: Save
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def save(self, path: str | Path) -> None:
         if self.thresholds is None or self.values is None:
             raise RuntimeError("IsotonicCalibrator is not fitted")
         np.savez(str(path), thresholds=self.thresholds, values=self.values, clip=np.asarray(self.clip))
 
+    # Input: path (str | Path)
+    # Output: IsotonicCalibrator
+    # Processing: Load
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def load(self, path: str | Path) -> IsotonicCalibrator:
         data = np.load(str(path))
         self.thresholds = data["thresholds"]

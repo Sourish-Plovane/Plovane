@@ -33,6 +33,11 @@ NO_MATCH_REASON = "no entry above the relevance cutoff"
 pasting something it will have to undo."""
 
 
+# Input: none
+# Output: str
+# Processing: A unique id tying a response to the agent's later accept or reject.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def new_query_id() -> str:
     """A unique id tying a response to the agent's later accept or reject.
 
@@ -55,6 +60,11 @@ class ModelVersions:
     stage3: str = "unversioned"
     calibrator: str = "none"
 
+    # Input: none
+    # Output: dict[str, str]
+    # Processing: As dict
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def as_dict(self) -> dict[str, str]:
         return {
             "retrieval_embedding": self.retrieval_embedding,
@@ -86,6 +96,11 @@ class RecommendationPipeline:
     stage1_top_k: int = STAGE1_TOP_K
     versions: ModelVersions = field(default_factory=ModelVersions)
 
+    # Input: request (Request), project_embedding (np.ndarray | None)
+    # Output: FeatureContext
+    # Processing: Feature context
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def _feature_context(self, request: Request, project_embedding: np.ndarray | None) -> FeatureContext:
         return FeatureContext.build(
             usage_index=self.usage_index,
@@ -95,6 +110,11 @@ class RecommendationPipeline:
             requester_id=request.requester_id,
         )
 
+    # Input: request (Request), filters (FilterSpec | None), project_embedding (np.ndarray | None)
+    # Output: tuple[Response, RecommendationLog]
+    # Processing: Recommend
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def recommend(
         self,
         request: Request,
@@ -138,6 +158,11 @@ class RecommendationPipeline:
         )
         return response, log
 
+    # Input: request (Request), candidates (Sequence[Candidate]), project_embedding (np.ndarray | None)
+    # Output: list[Candidate]
+    # Processing: Run the ranking stages over a fixed candidate set.
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def rank_only(
         self,
         request: Request,

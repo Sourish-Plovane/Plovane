@@ -23,6 +23,11 @@ from plovane.retrieval.filters import FilterSpec
 from plovane.schemas import Entry
 
 
+# Input: vectors (np.ndarray), axis (int), eps (float)
+# Output: np.ndarray
+# Processing: Scale to unit length so cosine similarity is a plain dot product.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def l2_normalize(vectors: np.ndarray, *, axis: int = -1, eps: float = 1e-12) -> np.ndarray:
     """Scale to unit length so cosine similarity is a plain dot product.
 
@@ -37,6 +42,11 @@ def l2_normalize(vectors: np.ndarray, *, axis: int = -1, eps: float = 1e-12) -> 
 class VectorIndex(Protocol):
     """The contract a vector backend must satisfy."""
 
+    # Input: embedding (np.ndarray), limit (int), filters (FilterSpec | None)
+    # Output: list[tuple[str, float]]
+    # Processing: Return ``(entry_id, cosine_similarity)`` best first.
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def search(
         self,
         embedding: np.ndarray,
@@ -57,25 +67,50 @@ class InMemoryVectorIndex:
     serving a large library.
     """
 
+    # Input: entries (Iterable[Entry])
+    # Output: None
+    # Processing: Init
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def __init__(self, entries: Iterable[Entry] = ()) -> None:
         self._entries: dict[str, Entry] = {}
         self._vectors: dict[str, np.ndarray] = {}
         for entry in entries:
             self.add(entry)
 
+    # Input: none
+    # Output: int
+    # Processing: Len
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def __len__(self) -> int:
         return len(self._entries)
 
+    # Input: entry (Entry)
+    # Output: None
+    # Processing: Add
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def add(self, entry: Entry) -> None:
         if entry.embedding is None:
             raise ValueError(f"entry {entry.id} has no embedding to index")
         self._entries[entry.id] = entry
         self._vectors[entry.id] = l2_normalize(np.asarray(entry.embedding, dtype=np.float32))
 
+    # Input: entry_id (str)
+    # Output: None
+    # Processing: Remove
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def remove(self, entry_id: str) -> None:
         self._entries.pop(entry_id, None)
         self._vectors.pop(entry_id, None)
 
+    # Input: embedding (np.ndarray), limit (int), filters (FilterSpec | None)
+    # Output: list[tuple[str, float]]
+    # Processing: Search
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def search(
         self,
         embedding: np.ndarray,
@@ -124,6 +159,11 @@ WITH (m = 16, ef_construction = 64)
 """
 
 
+# Input: ef_search (int), iterative_scan (str | None)
+# Output: list[str]
+# Processing: Per-connection settings that keep *filtered* vector search honest.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def pgvector_session_sql(
     *,
     ef_search: int = HNSW_EF_SEARCH,
@@ -149,6 +189,11 @@ def pgvector_session_sql(
     return statements
 
 
+# Input: filters (FilterSpec)
+# Output: tuple[str, dict[str, Any]]
+# Processing: Render :data:`PGVECTOR_SEARCH_SQL` with this request's filters bound in.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def render_vector_sql(filters: FilterSpec) -> tuple[str, dict[str, Any]]:
     """Render :data:`PGVECTOR_SEARCH_SQL` with this request's filters bound in."""
     clause, params = filters.where_clause()

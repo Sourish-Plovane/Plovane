@@ -40,16 +40,31 @@ class MetricDelta:
     tolerance: float
     higher_is_better: bool
 
+    # Input: none
+    # Output: float
+    # Processing: Change
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @property
     def change(self) -> float:
         return self.candidate - self.baseline
 
+    # Input: none
+    # Output: bool
+    # Processing: Regressed
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @property
     def regressed(self) -> bool:
         if self.higher_is_better:
             return self.change < -self.tolerance
         return self.change > self.tolerance
 
+    # Input: none
+    # Output: str
+    # Processing: Describe
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def describe(self) -> str:
         direction = "dropped" if self.higher_is_better else "rose"
         return (
@@ -65,6 +80,11 @@ class GateResult:
     blocking: tuple[str, ...] = ()
     warnings: tuple[str, ...] = ()
 
+    # Input: none
+    # Output: str
+    # Processing: Summary
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def summary(self) -> str:
         if self.passed and not self.warnings:
             return "release gate: PASS"
@@ -87,6 +107,11 @@ class ReleaseGate:
     passing: a measurement too small to detect a regression is not evidence
     that there isn't one."""
 
+    # Input: metric (str), baseline (MetricSnapshot), candidate (MetricSnapshot), tolerance (float)
+    # Output: MetricDelta
+    # Processing: Delta
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def _delta(self, metric: str, baseline: MetricSnapshot, candidate: MetricSnapshot, tolerance: float) -> MetricDelta:
         return MetricDelta(
             metric=metric,
@@ -96,6 +121,11 @@ class ReleaseGate:
             higher_is_better=metric in HIGHER_IS_BETTER,
         )
 
+    # Input: baseline (MetricSnapshot), candidate (MetricSnapshot)
+    # Output: GateResult
+    # Processing: Check
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def check(self, baseline: MetricSnapshot, candidate: MetricSnapshot) -> GateResult:
         blocking: list[str] = []
         warnings: list[str] = []

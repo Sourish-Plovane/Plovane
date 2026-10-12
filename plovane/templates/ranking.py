@@ -63,6 +63,11 @@ class LinearRanker:
     before weighting, because they have no common scale.
     """
 
+    # Input: feature_names (Sequence[str]), weights (dict[str, float])
+    # Output: None
+    # Processing: Init
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def __init__(self, feature_names: Sequence[str], weights: dict[str, float]) -> None:
         unknown = set(weights) - set(feature_names)
         if unknown:
@@ -71,6 +76,11 @@ class LinearRanker:
         self.weights = weights
         self._vector = np.asarray([weights.get(name, 0.0) for name in feature_names], dtype=np.float32)
 
+    # Input: features (np.ndarray)
+    # Output: np.ndarray
+    # Processing: Score
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def score(self, features: np.ndarray) -> np.ndarray:
         features = np.asarray(features, dtype=np.float32)
         if features.size == 0:
@@ -83,11 +93,21 @@ class LinearRanker:
 class LightGBMTemplateRanker:
     """LightGBM lambdarank over a named feature set. Requires lightgbm."""
 
+    # Input: feature_names (Sequence[str]), config (LightGBMConfig | None)
+    # Output: None
+    # Processing: Init
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def __init__(self, feature_names: Sequence[str], config: LightGBMConfig | None = None) -> None:
         self.feature_names = tuple(feature_names)
         self.config = config or LightGBMConfig()
         self.booster = None
 
+    # Input: groups (Sequence[TrainingGroup]), validation (Sequence[TrainingGroup] | None)
+    # Output: LightGBMTemplateRanker
+    # Processing: Fit
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def fit(
         self, groups: Sequence[TrainingGroup], *, validation: Sequence[TrainingGroup] | None = None
     ) -> LightGBMTemplateRanker:
@@ -134,6 +154,11 @@ class LightGBMTemplateRanker:
         )
         return self
 
+    # Input: features (np.ndarray)
+    # Output: np.ndarray
+    # Processing: Score
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def score(self, features: np.ndarray) -> np.ndarray:
         if self.booster is None:
             raise RuntimeError("LightGBMTemplateRanker is not fitted; call fit() or load()")
@@ -142,17 +167,32 @@ class LightGBMTemplateRanker:
             return np.zeros(features.shape[0], dtype=np.float32)
         return np.asarray(self.booster.predict(features), dtype=np.float32)
 
+    # Input: none
+    # Output: dict[str, float]
+    # Processing: Feature importance
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def feature_importance(self) -> dict[str, float]:
         if self.booster is None:
             raise RuntimeError("LightGBMTemplateRanker is not fitted")
         gains = self.booster.feature_importance(importance_type="gain")
         return dict(zip(self.feature_names, (float(g) for g in gains), strict=True))
 
+    # Input: path (str | Path)
+    # Output: None
+    # Processing: Save
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def save(self, path: str | Path) -> None:
         if self.booster is None:
             raise RuntimeError("LightGBMTemplateRanker is not fitted")
         self.booster.save_model(str(path))
 
+    # Input: path (str | Path)
+    # Output: LightGBMTemplateRanker
+    # Processing: Load
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def load(self, path: str | Path) -> LightGBMTemplateRanker:
         import lightgbm as lgb
 
@@ -160,11 +200,21 @@ class LightGBMTemplateRanker:
         return self
 
 
+# Input: none
+# Output: LinearRanker
+# Processing: The untrained Stage 1 template ranker. Works on day one.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def default_stage1_ranker() -> LinearRanker:
     """The untrained Stage 1 template ranker. Works on day one."""
     return LinearRanker(TEMPLATE_FEATURE_NAMES, TEMPLATE_HAND_WEIGHTS)
 
 
+# Input: none
+# Output: LinearRanker
+# Processing: The untrained Stage 3 template ranker.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def default_stage3_ranker() -> LinearRanker:
     """The untrained Stage 3 template ranker."""
     return LinearRanker(TEMPLATE_STAGE3_FEATURE_NAMES, TEMPLATE_STAGE3_HAND_WEIGHTS)

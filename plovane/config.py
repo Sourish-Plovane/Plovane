@@ -91,6 +91,11 @@ class LightGBMConfig:
     early_stopping_rounds: int = 50
     extra: dict[str, object] = field(default_factory=dict)
 
+    # Input: none
+    # Output: dict[str, object]
+    # Processing: As params
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def as_params(self) -> dict[str, object]:
         params: dict[str, object] = {
             "objective": self.objective,

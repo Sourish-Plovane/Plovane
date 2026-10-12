@@ -35,6 +35,11 @@ class DependencyCompat(str, Enum):
     NEEDS_INSTALL = "needs_install"
     CONFLICTS = "conflicts"
 
+    # Input: none
+    # Output: int
+    # Processing: Ordinal
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @property
     def ordinal(self) -> int:
         return {"compatible": 0, "needs_install": 1, "conflicts": 2}[self.value]
@@ -54,6 +59,11 @@ class ProjectContext:
     dependencies: tuple[str, ...] = ()
     file_summary: str | None = None
 
+    # Input: raw (dict[str, Any])
+    # Output: ProjectContext
+    # Processing: From dict
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> ProjectContext:
         return cls(
@@ -77,6 +87,11 @@ class Request:
     """When set, the agent wants code it can paste without installing anything,
     so dependency compatibility becomes a filter rather than a feature."""
 
+    # Input: raw (dict[str, Any])
+    # Output: Request
+    # Processing: From dict
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> Request:
         return cls(
@@ -118,11 +133,21 @@ class Entry:
 
     embedding: np.ndarray | None = None
 
+    # Input: none
+    # Output: float
+    # Processing: Raw rate. Stage 1 uses the smoothed version, not this one.
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @property
     def acceptance_rate(self) -> float:
         """Raw rate. Stage 1 uses the smoothed version, not this one."""
         return self.accepts / self.impressions if self.impressions else 0.0
 
+    # Input: none
+    # Output: str
+    # Processing: The keyword-index document: name, signature, docstring, tags and
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def indexed_text(self) -> str:
         """The keyword-index document: name, signature, docstring, tags and
         generated description. Code is deliberately left out -- it is the
@@ -130,6 +155,11 @@ class Entry:
         parts = [self.name, self.signature or "", self.docstring, " ".join(self.tags), self.description]
         return "\n".join(p for p in parts if p)
 
+    # Input: now (datetime | None)
+    # Output: float
+    # Processing: Large value when never retested, so staleness is never rewarded.
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def days_since_retest(self, now: datetime | None = None) -> float:
         """Large value when never retested, so staleness is never rewarded."""
         if self.last_retest_at is None:
@@ -158,6 +188,11 @@ class Candidate:
     final_score: float | None = None
     calibrated_score: float | None = None
 
+    # Input: none
+    # Output: str
+    # Processing: Id
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @property
     def id(self) -> str:
         return self.entry.id
@@ -177,6 +212,11 @@ class SlimCard:
     signature: str | None = None
     members: int | None = None
 
+    # Input: candidate (Candidate), score (float)
+    # Output: SlimCard
+    # Processing: From candidate
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @classmethod
     def from_candidate(cls, candidate: Candidate, score: float) -> SlimCard:
         entry = candidate.entry
@@ -194,6 +234,11 @@ class SlimCard:
             members=entry.members if entry.type is EntryType.BUNDLE else None,
         )
 
+    # Input: none
+    # Output: dict[str, Any]
+    # Processing: To dict
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def to_dict(self) -> dict[str, Any]:
         out: dict[str, Any] = {
             "id": self.id,
@@ -219,6 +264,11 @@ class Response:
     results: tuple[SlimCard, ...] = ()
     reason: str | None = None
 
+    # Input: none
+    # Output: dict[str, Any]
+    # Processing: To dict
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def to_dict(self) -> dict[str, Any]:
         out: dict[str, Any] = {
             "query_id": self.query_id,

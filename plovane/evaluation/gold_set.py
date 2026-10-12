@@ -51,17 +51,32 @@ class GoldQuery:
     """``hand-labelled`` or ``usage:<date>`` for queries harvested from real
     traffic, so a drift in the set's composition is visible."""
 
+    # Input: none
+    # Output: None
+    # Processing: Post init
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def __post_init__(self) -> None:
         if not self.relevance:
             raise ValueError(f"gold query {self.query_id} has no relevant entries")
         if any(grade < 0 for grade in self.relevance.values()):
             raise ValueError(f"gold query {self.query_id} has a negative relevance grade")
 
+    # Input: none
+    # Output: set[str]
+    # Processing: Relevant ids
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @property
     def relevant_ids(self) -> set[str]:
         return {entry_id for entry_id, grade in self.relevance.items() if grade > 0}
 
 
+# Input: query_id (str), holdout_fraction (float), validation_fraction (float)
+# Output: Split
+# Processing: Deterministic split by hash of the query id.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def assign_split(query_id: str, *, holdout_fraction: float = 0.3, validation_fraction: float = 0.2) -> Split:
     """Deterministic split by hash of the query id.
 
@@ -90,33 +105,68 @@ class GoldSet:
 
     queries: list[GoldQuery] = field(default_factory=list)
 
+    # Input: none
+    # Output: int
+    # Processing: Len
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def __len__(self) -> int:
         return len(self.queries)
 
+    # Input: query (GoldQuery)
+    # Output: None
+    # Processing: Add
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def add(self, query: GoldQuery) -> None:
         if any(q.query_id == query.query_id for q in self.queries):
             raise ValueError(f"duplicate gold query id {query.query_id}")
         self.queries.append(query)
 
+    # Input: split (Split)
+    # Output: list[GoldQuery]
+    # Processing: Split
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def split(self, split: Split) -> list[GoldQuery]:
         return [q for q in self.queries if q.split == split]
 
+    # Input: none
+    # Output: list[GoldQuery]
+    # Processing: The frozen portion. Read it to measure; never to decide.
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @property
     def holdout(self) -> list[GoldQuery]:
         """The frozen portion. Read it to measure; never to decide."""
         return self.split("holdout")
 
+    # Input: none
+    # Output: dict[str, int]
+    # Processing: Languages
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def languages(self) -> dict[str, int]:
         counts: dict[str, int] = {}
         for query in self.queries:
             counts[query.language.lower()] = counts.get(query.language.lower(), 0) + 1
         return counts
 
+    # Input: mvp_languages (Sequence[str])
+    # Output: tuple[str, ...]
+    # Processing: MVP languages with no labelled queries at all.
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def missing_languages(self, *, mvp_languages: Sequence[str] = MVP_LANGUAGES) -> tuple[str, ...]:
         """MVP languages with no labelled queries at all."""
         present = self.languages()
         return tuple(lang for lang in mvp_languages if not present.get(lang.lower()))
 
+    # Input: mvp_languages (Sequence[str]), minimum_per_language (int)
+    # Output: dict[str, object]
+    # Processing: What the set can and cannot measure.
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def coverage_report(
         self, *, mvp_languages: Sequence[str] = MVP_LANGUAGES, minimum_per_language: int = 20
     ) -> dict[str, object]:
@@ -143,6 +193,11 @@ class GoldSet:
 
     # -- Persistence -------------------------------------------------------
 
+    # Input: path (str | Path)
+    # Output: None
+    # Processing: To jsonl
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def to_jsonl(self, path: str | Path) -> None:
         with Path(path).open("w", encoding="utf-8") as handle:
             for query in self.queries:
@@ -168,6 +223,11 @@ class GoldSet:
                     + "\n"
                 )
 
+    # Input: path (str | Path)
+    # Output: GoldSet
+    # Processing: From jsonl
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @classmethod
     def from_jsonl(cls, path: str | Path) -> GoldSet:
         gold = cls()
@@ -191,6 +251,11 @@ class GoldSet:
                 )
         return gold
 
+    # Input: queries (Iterable[GoldQuery]), assign_splits (bool)
+    # Output: GoldSet
+    # Processing: From queries
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @classmethod
     def from_queries(cls, queries: Iterable[GoldQuery], *, assign_splits: bool = False) -> GoldSet:
         gold = cls()

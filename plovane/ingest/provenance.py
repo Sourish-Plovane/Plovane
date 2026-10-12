@@ -56,10 +56,20 @@ class SourceRef:
     start_line: int | None = None
     end_line: int | None = None
 
+    # Input: none
+    # Output: str
+    # Processing: Full name
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @property
     def full_name(self) -> str:
         return f"{self.owner}/{self.repo}"
 
+    # Input: none
+    # Output: str
+    # Processing: A SHA-pinned URL, so the link still resolves after a force-push.
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @property
     def permalink(self) -> str:
         """A SHA-pinned URL, so the link still resolves after a force-push."""
@@ -83,6 +93,11 @@ class Attribution:
     needs_review: bool = False
     harvested_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
+    # Input: none
+    # Output: None
+    # Processing: Post init
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def __post_init__(self) -> None:
         if not self.verdict.usable:
             raise ValueError(
@@ -99,6 +114,11 @@ class Attribution:
             # one. Flag it so a human can confirm absence rather than assume it.
             object.__setattr__(self, "needs_review", True)
 
+    # Input: none
+    # Output: str
+    # Processing: One line naming the source, holder and licence.
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def credit_line(self) -> str:
         """One line naming the source, holder and licence."""
         return (
@@ -106,6 +126,11 @@ class Attribution:
             f"(c) {self.copyright_holder}, {self.verdict.spdx_id}"
         )
 
+    # Input: language (str)
+    # Output: str
+    # Processing: The attribution block to prepend to inserted code.
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def header(self, language: str) -> str:
         """The attribution block to prepend to inserted code.
 
@@ -128,6 +153,11 @@ class Attribution:
             return f"{opener}\n{body}\n{closer}"
         return body
 
+    # Input: none
+    # Output: dict[str, object]
+    # Processing: Flat row for the entry's provenance column.
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def as_record(self) -> dict[str, object]:
         """Flat row for the entry's provenance column."""
         return {
@@ -145,6 +175,11 @@ class Attribution:
         }
 
 
+# Input: source (SourceRef), verdict (LicenseVerdict), license_text (str), parsed_holder (str | None), notice_text (str | None)
+# Output: Attribution
+# Processing: Assemble an attribution, falling back where the holder could not be parsed.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def build_attribution(
     source: SourceRef,
     verdict: LicenseVerdict,
@@ -165,6 +200,11 @@ def build_attribution(
     )
 
 
+# Input: attributions (list[Attribution])
+# Output: str
+# Processing: The THIRD_PARTY_LICENSES file for a project that inserted these entries.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def render_third_party_licenses(attributions: list[Attribution]) -> str:
     """The THIRD_PARTY_LICENSES file for a project that inserted these entries.
 

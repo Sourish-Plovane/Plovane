@@ -72,13 +72,28 @@ class TemplateRecommender:
     include_bundles: bool = True
     versions: ModelVersions = field(default_factory=ModelVersions)
 
+    # Input: none
+    # Output: bool
+    # Processing: Is calibrated
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @property
     def is_calibrated(self) -> bool:
         return self.calibrator is not None and self.calibrator.fitted
 
+    # Input: none
+    # Output: tuple[str, ...]
+    # Processing: Entry types
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def _entry_types(self) -> tuple[str, ...]:
         return TEMPLATE_ENTRY_TYPES if self.include_bundles else ("template",)
 
+    # Input: request (Request)
+    # Output: FilterSpec
+    # Processing: The request's filters, restricted to template-like entries.
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def filters_for(self, request: Request) -> FilterSpec:
         """The request's filters, restricted to template-like entries.
 
@@ -98,6 +113,11 @@ class TemplateRecommender:
             entry_types=self._entry_types(),
         )
 
+    # Input: request (Request), project_embedding (np.ndarray | None)
+    # Output: FeatureContext
+    # Processing: Context
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def _context(self, request: Request, project_embedding: np.ndarray | None) -> FeatureContext:
         return FeatureContext.build(
             usage_index=self.usage_index,
@@ -107,6 +127,11 @@ class TemplateRecommender:
             requester_id=request.requester_id,
         )
 
+    # Input: request (Request), project_embedding (np.ndarray | None)
+    # Output: tuple[Response, RecommendationLog]
+    # Processing: Recommend
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def recommend(
         self,
         request: Request,
@@ -150,6 +175,11 @@ class TemplateRecommender:
 
     # -- Stages ------------------------------------------------------------
 
+    # Input: candidates (Sequence[Candidate]), ctx (FeatureContext), framework (str | None)
+    # Output: list[Candidate]
+    # Processing: Stage1
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def _stage1(
         self, candidates: Sequence[Candidate], ctx: FeatureContext, framework: str | None
     ) -> list[Candidate]:
@@ -162,6 +192,11 @@ class TemplateRecommender:
         order = np.argsort(-np.asarray(scores), kind="stable")[: self.stage1_top_k]
         return [candidates[i] for i in order]
 
+    # Input: candidates (Sequence[Candidate]), ctx (FeatureContext), framework (str | None)
+    # Output: list[Candidate]
+    # Processing: Stage3
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def _stage3(
         self, candidates: Sequence[Candidate], ctx: FeatureContext, framework: str | None
     ) -> list[Candidate]:

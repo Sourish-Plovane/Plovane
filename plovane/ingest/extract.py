@@ -60,6 +60,11 @@ Vendored and generated trees are worse -- their licence is not the repository's.
 """
 
 
+# Input: path (str)
+# Output: str | None
+# Processing: Language for path
+# Changed by: Claude Code
+# Date: 2026-10-12
 def language_for_path(path: str) -> str | None:
     # Anchored with a leading slash so a root-level directory matches the same
     # markers as a nested one. GitHub's tree API returns paths without one, so
@@ -90,11 +95,21 @@ class ExtractedUnit:
     is_template: bool = False
     needs_review: bool = False
 
+    # Input: none
+    # Output: int
+    # Processing: Line count
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @property
     def line_count(self) -> int:
         return self.end_line - self.start_line + 1
 
 
+# Input: node (ast.FunctionDef | ast.AsyncFunctionDef)
+# Output: str
+# Processing: Python signature
+# Changed by: Claude Code
+# Date: 2026-10-12
 def _python_signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
     args = [a.arg for a in node.args.posonlyargs + node.args.args]
     if node.args.vararg:
@@ -106,6 +121,11 @@ def _python_signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
     return f"({', '.join(args)}){returns}"
 
 
+# Input: source (str)
+# Output: list[ExtractedUnit]
+# Processing: Exact extraction of module-level functions via the AST.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def extract_python(source: str) -> list[ExtractedUnit]:
     """Exact extraction of module-level functions via the AST.
 
@@ -141,6 +161,11 @@ def extract_python(source: str) -> list[ExtractedUnit]:
     return units
 
 
+# Input: source (str), language (str)
+# Output: list[ExtractedUnit]
+# Processing: Heuristic extraction for brace languages. Marked ``needs_review``.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def extract_braced(source: str, language: str) -> list[ExtractedUnit]:
     """Heuristic extraction for brace languages. Marked ``needs_review``.
 
@@ -204,6 +229,11 @@ def extract_braced(source: str, language: str) -> list[ExtractedUnit]:
     return units
 
 
+# Input: source (str), path (str), language (str), max_lines (int)
+# Output: ExtractedUnit | None
+# Processing: Treat a whole file as a template candidate.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def extract_file_as_template(
     source: str, path: str, language: str, *, max_lines: int = 400
 ) -> ExtractedUnit | None:
@@ -226,6 +256,11 @@ def extract_file_as_template(
     )
 
 
+# Input: source (str), path (str), want_template (bool)
+# Output: list[ExtractedUnit]
+# Processing: Extract candidates from one file, dispatching on its language.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def extract(source: str, path: str, *, want_template: bool = False) -> list[ExtractedUnit]:
     """Extract candidates from one file, dispatching on its language."""
     language = language_for_path(path)

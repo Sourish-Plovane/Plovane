@@ -29,6 +29,11 @@ _TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
 _CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 
 
+# Input: text (str)
+# Output: list[str]
+# Processing: Split code-ish text into terms.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def tokenize(text: str) -> list[str]:
     """Split code-ish text into terms.
 
@@ -58,6 +63,11 @@ class KeywordIndex(Protocol):
     it has to run inside the search, not after it.
     """
 
+    # Input: query (str), limit (int), filters (FilterSpec | None)
+    # Output: list[tuple[str, float]]
+    # Processing: Return ``(entry_id, bm25_score)`` best first, at most ``limit``.
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def search(
         self,
         query: str,
@@ -76,6 +86,11 @@ class InMemoryBM25Index:
     document :meth:`Entry.indexed_text` builds.
     """
 
+    # Input: entries (Iterable[Entry]), k1 (float), b (float)
+    # Output: None
+    # Processing: Init
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def __init__(self, entries: Iterable[Entry] = (), *, k1: float = BM25_K1, b: float = BM25_B) -> None:
         self.k1 = k1
         self.b = b
@@ -86,9 +101,19 @@ class InMemoryBM25Index:
         for entry in entries:
             self.add(entry)
 
+    # Input: none
+    # Output: int
+    # Processing: Len
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def __len__(self) -> int:
         return len(self._entries)
 
+    # Input: entry (Entry)
+    # Output: None
+    # Processing: Add or replace an entry. Replacing retracts the old term counts
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def add(self, entry: Entry) -> None:
         """Add or replace an entry. Replacing retracts the old term counts
         first, so re-indexing an edited entry does not inflate its IDF."""
@@ -102,6 +127,11 @@ class InMemoryBM25Index:
         for term in freqs:
             self._doc_freq[term] += 1
 
+    # Input: entry_id (str)
+    # Output: None
+    # Processing: Remove
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def remove(self, entry_id: str) -> None:
         if entry_id not in self._entries:
             return
@@ -113,12 +143,22 @@ class InMemoryBM25Index:
         del self._term_freqs[entry_id]
         del self._lengths[entry_id]
 
+    # Input: none
+    # Output: float
+    # Processing: Average length
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @property
     def average_length(self) -> float:
         if not self._lengths:
             return 0.0
         return sum(self._lengths.values()) / len(self._lengths)
 
+    # Input: term (str)
+    # Output: float
+    # Processing: Robertson-Sparck Jones IDF with the +0.5 smoothing, floored at zero.
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def _idf(self, term: str) -> float:
         """Robertson-Sparck Jones IDF with the +0.5 smoothing, floored at zero.
 
@@ -129,6 +169,11 @@ class InMemoryBM25Index:
         df = self._doc_freq.get(term, 0)
         return max(0.0, math.log(1.0 + (n - df + 0.5) / (df + 0.5)))
 
+    # Input: query (str), limit (int), filters (FilterSpec | None)
+    # Output: list[tuple[str, float]]
+    # Processing: Search
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def search(
         self,
         query: str,
@@ -183,6 +228,11 @@ installed, so it is verified in the integration environment, not here.
 """
 
 
+# Input: filters (FilterSpec)
+# Output: tuple[str, dict[str, object]]
+# Processing: Render :data:`BM25_SEARCH_SQL` with this request's filters bound in.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def render_bm25_sql(filters: FilterSpec) -> tuple[str, dict[str, object]]:
     """Render :data:`BM25_SEARCH_SQL` with this request's filters bound in."""
     clause, params = filters.where_clause()

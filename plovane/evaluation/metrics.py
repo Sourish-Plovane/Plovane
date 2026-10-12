@@ -30,6 +30,11 @@ from dataclasses import dataclass, field
 import numpy as np
 
 
+# Input: retrieved_ids (Sequence[str]), relevant_ids (Sequence[str] | set[str]), k (int)
+# Output: float
+# Processing: Share of the relevant entries that appear in the first ``k`` results.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def recall_at_k(retrieved_ids: Sequence[str], relevant_ids: Sequence[str] | set[str], k: int) -> float:
     """Share of the relevant entries that appear in the first ``k`` results.
 
@@ -45,11 +50,21 @@ def recall_at_k(retrieved_ids: Sequence[str], relevant_ids: Sequence[str] | set[
     return found / len(relevant)
 
 
+# Input: gains (Sequence[float])
+# Output: float
+# Processing: Discounted cumulative gain with the standard log2 position discount.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def dcg(gains: Sequence[float]) -> float:
     """Discounted cumulative gain with the standard log2 position discount."""
     return sum(g / math.log2(rank + 1) for rank, g in enumerate(gains, start=1))
 
 
+# Input: ranked_ids (Sequence[str]), relevance (Mapping[str, float]), k (int)
+# Output: float
+# Processing: Normalised DCG at ``k``, with exponential gains.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def ndcg_at_k(ranked_ids: Sequence[str], relevance: Mapping[str, float], k: int = 10) -> float:
     """Normalised DCG at ``k``, with exponential gains.
 
@@ -70,6 +85,11 @@ def ndcg_at_k(ranked_ids: Sequence[str], relevance: Mapping[str, float], k: int 
     return dcg(gains) / ideal_dcg
 
 
+# Input: ranked_ids (Sequence[str]), relevant_ids (Sequence[str] | set[str])
+# Output: float
+# Processing: 1 / rank of the first relevant result, or 0 if none appears.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def reciprocal_rank(ranked_ids: Sequence[str], relevant_ids: Sequence[str] | set[str]) -> float:
     """1 / rank of the first relevant result, or 0 if none appears."""
     relevant = set(relevant_ids)
@@ -79,6 +99,11 @@ def reciprocal_rank(ranked_ids: Sequence[str], relevant_ids: Sequence[str] | set
     return 0.0
 
 
+# Input: ranked_lists (Sequence[Sequence[str]]), relevant_sets (Sequence[Sequence[str] | set[str]])
+# Output: float
+# Processing: MRR across queries. Answers "how far down is the first good hit?".
+# Changed by: Claude Code
+# Date: 2026-10-12
 def mean_reciprocal_rank(
     ranked_lists: Sequence[Sequence[str]], relevant_sets: Sequence[Sequence[str] | set[str]]
 ) -> float:
@@ -92,6 +117,11 @@ def mean_reciprocal_rank(
     )
 
 
+# Input: scores (Sequence[float]), outcomes (Sequence[float]), bins (int)
+# Output: float
+# Processing: Weighted average gap between predicted score and observed accept rate.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def expected_calibration_error(
     scores: Sequence[float], outcomes: Sequence[float], *, bins: int = 10
 ) -> float:
@@ -129,6 +159,11 @@ def expected_calibration_error(
     return total
 
 
+# Input: outcomes (Sequence[float])
+# Output: float
+# Processing: Share of recommendations the user kept. The headline live metric.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def acceptance_rate(outcomes: Sequence[float]) -> float:
     """Share of recommendations the user kept. The headline live metric."""
     if not len(outcomes):
@@ -136,6 +171,11 @@ def acceptance_rate(outcomes: Sequence[float]) -> float:
     return float(np.mean(np.asarray(outcomes, dtype=np.float64)))
 
 
+# Input: inserted (int), reverted (int)
+# Output: float
+# Processing: Share of inserts the user deleted or heavily edited soon after.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def reverted_insert_rate(inserted: int, reverted: int) -> float:
     """Share of inserts the user deleted or heavily edited soon after.
 
@@ -166,6 +206,11 @@ class QueryOutcome:
     accepted: tuple[float, ...] = ()
     category: str | None = None
 
+    # Input: none
+    # Output: set[str]
+    # Processing: Relevant ids
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @property
     def relevant_ids(self) -> set[str]:
         return {entry_id for entry_id, grade in self.relevance.items() if grade > 0}
@@ -182,6 +227,11 @@ class MetricSnapshot:
     queries: int = 0
     per_language: dict[str, MetricSnapshot] = field(default_factory=dict)
 
+    # Input: none
+    # Output: dict[str, object]
+    # Processing: As dict
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def as_dict(self) -> dict[str, object]:
         return {
             "recall_at_1000": self.recall_at_1000,
@@ -193,6 +243,11 @@ class MetricSnapshot:
         }
 
 
+# Input: outcomes (Sequence[QueryOutcome]), recall_k (int), ndcg_k (int), bins (int)
+# Output: MetricSnapshot
+# Processing: Snapshot
+# Changed by: Claude Code
+# Date: 2026-10-12
 def _snapshot(outcomes: Sequence[QueryOutcome], *, recall_k: int, ndcg_k: int, bins: int) -> MetricSnapshot:
     if not outcomes:
         return MetricSnapshot()
@@ -215,6 +270,11 @@ def _snapshot(outcomes: Sequence[QueryOutcome], *, recall_k: int, ndcg_k: int, b
     )
 
 
+# Input: outcomes (Sequence[QueryOutcome])
+# Output: dict[str, list[QueryOutcome]]
+# Processing: Group outcomes by language, so every metric can be reported per language.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def per_language(outcomes: Sequence[QueryOutcome]) -> dict[str, list[QueryOutcome]]:
     """Group outcomes by language, so every metric can be reported per language."""
     grouped: dict[str, list[QueryOutcome]] = {}
@@ -223,6 +283,11 @@ def per_language(outcomes: Sequence[QueryOutcome]) -> dict[str, list[QueryOutcom
     return grouped
 
 
+# Input: outcomes (Sequence[QueryOutcome]), recall_k (int), ndcg_k (int), calibration_bins (int)
+# Output: MetricSnapshot
+# Processing: Score a set of queries overall and per language.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def evaluate(
     outcomes: Sequence[QueryOutcome],
     *,

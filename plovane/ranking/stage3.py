@@ -36,6 +36,11 @@ STAGE3_HAND_WEIGHTS: dict[str, float] = {
 }
 
 
+# Input: candidates (Sequence[Candidate]), ctx (FeatureContext)
+# Output: np.ndarray
+# Processing: Stage 1 features plus the cross-encoder score, one row per candidate.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def build_stage3_matrix(candidates: Sequence[Candidate], ctx: FeatureContext) -> np.ndarray:
     """Stage 1 features plus the cross-encoder score, one row per candidate.
 
@@ -57,6 +62,11 @@ def build_stage3_matrix(candidates: Sequence[Candidate], ctx: FeatureContext) ->
 class LinearFinalRanker:
     """Hand-weighted fallback, used until there is accept data to train on."""
 
+    # Input: weights (dict[str, float] | None)
+    # Output: None
+    # Processing: Init
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def __init__(self, weights: dict[str, float] | None = None) -> None:
         weights = weights or STAGE3_HAND_WEIGHTS
         unknown = set(weights) - set(STAGE3_FEATURE_NAMES)
@@ -67,6 +77,11 @@ class LinearFinalRanker:
         )
         self.weights = weights
 
+    # Input: features (np.ndarray)
+    # Output: np.ndarray
+    # Processing: Score
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def score(self, features: np.ndarray) -> np.ndarray:
         features = np.asarray(features, dtype=np.float32)
         if features.size == 0:
@@ -79,10 +94,20 @@ class LinearFinalRanker:
 class LightGBMFinalRanker:
     """LightGBM lambdarank over the Stage 3 feature set. Requires lightgbm."""
 
+    # Input: config (LightGBMConfig | None)
+    # Output: None
+    # Processing: Init
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def __init__(self, config: LightGBMConfig | None = None) -> None:
         self.config = config or LightGBMConfig()
         self.booster = None
 
+    # Input: groups (Sequence[TrainingGroup]), validation (Sequence[TrainingGroup] | None)
+    # Output: LightGBMFinalRanker
+    # Processing: Fit
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def fit(
         self,
         groups: Sequence[TrainingGroup],
@@ -131,6 +156,11 @@ class LightGBMFinalRanker:
         )
         return self
 
+    # Input: features (np.ndarray)
+    # Output: np.ndarray
+    # Processing: Score
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def score(self, features: np.ndarray) -> np.ndarray:
         if self.booster is None:
             raise RuntimeError("LightGBMFinalRanker is not fitted; call fit() or load()")
@@ -139,17 +169,32 @@ class LightGBMFinalRanker:
             return np.zeros(features.shape[0], dtype=np.float32)
         return np.asarray(self.booster.predict(features), dtype=np.float32)
 
+    # Input: none
+    # Output: dict[str, float]
+    # Processing: Feature importance
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def feature_importance(self) -> dict[str, float]:
         if self.booster is None:
             raise RuntimeError("LightGBMFinalRanker is not fitted")
         gains = self.booster.feature_importance(importance_type="gain")
         return dict(zip(STAGE3_FEATURE_NAMES, (float(g) for g in gains), strict=True))
 
+    # Input: path (str | Path)
+    # Output: None
+    # Processing: Save
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def save(self, path: str | Path) -> None:
         if self.booster is None:
             raise RuntimeError("LightGBMFinalRanker is not fitted")
         self.booster.save_model(str(path))
 
+    # Input: path (str | Path)
+    # Output: LightGBMFinalRanker
+    # Processing: Load
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def load(self, path: str | Path) -> LightGBMFinalRanker:
         import lightgbm as lgb
 
@@ -170,6 +215,11 @@ class FinalRanker:
     calibrator: IsotonicCalibrator | None = None
     version: str = "stage3-untrained"
 
+    # Input: candidates (Sequence[Candidate]), ctx (FeatureContext)
+    # Output: list[Candidate]
+    # Processing: Score, calibrate and sort, writing both scores onto the candidates.
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def rank(self, candidates: Sequence[Candidate], ctx: FeatureContext) -> list[Candidate]:
         """Score, calibrate and sort, writing both scores onto the candidates."""
         if not candidates:
@@ -192,6 +242,11 @@ class FinalRanker:
 
         return sorted(candidates, key=lambda c: (-(c.calibrated_score or 0.0), c.id))
 
+    # Input: none
+    # Output: bool
+    # Processing: Is calibrated
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @property
     def is_calibrated(self) -> bool:
         return self.calibrator is not None and self.calibrator.fitted

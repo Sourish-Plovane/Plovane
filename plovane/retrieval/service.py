@@ -28,6 +28,11 @@ class RetrievalResult:
     keyword_hits: int
     vector_hits: int
 
+    # Input: none
+    # Output: bool
+    # Processing: True when both arms came back thin.
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     @property
     def shortfall(self) -> bool:
         """True when both arms came back thin.
@@ -42,6 +47,11 @@ class RetrievalResult:
 class RetrievalService:
     """Keyword + vector retrieval with RRF fusion."""
 
+    # Input: keyword_index (KeywordIndex), vector_index (VectorIndex), embedding_model (EmbeddingModel), entry_store (dict[str, Entry]), top_k (int), rrf_k (int)
+    # Output: None
+    # Processing: Init
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def __init__(
         self,
         *,
@@ -59,6 +69,11 @@ class RetrievalService:
         self.top_k = top_k
         self.rrf_k = rrf_k
 
+    # Input: request (Request), filters (FilterSpec | None)
+    # Output: RetrievalResult
+    # Processing: Retrieve
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def retrieve(self, request: Request, *, filters: FilterSpec | None = None) -> RetrievalResult:
         query = build_query(request)
         filters = filters or FilterSpec.from_request(request)

@@ -13,6 +13,11 @@ from collections.abc import Sequence
 from plovane.config import RRF_K
 
 
+# Input: ranked_lists (Sequence[Sequence[str]]), k (int)
+# Output: list[tuple[str, float]]
+# Processing: Fuse ranked ID lists into one list, best first.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def reciprocal_rank_fusion(
     ranked_lists: Sequence[Sequence[str]],
     *,

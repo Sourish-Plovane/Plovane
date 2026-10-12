@@ -61,9 +61,19 @@ class HarvestReport:
     requests_made: int = 0
     errors: list[str] = field(default_factory=list)
 
+    # Input: reason (str)
+    # Output: None
+    # Processing: Reject
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def reject(self, reason: str) -> None:
         self.rejections[reason] += 1
 
+    # Input: none
+    # Output: str
+    # Processing: Summary
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def summary(self) -> str:
         lines = [
             f"planned {self.planned} / harvested {self.harvested} "
@@ -94,6 +104,11 @@ class HarvestedEntry:
     attribution: Attribution
     needs_review: bool
 
+    # Input: none
+    # Output: str
+    # Processing: To json
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def to_json(self) -> str:
         return json.dumps(
             {
@@ -113,6 +128,11 @@ class HarvestedEntry:
         )
 
 
+# Input: cell (Cell), allowed_spdx (tuple[str, ...])
+# Output: str
+# Processing: A search query narrowed by language, topic and licence.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def search_query(cell: Cell, *, allowed_spdx: tuple[str, ...]) -> str:
     """A search query narrowed by language, topic and licence.
 
@@ -135,6 +155,11 @@ def search_query(cell: Cell, *, allowed_spdx: tuple[str, ...]) -> str:
     return f"{topic} language:{language_qualifier} {licences} stars:>25 archived:false"
 
 
+# Input: client (GitHubClient), owner (str), repo (str), report (HarvestReport)
+# Output: tuple[str, str, str | None, str] | None
+# Processing: Licence gate. Returns (sha, licence_text, notice, spdx) or None.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def vet_repository(
     client: GitHubClient, owner: str, repo: str, report: HarvestReport
 ) -> tuple[str, str, str | None, str] | None:
@@ -194,6 +219,11 @@ def vet_repository(
     return sha, license_text, notice, verdict.spdx_id or ""
 
 
+# Input: client (GitHubClient), owner (str), repo (str), cell (Cell), report (HarvestReport), template_budget (int), helper_budget (int)
+# Output: list[HarvestedEntry]
+# Processing: Vet, then extract from one repository within the two budgets.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def harvest_repository(
     client: GitHubClient,
     owner: str,
@@ -284,6 +314,11 @@ def harvest_repository(
     return entries
 
 
+# Input: plan (HarvestPlan), client (GitHubClient | None), out_dir (Path | None), allowed_spdx (tuple[str, ...])
+# Output: HarvestReport
+# Processing: Run the plan. Writes ``entries.jsonl`` incrementally when ``out_dir`` is set.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def harvest(
     plan: HarvestPlan,
     *,
@@ -361,6 +396,11 @@ def harvest(
     return report
 
 
+# Input: argv (list[str] | None)
+# Output: int
+# Processing: Main
+# Changed by: Claude Code
+# Date: 2026-10-12
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Harvest licence-cleared seed entries from GitHub.")
     parser.add_argument("--target", type=int, default=1200)

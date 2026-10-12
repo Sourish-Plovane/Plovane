@@ -32,6 +32,11 @@ recall@1000 on your own gold set, and check it per language: the MVP set
 includes C++, CUDA, HTML and CSS, which most code encoders under-represent."""
 
 
+# Input: hidden_states (Tensor), attention_mask (Tensor)
+# Output: Tensor
+# Processing: Average token vectors over real tokens only.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def mean_pool(hidden_states: Tensor, attention_mask: Tensor) -> Tensor:
     """Average token vectors over real tokens only.
 
@@ -53,6 +58,11 @@ class CodeBiEncoder(nn.Module):
     well before they paid for themselves.
     """
 
+    # Input: encoder_name (str), dimension (int), trust_remote_code (bool)
+    # Output: None
+    # Processing: Init
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def __init__(
         self,
         encoder_name: str = DEFAULT_ENCODER,
@@ -73,6 +83,11 @@ class CodeBiEncoder(nn.Module):
         # an identity here keeps the pretrained space untouched.
         self.projection: nn.Module = nn.Identity() if hidden == dimension else nn.Linear(hidden, dimension)
 
+    # Input: input_ids (Tensor), attention_mask (Tensor)
+    # Output: Tensor
+    # Processing: Forward
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def forward(self, input_ids: Tensor, attention_mask: Tensor) -> Tensor:
         output = self.encoder(input_ids=input_ids, attention_mask=attention_mask)
         pooled = mean_pool(output.last_hidden_state, attention_mask)
@@ -80,6 +95,11 @@ class CodeBiEncoder(nn.Module):
 
     # -- Inference ---------------------------------------------------------
 
+    # Input: texts (Sequence[str]), max_length (int), batch_size (int)
+    # Output: np.ndarray
+    # Processing: Encode texts
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def _encode_texts(self, texts: Sequence[str], *, max_length: int, batch_size: int) -> np.ndarray:
         if not texts:
             return np.zeros((0, self.dimension), dtype=np.float32)
@@ -105,12 +125,22 @@ class CodeBiEncoder(nn.Module):
             self.train(was_training)
         return np.concatenate(chunks, axis=0).astype(np.float32)
 
+    # Input: texts (Sequence[str]), max_length (int), batch_size (int)
+    # Output: np.ndarray
+    # Processing: Queries are short, so they get a tighter length budget than entries.
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def encode_queries(
         self, texts: Sequence[str], *, max_length: int = 256, batch_size: int = 32
     ) -> np.ndarray:
         """Queries are short, so they get a tighter length budget than entries."""
         return self._encode_texts(texts, max_length=max_length, batch_size=batch_size)
 
+    # Input: entries (Sequence[Entry]), max_length (int), batch_size (int)
+    # Output: np.ndarray
+    # Processing: Encode entries
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def encode_entries(
         self, entries: Sequence[Entry], *, max_length: int = 512, batch_size: int = 16
     ) -> np.ndarray:
@@ -119,6 +149,11 @@ class CodeBiEncoder(nn.Module):
         )
 
 
+# Input: query_vectors (Tensor), entry_vectors (Tensor), temperature (float)
+# Output: Tensor
+# Processing: Contrastive loss with in-batch negatives.
+# Changed by: Claude Code
+# Date: 2026-10-12
 def info_nce_loss(
     query_vectors: Tensor,
     entry_vectors: Tensor,
