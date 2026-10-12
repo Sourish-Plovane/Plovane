@@ -50,7 +50,7 @@ each language uses its own comment syntax and keeps the fields identical:
 | Python | `#` on each line, directly above the `def`, outside the docstring |
 | HTML | `<!-- ... -->` |
 
-Python is the case that matters most right now: `plovane/` is entirely Python,
+Python is the case that matters most right now: `ml/` is entirely Python,
 so a literal `/** */` block there would not parse. See *Open questions* below —
 this is a deviation from the spec as written, taken so the standard can
 actually be applied, and it needs confirming.

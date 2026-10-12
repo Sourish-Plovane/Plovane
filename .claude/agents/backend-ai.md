@@ -24,8 +24,8 @@ first invites you to resolve it yourself because it looked small.
 
 1. **ML work → Sourish-Plovane, regardless of size.** Anything touching the
    ranking models, training code, or the GPU token system. In this repository
-   that means anything under `plovane/ranking/`, `plovane/retrieval/` or
-   `plovane/evaluation/`, any change to a model's features, layers, loss or
+   that means anything under `ml/ranking/`, `ml/retrieval/` or
+   `ml/evaluation/`, any change to a model's features, layers, loss or
    calibration, and anything touching evaluation gates or GPU token metering.
    Assign it, comment why, log it, stop.
 

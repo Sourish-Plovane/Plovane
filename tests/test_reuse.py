@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from plovane.ingest.extract import extract_python
-from plovane.reuse import (
+from ml.ingest.extract import extract_python
+from ml.reuse import (
     DUPLICATE_THRESHOLD,
     LibraryIndex,
     ReusabilityScore,
@@ -17,7 +17,7 @@ from plovane.reuse import (
     score_unit,
     token_value,
 )
-from plovane.schemas import Entry, EntryType
+from ml.schemas import Entry, EntryType
 
 GENERAL = '''
 def chunked(items, size):
@@ -32,7 +32,7 @@ HARDCODED = '''
 def load_config():
     """Read the config file."""
     import json
-    with open("/home/sourish/plovane/config.json") as fh:
+    with open("/home/sourish/ml/config.json") as fh:
         data = json.load(fh)
     return data
 '''
@@ -126,7 +126,7 @@ class TestBlockers:
 
     def test_blocked_score_is_capped_below_the_publish_bar(self):
         """A neutral token value and a line bonus must not carry a blocked unit over."""
-        from plovane.reuse.suggest import PUBLISH_THRESHOLD
+        from ml.reuse.suggest import PUBLISH_THRESHOLD
 
         for src in (HARDCODED, UNDOCUMENTED, COUPLED):
             assert score_unit(unit(src)).score < PUBLISH_THRESHOLD

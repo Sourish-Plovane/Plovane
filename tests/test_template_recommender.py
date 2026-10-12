@@ -5,10 +5,10 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from plovane.ranking.calibration import IsotonicCalibrator
-from plovane.schemas import EntryType, ProjectContext, Request
-from plovane.templates.features import framework_match, is_template_like, new_dependency_count
-from plovane.templates.recommender import NO_MATCH_REASON, TemplateRecommender
+from ml.ranking.calibration import IsotonicCalibrator
+from ml.schemas import EntryType, ProjectContext, Request
+from ml.templates.features import framework_match, is_template_like, new_dependency_count
+from ml.templates.recommender import NO_MATCH_REASON, TemplateRecommender
 
 
 def react_request(**kwargs) -> Request:
@@ -160,7 +160,7 @@ class TestCutoff:
 
 class TestFeatures:
     def test_framework_agnostic_template_scores_between(self):
-        from plovane.schemas import Candidate, Entry
+        from ml.schemas import Candidate, Entry
 
         def candidate(framework):
             return Candidate(
@@ -180,7 +180,7 @@ class TestFeatures:
         assert framework_match(candidate("vue"), "react") == 0.0
 
     def test_new_dependency_count_counts_only_what_is_missing(self):
-        from plovane.schemas import Candidate, Entry
+        from ml.schemas import Candidate, Entry
 
         c = Candidate(
             entry=Entry(
@@ -204,9 +204,9 @@ class TestFeatures:
 
 class TestEmptyLibrary:
     def test_no_candidates_returns_the_reason(self, embedding_model):
-        from plovane.retrieval.keyword import InMemoryBM25Index
-        from plovane.retrieval.service import RetrievalService
-        from plovane.retrieval.vector import InMemoryVectorIndex
+        from ml.retrieval.keyword import InMemoryBM25Index
+        from ml.retrieval.service import RetrievalService
+        from ml.retrieval.vector import InMemoryVectorIndex
 
         empty = TemplateRecommender(
             retrieval=RetrievalService(

@@ -5,10 +5,10 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from plovane.config import MVP_LANGUAGES
-from plovane.evaluation.gates import ReleaseGate
-from plovane.evaluation.gold_set import GoldQuery, GoldSet, assign_split
-from plovane.evaluation.metrics import (
+from ml.config import MVP_LANGUAGES
+from ml.evaluation.gates import ReleaseGate
+from ml.evaluation.gold_set import GoldQuery, GoldSet, assign_split
+from ml.evaluation.metrics import (
     MetricSnapshot,
     QueryOutcome,
     acceptance_rate,
@@ -200,7 +200,7 @@ class TestGoldSet:
             gold.add(GoldQuery(query_id="g", query="q2", language="python", relevance={"b": 3}))
 
     def test_round_trips_through_jsonl(self, tmp_path):
-        from plovane.schemas import ProjectContext
+        from ml.schemas import ProjectContext
 
         original = GoldSet.from_queries(
             [

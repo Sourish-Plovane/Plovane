@@ -6,13 +6,13 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from plovane.ranking.features import UsageIndex
-from plovane.retrieval.embedding import HashingEmbeddingModel, embed_entries_inplace
-from plovane.retrieval.keyword import InMemoryBM25Index
-from plovane.retrieval.service import RetrievalService
-from plovane.retrieval.vector import InMemoryVectorIndex
-from plovane.schemas import Entry, EntryType, Visibility
-from plovane.templates.recommender import TemplateRecommender
+from ml.ranking.features import UsageIndex
+from ml.retrieval.embedding import HashingEmbeddingModel, embed_entries_inplace
+from ml.retrieval.keyword import InMemoryBM25Index
+from ml.retrieval.service import RetrievalService
+from ml.retrieval.vector import InMemoryVectorIndex
+from ml.schemas import Entry, EntryType, Visibility
+from ml.templates.recommender import TemplateRecommender
 
 NOW = datetime(2026, 10, 11, tzinfo=timezone.utc)
 

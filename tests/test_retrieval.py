@@ -5,17 +5,17 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from plovane.retrieval.filters import FilterSpec, classify_dependency_compat
-from plovane.retrieval.fusion import reciprocal_rank_fusion
-from plovane.retrieval.keyword import InMemoryBM25Index, render_bm25_sql, tokenize
-from plovane.retrieval.query import build_query
-from plovane.retrieval.vector import (
+from ml.retrieval.filters import FilterSpec, classify_dependency_compat
+from ml.retrieval.fusion import reciprocal_rank_fusion
+from ml.retrieval.keyword import InMemoryBM25Index, render_bm25_sql, tokenize
+from ml.retrieval.query import build_query
+from ml.retrieval.vector import (
     InMemoryVectorIndex,
     l2_normalize,
     pgvector_session_sql,
     render_vector_sql,
 )
-from plovane.schemas import DependencyCompat, Entry, EntryType, ProjectContext, Request, Visibility
+from ml.schemas import DependencyCompat, Entry, EntryType, ProjectContext, Request, Visibility
 
 
 def entry(entry_id: str, **kwargs) -> Entry:

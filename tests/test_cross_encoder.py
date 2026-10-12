@@ -18,8 +18,8 @@ import pytest
 torch = pytest.importorskip("torch")
 pytest.importorskip("transformers")
 
-from plovane.config import CROSS_ENCODER_MAX_TOKENS, TrainingConfig  # noqa: E402
-from plovane.ranking.cross_encoder import (  # noqa: E402
+from ml.config import CROSS_ENCODER_MAX_TOKENS, TrainingConfig  # noqa: E402
+from ml.ranking.cross_encoder import (  # noqa: E402
     CrossEncoderGroup,
     check_language_coverage,
     language_token,
@@ -28,8 +28,8 @@ from plovane.ranking.cross_encoder import (  # noqa: E402
     mine_hard_negatives,
     train_cross_encoder,
 )
-from plovane.schemas import Candidate, Entry, EntryType  # noqa: E402
-from plovane.templates.cross_encoder import (  # noqa: E402
+from ml.schemas import Candidate, Entry, EntryType  # noqa: E402
+from ml.templates.cross_encoder import (  # noqa: E402
     TemplateCrossEncoder,
     template_head,
     type_token,

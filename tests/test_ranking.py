@@ -7,8 +7,8 @@ from datetime import datetime, timedelta, timezone
 import numpy as np
 import pytest
 
-from plovane.ranking.calibration import IsotonicCalibrator, pool_adjacent_violators
-from plovane.ranking.features import (
+from ml.ranking.calibration import IsotonicCalibrator, pool_adjacent_violators
+from ml.ranking.features import (
     FEATURE_NAMES,
     MISSING_RANK,
     FeatureContext,
@@ -17,11 +17,11 @@ from plovane.ranking.features import (
     co_usage_lift,
     smoothed_acceptance,
 )
-from plovane.ranking.mmr import maximal_marginal_relevance
-from plovane.ranking.pipeline import new_query_id
-from plovane.ranking.stage1 import LinearFeatureRanker, normalize_within_query, rank_stage1
-from plovane.ranking.stage3 import FinalRanker, LinearFinalRanker, build_stage3_matrix
-from plovane.schemas import Candidate, Entry, EntryType
+from ml.ranking.mmr import maximal_marginal_relevance
+from ml.ranking.pipeline import new_query_id
+from ml.ranking.stage1 import LinearFeatureRanker, normalize_within_query, rank_stage1
+from ml.ranking.stage3 import FinalRanker, LinearFinalRanker, build_stage3_matrix
+from ml.schemas import Candidate, Entry, EntryType
 
 NOW = datetime(2026, 10, 11, tzinfo=timezone.utc)
 

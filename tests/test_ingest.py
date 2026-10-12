@@ -10,27 +10,27 @@ from __future__ import annotations
 
 import pytest
 
-from plovane.ingest.extract import (
+from ml.ingest.extract import (
     analyse_dependencies,
     extract,
     extract_braced,
     extract_python,
     language_for_path,
 )
-from plovane.ingest.harvest import HarvestReport, search_query
-from plovane.ingest.licensing import (
+from ml.ingest.harvest import HarvestReport, search_query
+from ml.ingest.licensing import (
     Eligibility,
     classify_license,
     extract_copyright_holder,
     normalize_spdx,
 )
-from plovane.ingest.provenance import (
+from ml.ingest.provenance import (
     Attribution,
     SourceRef,
     build_attribution,
     render_third_party_licenses,
 )
-from plovane.ingest.quota import MINIMUM_PER_LANGUAGE, build_plan, resolve_template_share
+from ml.ingest.quota import MINIMUM_PER_LANGUAGE, build_plan, resolve_template_share
 
 MIT_TEXT = "MIT License\n\nCopyright (c) 2024 Jane Doe\n\nPermission is hereby granted, free of charge..."
 
@@ -292,7 +292,7 @@ class TestPlan:
 
 class TestSearchQuery:
     def test_filters_licence_server_side(self):
-        from plovane.ingest.quota import Cell
+        from ml.ingest.quota import Cell
 
         query = search_query(Cell("machine-learning", "cuda", 20), allowed_spdx=("MIT", "Apache-2.0"))
         assert "license:mit" in query
@@ -301,7 +301,7 @@ class TestSearchQuery:
         assert "archived:false" in query
 
     def test_maps_cpp_to_githubs_language_name(self):
-        from plovane.ingest.quota import Cell
+        from ml.ingest.quota import Cell
 
         assert "language:c++" in search_query(Cell("gpu-kernels", "cpp", 5), allowed_spdx=("MIT",))
 
@@ -364,7 +364,7 @@ class TestTemplateSplit:
             build_plan(1200, template_share=bad)
 
     def test_resolve_falls_back_to_the_default(self):
-        from plovane.ingest.quota import TEMPLATE_SHARE
+        from ml.ingest.quota import TEMPLATE_SHARE
 
         assert resolve_template_share(1200) == TEMPLATE_SHARE
 
@@ -565,13 +565,13 @@ class TestLicenseTextDetection:
         ],
     )
     def test_matches_known_licences(self, spdx, text):
-        from plovane.ingest.local_source import detect_license
+        from ml.ingest.local_source import detect_license
 
         assert detect_license(text) == spdx
 
     def test_bsd3_is_not_mistaken_for_bsd2(self):
         """BSD-3 contains BSD-2's text, so order matters in the signature list."""
-        from plovane.ingest.local_source import detect_license
+        from ml.ingest.local_source import detect_license
 
         bsd3 = (
             "Redistribution and use in source and binary forms are permitted.\n"
@@ -583,14 +583,14 @@ class TestLicenseTextDetection:
     @pytest.mark.parametrize("text", ["", "   ", "Some bespoke terms nobody recognises"])
     def test_unrecognised_text_returns_none(self, text):
         """None is rejected by the gate, which is the safe answer."""
-        from plovane.ingest.local_source import detect_license
+        from ml.ingest.local_source import detect_license
 
         assert detect_license(text) is None
 
 
 class TestCodeMetrics:
     def test_measures_a_real_function(self):
-        from plovane.ingest.metrics import measure
+        from ml.ingest.metrics import measure
 
         src = (
             "import os\n\n"
@@ -611,7 +611,7 @@ class TestCodeMetrics:
         assert m.branch_count >= 1
 
     def test_quality_rewards_self_containment_most(self):
-        from plovane.ingest.metrics import CodeMetrics
+        from ml.ingest.metrics import CodeMetrics
 
         base = dict(
             lines=10, import_count=0, param_count=1, annotated_params=1,
@@ -622,7 +622,7 @@ class TestCodeMetrics:
         assert contained.quality > described.quality
 
     def test_quality_is_bounded(self):
-        from plovane.ingest.metrics import CodeMetrics
+        from ml.ingest.metrics import CodeMetrics
 
         best = CodeMetrics(
             lines=10, has_description=True, self_contained=True, import_count=1,
@@ -636,7 +636,7 @@ class TestCodeMetrics:
         assert worst.quality == 0.0
 
     def test_no_parameters_counts_as_full_coverage(self):
-        from plovane.ingest.metrics import CodeMetrics
+        from ml.ingest.metrics import CodeMetrics
 
         m = CodeMetrics(
             lines=5, has_description=True, self_contained=True, import_count=0,
@@ -646,8 +646,8 @@ class TestCodeMetrics:
 
     def test_unparseable_code_does_not_raise(self):
         """One bad slice must not abort a repository's harvest."""
-        from plovane.ingest.extract import ExtractedUnit
-        from plovane.ingest.metrics import measure
+        from ml.ingest.extract import ExtractedUnit
+        from ml.ingest.metrics import measure
 
         unit = ExtractedUnit(
             name="broken", code="function f( {", language="javascript",
@@ -660,7 +660,7 @@ class TestCodeMetrics:
 
 class TestMissingFields:
     def test_always_names_what_harvest_cannot_supply(self):
-        from plovane.ingest.local_source import LocalRepo, missing_fields
+        from ml.ingest.local_source import LocalRepo, missing_fields
 
         unit = extract_python("def f(a):\n    b = a\n    return b\n")[0]
         repo = LocalRepo(
@@ -674,7 +674,7 @@ class TestMissingFields:
         assert {"tests", "mutation_score", "embedding"} <= set(missing)
 
     def test_names_an_absent_description(self):
-        from plovane.ingest.local_source import LocalRepo, missing_fields
+        from ml.ingest.local_source import LocalRepo, missing_fields
 
         unit = extract_python("def f(a):\n    b = a\n    return b\n")[0]
         repo = LocalRepo(
