@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import ast
 import builtins
+import re
 from dataclasses import dataclass
 
 MAX_FUNCTION_LINES = 120
@@ -384,6 +385,175 @@ def extract_python(source: str) -> list[ExtractedUnit]:
     return units
 
 
+# Input: source (str), line (int)
+# Output: str
+# Processing: Read the doc comment immediately above a 1-indexed line
+# Changed by: Claude Code
+# Date: 2026-10-12
+def doc_comment_above(source: str, line: int) -> str:
+    """Pull the description out of the comment block above a declaration.
+
+    Handles both shapes these languages use: a ``/** ... */`` block and a run
+    of ``//`` lines. Leading asterisks, JSDoc tags and blank padding are
+    stripped, and only the prose is kept -- a description full of ``@param``
+    noise embeds badly, so the tags are dropped rather than indexed.
+
+    Returns an empty string when there is no comment, which the scorer treats
+    as a blocker rather than a shrug.
+    """
+    lines = source.splitlines()
+    index = line - 2  # the line directly above the declaration, 0-indexed
+    collected: list[str] = []
+
+    while index >= 0 and not lines[index].strip():
+        index -= 1
+    if index < 0:
+        return ""
+
+    stripped = lines[index].strip()
+
+    if stripped.endswith("*/"):
+        # Walk back to the opening delimiter.
+        block: list[str] = []
+        while index >= 0:
+            current = lines[index].strip()
+            block.append(current)
+            if current.startswith("/*"):
+                break
+            index -= 1
+        else:
+            return ""
+        for raw in reversed(block):
+            text = raw.removeprefix("/**").removeprefix("/*").removesuffix("*/")
+            text = text.strip().removeprefix("*").strip()
+            if text and not text.startswith("@"):
+                collected.append(text)
+    elif stripped.startswith("//"):
+        while index >= 0 and lines[index].strip().startswith("//"):
+            text = lines[index].strip().removeprefix("///").removeprefix("//").strip()
+            if text and not text.startswith("@"):
+                collected.append(text)
+            index -= 1
+        collected.reverse()
+    else:
+        return ""
+
+    return "\n".join(collected).strip()
+
+
+_BRACE_IMPORT_PATTERNS = (
+    # import defaultName from "mod"  /  import * as ns from "mod"
+    re.compile(r"""^\s*import\s+(?:\*\s+as\s+)?(?P<name>\w+)\s+from\s+['"][^'"]+['"]""", re.M),
+    # import { a, b as c } from "mod"
+    re.compile(r"""^\s*import\s*\{(?P<names>[^}]+)\}\s*from\s+['"][^'"]+['"]""", re.M),
+    # const x = require("mod")  /  const { a, b } = require("mod")
+    re.compile(r"""^\s*(?:const|let|var)\s+(?:\{(?P<names2>[^}]+)\}|(?P<name2>\w+))\s*=\s*require\(""", re.M),
+)
+
+_BRACE_DECL_PATTERNS = (
+    re.compile(r"^\s*(?:export\s+)?(?:async\s+)?function\s+(\w+)", re.M),
+    re.compile(r"^\s*(?:export\s+)?(?:const|let|var)\s+(\w+)", re.M),
+    re.compile(r"^\s*(?:export\s+)?class\s+(\w+)", re.M),
+    re.compile(r"^\s*#define\s+(\w+)", re.M),
+    re.compile(r"^\s*(?:typedef\s+)?(?:struct|class|enum)\s+(\w+)", re.M),
+)
+
+_IDENTIFIER = re.compile(r"\b[A-Za-z_]\w*\b")
+
+# Language keywords and globals a lifted function can rely on existing.
+_BRACE_AMBIENT = frozenset(
+    """
+    if else for while do switch case break continue return function class const let var new
+    delete typeof instanceof void this super null undefined true false try catch finally throw
+    async await yield of in static get set extends implements interface type enum export import
+    default from as public private protected readonly namespace declare abstract
+    Object Array String Number Boolean Math JSON Date RegExp Error TypeError RangeError Promise
+    Map Set WeakMap WeakSet Symbol BigInt Infinity NaN isNaN parseInt parseFloat encodeURIComponent
+    decodeURIComponent console window document globalThis process module exports require
+    int float double char bool void long short unsigned signed size_t auto struct enum union
+    template typename namespace using public private protected virtual override final inline
+    static_cast dynamic_cast reinterpret_cast const_cast sizeof nullptr std operator friend
+    explicit constexpr noexcept mutable decltype
+    __global__ __device__ __host__ __shared__ __constant__ __restrict__
+    threadIdx blockIdx blockDim gridDim warpSize
+    """.split()
+)
+
+
+# Input: source (str)
+# Output: set[str]
+# Processing: Names a brace-language module imports or defines at top level
+# Changed by: Claude Code
+# Date: 2026-10-12
+def _brace_module_names(source: str) -> tuple[set[str], set[str]]:
+    """Return ``(imported, defined_locally)`` for a brace-language module.
+
+    Imported names are satisfiable by shipping the import alongside the code.
+    Locally defined ones are not: lifting the function leaves them behind.
+    """
+    imported: set[str] = set()
+    for pattern in _BRACE_IMPORT_PATTERNS:
+        for match in pattern.finditer(source):
+            groups = match.groupdict()
+            for key in ("name", "name2"):
+                if groups.get(key):
+                    imported.add(groups[key])
+            for key in ("names", "names2"):
+                if groups.get(key):
+                    for piece in groups[key].split(","):
+                        bound = piece.split(" as ")[-1].strip()
+                        if bound:
+                            imported.add(bound)
+
+    defined: set[str] = set()
+    for pattern in _BRACE_DECL_PATTERNS:
+        defined.update(match.group(1) for match in pattern.finditer(source))
+
+    return imported, defined - imported
+
+
+# Input: source (str), code (str), own_name (str)
+# Output: tuple[tuple[str, ...], tuple[str, ...]]
+# Processing: Heuristic dependency split for a brace-language unit
+# Changed by: Claude Code
+# Date: 2026-10-12
+def analyse_brace_dependencies(
+    source: str, code: str, own_name: str
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """``(required_imports, unresolved_names)`` for a brace-language unit.
+
+    A heuristic, not an analysis. There is no AST here, so this works over
+    identifiers and module-level declarations, and it cannot see through a
+    dynamic ``require``, a macro, or a template instantiation. Every unit it
+    admits is marked ``needs_review`` for that reason -- the guarantee is
+    weaker than the Python path's and the record should say so rather than
+    presenting the two as equivalent.
+    """
+    imported, defined = _brace_module_names(source)
+
+    # Names the unit binds itself: its own declarations and parameters.
+    bound = {own_name}
+    for pattern in _BRACE_DECL_PATTERNS:
+        bound.update(match.group(1) for match in pattern.finditer(code))
+    head = code.split("{", 1)[0]
+    bound.update(_IDENTIFIER.findall(head))
+
+    required: set[str] = set()
+    unresolved: set[str] = set()
+    for name in sorted(set(_IDENTIFIER.findall(code))):
+        if name in bound or name in _BRACE_AMBIENT:
+            continue
+        if name in imported:
+            required.add(name)
+        elif name in defined:
+            unresolved.add(name)
+
+    # Imports are reported as names, not statements: reconstructing the exact
+    # import line needs the module path, and guessing it would be worse than
+    # naming what is needed and letting the insert step resolve it.
+    return tuple(sorted(required)), tuple(sorted(unresolved))
+
+
 # Input: source (str), language (str)
 # Output: list[ExtractedUnit]
 # Processing: Heuristic extraction for brace languages. Marked ``needs_review``.
@@ -396,8 +566,6 @@ def extract_braced(source: str, language: str) -> list[ExtractedUnit]:
     string and comment content. It is right often enough to seed a library and
     wrong often enough that nothing it produces should ship unreviewed.
     """
-    import re
-
     declaration = re.compile(
         r"^(?:export\s+)?(?:async\s+)?(?:function\s+(?P<fname>\w+)\s*\((?P<fargs>[^)]*)\)"
         r"|(?:__global__|__device__|inline|static|template\s*<[^>]*>)?\s*"
@@ -438,14 +606,20 @@ def extract_braced(source: str, language: str) -> list[ExtractedUnit]:
         end_line = source[:index].count("\n") + 1
         if not MIN_FUNCTION_LINES <= (end_line - start_line + 1) <= MAX_FUNCTION_LINES:
             continue
+        body = "\n".join(lines[start_line - 1 : end_line])
+        required, unresolved = analyse_brace_dependencies(source, body, name)
         units.append(
             ExtractedUnit(
                 name=name,
-                code="\n".join(lines[start_line - 1 : end_line]),
+                code=body,
                 language=language,
                 start_line=start_line,
                 end_line=end_line,
                 signature=f"({args.strip()})" if args else "()",
+                docstring=doc_comment_above(source, start_line),
+                dependencies_analysed=True,
+                required_imports=required,
+                unresolved_names=unresolved,
                 needs_review=True,
             )
         )

@@ -703,13 +703,19 @@ class TestUnanalysedIsNotSelfContained:
         assert unit.dependencies_analysed
         assert unit.self_contained
 
-    def test_braced_extractor_does_not_claim_self_containment(self):
-        """1,030 of 1,242 harvested records passed a check that never ran."""
+    def test_braced_extractor_now_analyses_and_so_may_claim_it(self):
+        """Superseded by #14, which gave the brace extractor its own analysis.
+
+        Before that, 1,030 of 1,242 harvested records passed a check that never
+        ran. The guarantee is still weaker than the Python path's -- a
+        heuristic over identifiers rather than an AST walk -- which is why
+        every unit it admits stays flagged for review.
+        """
         units = extract_braced("function f(a) {\n  const b = a;\n  return b;\n}\n", "javascript")
         assert units
         for unit in units:
-            assert not unit.dependencies_analysed
-            assert not unit.self_contained
+            assert unit.dependencies_analysed
+            assert unit.needs_review
 
     def test_default_is_unanalysed(self):
         from ml.ingest.extract import ExtractedUnit
@@ -721,3 +727,115 @@ class TestUnanalysedIsNotSelfContained:
     def test_a_template_is_not_claimed_self_contained_either(self):
         units = extract("a{color:red}\nb{x:1}\nc{y:2}\n", "styles/main.css")
         assert units and not units[0].self_contained
+
+
+class TestBraceDocComments:
+    """Four of six languages had no descriptions until this worked."""
+
+    def test_reads_a_jsdoc_block(self):
+        src = (
+            "/**\n"
+            " * Splits a list into chunks.\n"
+            " * @param {Array} items\n"
+            " */\n"
+            "function chunked(items, size) {\n"
+            "  const out = [];\n"
+            "  return out;\n"
+            "}\n"
+        )
+        unit = extract_braced(src, "javascript")[0]
+        assert unit.docstring == "Splits a list into chunks."
+
+    def test_drops_jsdoc_tags(self):
+        """A description full of @param noise embeds badly."""
+        src = (
+            "/**\n * Does a thing.\n * @param {string} a\n * @returns {number}\n */\n"
+            "function f(a) {\n  const b = a;\n  return b;\n}\n"
+        )
+        assert extract_braced(src, "javascript")[0].docstring == "Does a thing."
+
+    def test_reads_a_run_of_line_comments(self):
+        src = (
+            "// Reads a file.\n"
+            "// Trims trailing space.\n"
+            "function read(path) {\n  const t = path;\n  return t;\n}\n"
+        )
+        unit = extract_braced(src, "javascript")[0]
+        assert unit.docstring == "Reads a file.\nTrims trailing space."
+
+    def test_no_comment_means_empty(self):
+        src = "function f(a) {\n  const b = a;\n  return b;\n}\n"
+        assert extract_braced(src, "javascript")[0].docstring == ""
+
+    def test_blank_lines_between_comment_and_declaration(self):
+        src = "// Does a thing.\n\n\nfunction f(a) {\n  const b = a;\n  return b;\n}\n"
+        assert extract_braced(src, "javascript")[0].docstring == "Does a thing."
+
+    def test_unrelated_code_above_is_not_a_description(self):
+        src = "const x = 1;\nfunction f(a) {\n  const b = a;\n  return b;\n}\n"
+        assert extract_braced(src, "javascript")[0].docstring == ""
+
+
+class TestBraceDependencies:
+    def test_detects_a_default_import(self):
+        src = (
+            'import fs from "fs";\n\n'
+            "function read(path) {\n"
+            '  const t = fs.readFileSync(path, "utf8");\n'
+            "  return t;\n}\n"
+        )
+        unit = extract_braced(src, "javascript")[0]
+        assert "fs" in unit.required_imports
+        assert unit.self_contained
+
+    def test_detects_a_named_import(self):
+        src = (
+            'import { join } from "path";\n\n'
+            "function f(a, b) {\n  const c = join(a, b);\n  return c;\n}\n"
+        )
+        assert "join" in extract_braced(src, "javascript")[0].required_imports
+
+    def test_detects_a_require(self):
+        src = (
+            'const fs = require("fs");\n\n'
+            "function read(p) {\n  const t = fs.readFileSync(p);\n  return t;\n}\n"
+        )
+        assert "fs" in extract_braced(src, "javascript")[0].required_imports
+
+    def test_module_constant_blocks_self_containment(self):
+        src = (
+            "const LIMIT = 10;\n\n"
+            "function trim(text) {\n  const cut = text.slice(0, LIMIT);\n  return cut;\n}\n"
+        )
+        unit = extract_braced(src, "javascript")[0]
+        assert "LIMIT" in unit.unresolved_names
+        assert not unit.self_contained
+
+    def test_language_builtins_are_not_unresolved(self):
+        src = (
+            "function f(xs) {\n"
+            "  const n = Math.max(...xs);\n"
+            "  const s = JSON.stringify(n);\n"
+            "  return s;\n}\n"
+        )
+        unit = extract_braced(src, "javascript")[0]
+        assert unit.unresolved_names == ()
+        assert unit.self_contained
+
+    def test_cuda_intrinsics_are_ambient(self):
+        src = (
+            "__global__ void saxpy(int n, float a, float *x) {\n"
+            "  int i = blockIdx.x * blockDim.x + threadIdx.x;\n"
+            "  if (i < n) x[i] = a * x[i];\n}\n"
+        )
+        unit = extract_braced(src, "cuda")[0]
+        assert unit.unresolved_names == ()
+
+    def test_analysis_ran_so_the_flag_is_set(self):
+        src = "function f(a) {\n  const b = a;\n  return b;\n}\n"
+        assert extract_braced(src, "javascript")[0].dependencies_analysed
+
+    def test_every_brace_unit_is_flagged_for_review(self):
+        """The heuristic can be wrong where the Python analysis cannot."""
+        src = "function f(a) {\n  const b = a;\n  return b;\n}\n"
+        assert extract_braced(src, "javascript")[0].needs_review
