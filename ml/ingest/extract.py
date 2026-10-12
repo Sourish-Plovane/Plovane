@@ -52,13 +52,18 @@ SKIP_PATH_MARKERS = (
     "/test/", "/tests/", "/__tests__/", "_test.", "test_", ".spec.", ".test.",
     "/node_modules/", "/vendor/", "/third_party/", "/dist/", "/build/",
     "/.github/", "/docs/", "/examples/", "/example/", "/benchmark",
-    ".min.js", ".generated.", "_pb2.py", "/migrations/",
+    ".min.", ".generated.", "_pb2.py", "/migrations/",
 )
 """Paths a harvest should not mine.
 
 Tests and examples are the tempting mistake: they are full of short, clean,
 self-contained functions that look ideal and are usually assertions or demos.
 Vendored and generated trees are worse -- their licence is not the repository's.
+
+``.min.`` rather than ``.min.js``: a minified stylesheet is as much a build
+artefact as a minified script, and the narrower marker let 119 ``.min.css``
+files into a harvest. They pass every other gate -- a minified file is one
+long self-contained line -- so nothing downstream would have caught them.
 """
 
 
@@ -277,6 +282,11 @@ def _free_names(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[set[str], s
     bound = _bound_locally(fn)
     builtin_names = set(dir(builtins))
 
+    # Input: node (ast.AST)
+    # Output: set[str]
+    # Processing: Free names loaded in a subtree, minus locals and builtins
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def names_in(node: ast.AST) -> set[str]:
         found: set[str] = set()
         for sub in ast.walk(node):
@@ -626,6 +636,107 @@ def extract_braced(source: str, language: str) -> list[ExtractedUnit]:
     return units
 
 
+# External references a markup or stylesheet file can make. A template is not
+# a closed unit just because it has no function calls: an HTML file pulling in
+# a script, or a stylesheet importing another, is as incomplete as a Python
+# helper missing an import.
+_HTML_TAG = re.compile(r"<(?P<tag>[A-Za-z][\w-]*)(?P<attrs>[^>]*)>")
+_HTML_ATTR = re.compile(
+    r"""(?P<name>src|href)\s*=\s*(?P<quote>["'])(?P<target>[^"']+)(?P=quote)""",
+    re.IGNORECASE,
+)
+_CSS_IMPORT = re.compile(
+    r"""@(?:import|use|forward)\s+(?:url\()?\s*(?P<quote>["']?)(?P<target>[^"')\s;]+)(?P=quote)""",
+    re.IGNORECASE,
+)
+"""``@use`` and ``@forward`` as well as ``@import``.
+
+The Sass module syntax replaced ``@import``, so checking only the old keyword
+passed 136 stylesheets as self-contained while they pulled in siblings --
+including barrel files whose entire content is a list of ``@forward`` lines.
+A bare target like ``@forward "button"`` is a relative module reference, so it
+lands in the local bucket and is rejected, which is correct: the file is a
+re-export of code the library does not carry."""
+_CSS_URL = re.compile(
+    r"""url\(\s*(?P<quote>["']?)(?P<target>[^"')]+)(?P=quote)\s*\)""", re.IGNORECASE
+)
+
+_NON_ASSET_SCHEMES = ("data:", "mailto:", "tel:", "javascript:", "about:", "#")
+
+
+# Input: target (str)
+# Output: bool
+# Processing: Whether a reference points at a fetchable remote asset
+# Changed by: Claude Code
+# Date: 2026-10-12
+def _is_remote_reference(target: str) -> bool:
+    """True for an absolute URL, including a protocol-relative one.
+
+    A remote reference is a dependency the entry can *declare* -- a CDN
+    stylesheet or font still resolves wherever the template is pasted. A
+    relative one cannot: it names a file sitting next to the original that the
+    library does not ship.
+    """
+    lowered = target.strip().lower()
+    return lowered.startswith(("http://", "https://", "//"))
+
+
+# Input: source (str), language (str)
+# Output: tuple[tuple[str, ...], tuple[str, ...]]
+# Processing: Split a template's external references into declarable and unresolvable
+# Changed by: Claude Code
+# Date: 2026-10-12
+def analyse_template_dependencies(source: str, language: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Return ``(remote_references, local_references)`` for a whole-file template.
+
+    The same question the Python and brace analysers answer, asked of markup:
+    does this unit depend on something that will not travel with it?
+
+    Remote references resolve from anywhere, so they are dependencies to
+    declare. Relative references name a file beside the original -- a local
+    stylesheet, a sibling script, an image in the repository -- and the
+    library copies code, not directories, so they do not travel. They are
+    returned as unresolved and the self-containment gate rejects them, exactly
+    as it rejects a helper calling a function left behind in its module.
+
+    Data URIs, fragments and ``mailto:`` are not assets and are ignored.
+    """
+    remote: list[str] = []
+    local: list[str] = []
+
+    # Input: target (str)
+    # Output: None
+    # Processing: File one reference into the remote or local bucket
+    # Changed by: Claude Code
+    # Date: 2026-10-12
+    def record(target: str) -> None:
+        target = target.strip()
+        if not target or target.lower().startswith(_NON_ASSET_SCHEMES):
+            return
+        bucket = remote if _is_remote_reference(target) else local
+        if target not in bucket:
+            bucket.append(target)
+
+    if language == "html":
+        for tag in _HTML_TAG.finditer(source):
+            name = tag.group("tag").lower()
+            for attr in _HTML_ATTR.finditer(tag.group("attrs")):
+                # ``src`` always names an asset the template needs rendered.
+                # ``href`` only does on <link>; on <a> and <area> it is a
+                # navigation target, and a template that links to a page it
+                # does not carry is complete -- rejecting a navbar for
+                # pointing at "/" would be the annotation-blocker mistake
+                # again, in markup.
+                if attr.group("name").lower() == "src" or name == "link":
+                    record(attr.group("target"))
+    elif language == "css":
+        for pattern in (_CSS_IMPORT, _CSS_URL):
+            for match in pattern.finditer(source):
+                record(match.group("target"))
+
+    return tuple(remote), tuple(local)
+
+
 # Input: source (str), path (str), language (str), max_lines (int)
 # Output: ExtractedUnit | None
 # Processing: Treat a whole file as a template candidate.
@@ -638,10 +749,20 @@ def extract_file_as_template(
 
     How HTML, CSS and scaffolding enter the library: there is no function to
     slice, the file *is* the unit. No signature, per the spec.
+
+    The dependency analysis here is why HTML and CSS can enter the library at
+    all. ``dependencies_analysed`` defaults to False and
+    :attr:`ExtractedUnit.self_contained` rejects anything unanalysed, so for as
+    long as this extractor set neither flag, every template it produced was
+    dropped by the harvester and the library held nothing but helpers. Setting
+    the flag without doing the work would have rebuilt the false-pass defect
+    the flag exists to prevent -- a template really can depend on a script or
+    a stylesheet it does not carry -- so the references are resolved instead.
     """
     lines = source.splitlines()
     if not MIN_FUNCTION_LINES <= len(lines) <= max_lines:
         return None
+    remote, local = analyse_template_dependencies(source, language)
     return ExtractedUnit(
         name=path.rsplit("/", 1)[-1],
         code=source,
@@ -650,6 +771,9 @@ def extract_file_as_template(
         end_line=len(lines),
         is_template=True,
         needs_review=True,
+        dependencies_analysed=True,
+        required_imports=remote,
+        unresolved_names=local,
     )
 
 

@@ -724,8 +724,30 @@ class TestUnanalysedIsNotSelfContained:
         assert not bare.dependencies_analysed
         assert not bare.self_contained
 
-    def test_a_template_is_not_claimed_self_contained_either(self):
+    def test_template_extractor_now_analyses_and_so_may_claim_it(self):
+        """Superseded the same way the brace extractor was, one language family on.
+
+        While this extractor set neither flag, every template it produced
+        failed ``self_contained`` and the harvester dropped it: the library
+        held 515 helpers and zero templates, with HTML and CSS -- two of the
+        six MVP languages -- unservable, and no error anywhere.
+
+        The rule the class is named for is unchanged, and
+        ``test_default_is_unanalysed`` still holds it: a unit nobody checked
+        is rejected. What changed is that templates are now checked. Flipping
+        the flag without writing the analyser would have rebuilt the
+        false-pass defect it exists to prevent, since a template really can
+        depend on a stylesheet or script it does not carry.
+        """
         units = extract("a{color:red}\nb{x:1}\nc{y:2}\n", "styles/main.css")
+        assert units
+        unit = units[0]
+        assert unit.dependencies_analysed
+        assert unit.self_contained
+        assert unit.needs_review
+
+    def test_a_template_that_pulls_in_a_sibling_is_still_rejected(self):
+        units = extract('@use "./base";\na{color:red}\nb{x:1}\n', "styles/main.css")
         assert units and not units[0].self_contained
 
 
@@ -839,3 +861,114 @@ class TestBraceDependencies:
         """The heuristic can be wrong where the Python analysis cannot."""
         src = "function f(a) {\n  const b = a;\n  return b;\n}\n"
         assert extract_braced(src, "javascript")[0].needs_review
+
+
+class TestTemplateDependencies:
+    """Whole-file templates: the gate that silently emptied the library.
+
+    ``extract_file_as_template`` never set ``dependencies_analysed``, and
+    ``self_contained`` rejects anything unanalysed, so every HTML and CSS
+    template the harvester produced was dropped. The library held 515 helpers
+    and zero templates, and nothing reported an error.
+    """
+
+    # Input: source (str), path (str)
+    # Output: ExtractedUnit
+    # Processing: Extract one whole-file template, asserting a unit came back
+    # Changed by: Claude Code
+    # Date: 2026-10-12
+    def unit(self, source: str, path: str):
+        units = extract(source, path)
+        assert units, f"expected a template unit for {path}"
+        return units[0]
+
+    def test_a_template_is_marked_analysed(self):
+        # The regression itself: without this flag the harvester drops it.
+        unit = self.unit(".a { color: red; }\n.b { color: blue; }\n.c { color: teal; }", "t.css")
+        assert unit.is_template is True
+        assert unit.dependencies_analysed is True
+        assert unit.self_contained is True
+
+    def test_a_stylesheet_importing_a_sibling_is_not_self_contained(self):
+        # The library copies code, not directories, so a relative import
+        # names a file that will not travel with the entry.
+        unit = self.unit('@import "./base.css";\n.a { color: red; }\n.b { color: blue; }', "t.css")
+        assert unit.self_contained is False
+        assert "./base.css" in unit.unresolved_names
+
+    def test_sass_module_syntax_is_checked_too(self):
+        # @use and @forward replaced @import. Checking only the old keyword
+        # passed 136 stylesheets that pulled in siblings.
+        for source in (
+            '@use "../scss/bootstrap" as *;\n.a { color: red; }\n.b { color: blue; }',
+            '@forward "button";\n@forward "close";\n@forward "card";',
+        ):
+            unit = self.unit(source, "t.scss")
+            assert unit.self_contained is False, source
+
+    def test_a_remote_reference_is_a_declarable_dependency(self):
+        # A CDN stylesheet resolves wherever the template is pasted, so it is
+        # recorded rather than treated as a blocker.
+        unit = self.unit(
+            '@import url("https://fonts.example.com/css?family=Inter");\n'
+            ".a { color: red; }\n.b { color: blue; }",
+            "t.css",
+        )
+        assert unit.self_contained is True
+        assert any("fonts.example.com" in ref for ref in unit.required_imports)
+
+    def test_css_url_references_are_found(self):
+        unit = self.unit(
+            "@font-face {\n  src: url(./local.woff2);\n}\n.a { color: red; }", "t.css"
+        )
+        assert unit.self_contained is False
+        assert "./local.woff2" in unit.unresolved_names
+
+    def test_a_hyperlink_is_not_an_asset(self):
+        # Rejecting a navbar because it points at "/" would be the
+        # annotation-only-blocker mistake again, in markup.
+        unit = self.unit(
+            '<nav>\n  <a href="/">Home</a>\n  <a href="/about">About</a>\n</nav>', "nav.html"
+        )
+        assert unit.self_contained is True
+        assert unit.unresolved_names == ()
+
+    def test_a_link_element_href_is_an_asset(self):
+        unit = self.unit(
+            '<div>\n  <link href="./site.css" rel="stylesheet">\n  <p>hi</p>\n</div>', "t.html"
+        )
+        assert unit.self_contained is False
+        assert "./site.css" in unit.unresolved_names
+
+    def test_a_script_or_image_src_is_an_asset(self):
+        for source in (
+            '<div>\n  <script src="./app.js"></script>\n  <p>hi</p>\n</div>',
+            '<figure>\n  <img src="./logo.png" alt="x">\n  <figcaption>y</figcaption>\n</figure>',
+        ):
+            unit = self.unit(source, "t.html")
+            assert unit.self_contained is False, source
+
+    def test_non_asset_schemes_are_ignored(self):
+        unit = self.unit(
+            '<p>\n  <a href="mailto:a@b.c">mail</a>\n  <a href="#top">top</a>\n'
+            '  <img src="data:image/gif;base64,R0lGOD">\n</p>',
+            "t.html",
+        )
+        assert unit.self_contained is True
+
+    def test_a_template_has_no_signature(self):
+        unit = self.unit(".a { color: red; }\n.b { color: blue; }\n.c { color: teal; }", "t.css")
+        assert unit.signature is None
+
+
+class TestMinifiedFilesAreSkipped:
+    def test_a_minified_stylesheet_is_skipped(self):
+        # A minified file is one long self-contained line, so it passes every
+        # other gate; 119 of them entered a harvest before the marker was
+        # widened from .min.js to .min.
+        assert language_for_path("css/pico.amber.min.css") is None
+        assert language_for_path("dist/app.min.js") is None
+
+    def test_an_ordinary_stylesheet_is_kept(self):
+        assert language_for_path("scss/_alert.scss") == "css"
+        assert language_for_path("src/components/nav.html") == "html"
