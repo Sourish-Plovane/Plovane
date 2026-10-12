@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
@@ -90,6 +90,11 @@ class QueryGenerator(Protocol):
 
     name: str
 
+    # Input: entry (Entry), count (int)
+    # Output: list[SyntheticQuery]
+    # Processing: Produce up to count training queries for one entry
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def generate(self, entry: Entry, *, count: int = 3) -> list[SyntheticQuery]: ...
 
 
@@ -193,6 +198,11 @@ class DeepSeekQueryGenerator:
 
     name = "deepseek"
 
+    # Input: client (object | None), model (str)
+    # Output: None
+    # Processing: Init
+    # Changed by: Claude Code
+    # Date: 2026-10-12
     def __init__(self, client=None, *, model: str = "deepseek-chat") -> None:
         self.client = client
         self.model = model
@@ -267,3 +277,164 @@ def generate_training_queries(
     for entry in entries:
         out.extend(generator.generate(entry, count=per_entry))
     return out
+
+
+# ---------------------------------------------------------------------------
+# Degeneracy measurement
+#
+# ``GoldQuery`` blocks a synthetic query from an *evaluation* set. That guard
+# is necessary and it is not sufficient: a synthetic set can also be useless
+# for *training*, and it fails there in a way that looks like success.
+#
+# A templated query is built from the entry's description, so its words are
+# the description's words. BM25 indexes that same description. Keyword search
+# therefore answers the query by string overlap, and on this library it puts
+# the target first for 98.4% of generated queries. A ranker trained on that
+# learns to reproduce BM25 and scores about 0.99 NDCG@10 doing it. Nothing
+# about the run looks wrong -- the loss falls, the metric is excellent, the
+# model is real -- and the number means only that a sentence matches the
+# sentence it came from.
+#
+# So the overlap is measured and the training harness refuses to certify a
+# run above the threshold. Without that, the honest finding (this data cannot
+# train a ranker) is indistinguishable from the flattering one.
+# ---------------------------------------------------------------------------
+
+DEGENERATE_OVERLAP_THRESHOLD = 0.6
+"""Mean query/description token overlap above which a set cannot train.
+
+Set at 0.6 because the templated generator measures 0.91 on this library and
+is plainly degenerate, while queries written by a developer who does not know
+the entry exists share little more than the occasional domain noun. The gap
+between those two cases is wide, so the exact cut matters less than having
+one at all."""
+
+_QUERY_STOPWORDS = frozenset(
+    {
+        "how", "do", "i", "need", "something", "to", "is", "there", "a", "an",
+        "the", "helper", "for", "in", "looking", "of", "and", "with", "that",
+        "this", "it", "its", "be", "can", "want", "get", "some", "any",
+    }
+)
+
+_WORD = re.compile(r"[a-z0-9]+")
+
+
+# Input: text (str)
+# Output: frozenset[str]
+# Processing: Content words of a string, lowercased
+# Changed by: Claude Code
+# Date: 2026-10-12
+def content_tokens(text: str) -> frozenset[str]:
+    """Content words only -- stopwords and one- or two-character tokens out.
+
+    The template frames ("how do I", "is there a helper to") are shared by
+    every generated query, so counting them would put a floor under every
+    overlap score and compress the difference between a degenerate set and a
+    usable one.
+    """
+    return frozenset(
+        token for token in _WORD.findall(text.lower())
+        if token not in _QUERY_STOPWORDS and len(token) > 2
+    )
+
+
+# Input: query (str), target_text (str)
+# Output: float
+# Processing: Fraction of the query's content words found in the target text
+# Changed by: Claude Code
+# Date: 2026-10-12
+def lexical_overlap(query: str, target_text: str) -> float:
+    """What fraction of the query's content words appear in the target.
+
+    Asymmetric on purpose. The question is whether the query is answerable by
+    string matching against this entry, which depends on how much of the
+    *query* the entry already contains -- not on how much of a long
+    description the short query happens to cover. A query with no content
+    words scores 0: there is nothing to match on, degenerate or otherwise.
+    """
+    query_tokens = content_tokens(query)
+    if not query_tokens:
+        return 0.0
+    return len(query_tokens & content_tokens(target_text)) / len(query_tokens)
+
+
+@dataclass(frozen=True)
+class OverlapReport:
+    """How lexically dependent a query set is on the entries it came from."""
+
+    count: int
+    mean: float
+    median: float
+    fraction_above_half: float
+    fraction_complete: float
+    threshold: float = DEGENERATE_OVERLAP_THRESHOLD
+
+    # Input: none
+    # Output: bool
+    # Processing: Whether the set is too lexically coupled to train on
+    # Changed by: Claude Code
+    # Date: 2026-10-12
+    @property
+    def degenerate(self) -> bool:
+        """True when a ranker trained on this set would be learning BM25."""
+        return self.mean >= self.threshold
+
+    # Input: none
+    # Output: str
+    # Processing: One-paragraph summary for a training log
+    # Changed by: Claude Code
+    # Date: 2026-10-12
+    def summary(self) -> str:
+        verdict = "DEGENERATE" if self.degenerate else "usable"
+        return (
+            f"{self.count} queries, mean overlap {self.mean:.2f}, median "
+            f"{self.median:.2f}; {self.fraction_above_half:.0%} draw over half "
+            f"their words from the target description and "
+            f"{self.fraction_complete:.0%} draw all of them -- {verdict} "
+            f"(threshold {self.threshold:.2f})"
+        )
+
+
+# Input: queries (Sequence[SyntheticQuery]), target_text (Mapping[str, str]), threshold (float)
+# Output: OverlapReport
+# Processing: Measure how much the query set restates its source entries
+# Changed by: Claude Code
+# Date: 2026-10-12
+def measure_overlap(
+    queries: Sequence[SyntheticQuery],
+    target_text: Mapping[str, str],
+    *,
+    threshold: float = DEGENERATE_OVERLAP_THRESHOLD,
+) -> OverlapReport:
+    """Measure a query set against the text each query was generated from.
+
+    ``target_text`` maps entry id to the text the query should *not* simply
+    restate -- in practice the entry's description, since that is what the
+    keyword index holds. A query whose entry is absent from the mapping is
+    skipped rather than scored 0, because a missing target says nothing about
+    the query's overlap and scoring it 0 would drag the mean toward "usable".
+    """
+    scores = [
+        lexical_overlap(q.query, target_text[q.entry_id])
+        for q in queries
+        if q.entry_id in target_text
+    ]
+    if not scores:
+        return OverlapReport(0, 0.0, 0.0, 0.0, 0.0, threshold)
+
+    ordered = sorted(scores)
+    midpoint = len(ordered) // 2
+    median = (
+        ordered[midpoint]
+        if len(ordered) % 2
+        else (ordered[midpoint - 1] + ordered[midpoint]) / 2
+    )
+    return OverlapReport(
+        count=len(scores),
+        mean=sum(scores) / len(scores),
+        median=median,
+        fraction_above_half=sum(s > 0.5 for s in scores) / len(scores),
+        fraction_complete=sum(s >= 1.0 for s in scores) / len(scores),
+        threshold=threshold,
+    )
