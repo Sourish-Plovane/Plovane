@@ -74,8 +74,19 @@ class CodeBiEncoder(nn.Module):
         from transformers import AutoModel, AutoTokenizer
 
         self.encoder_name = encoder_name
-        self.tokenizer = AutoTokenizer.from_pretrained(encoder_name, trust_remote_code=trust_remote_code)
-        self.encoder = AutoModel.from_pretrained(encoder_name, trust_remote_code=trust_remote_code)
+        # When ``encoder_name`` is a local directory, pin loading to it rather
+        # than letting the transformers library quietly fall back to a network
+        # fetch -- the fetcher put weights there deliberately and a silent
+        # redownload would swap them under the pipeline.
+        from pathlib import Path
+
+        local_only = Path(encoder_name).is_dir()
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            encoder_name, trust_remote_code=trust_remote_code, local_files_only=local_only
+        )
+        self.encoder = AutoModel.from_pretrained(
+            encoder_name, trust_remote_code=trust_remote_code, local_files_only=local_only
+        )
 
         hidden = int(self.encoder.config.hidden_size)
         self.dimension = dimension

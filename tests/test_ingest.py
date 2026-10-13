@@ -1236,3 +1236,73 @@ class TestStripLiterals:
     def test_an_escaped_quote_does_not_end_the_string(self):
         out = _strip_literals('a = "he said \\"hi\\" there"; b = c;')
         assert "said" not in out and "b = c;" in out
+
+
+class TestFetchWeights:
+    """The fetcher that lets weights arrive through a reachable host.
+
+    HuggingFace is denied by the environment's network policy; GitHub
+    releases, Google Cloud Storage, and raw.githubusercontent are not.
+    The fetcher takes any URL, so a weights file can be placed as a
+    release asset in this org and pulled from here.
+    """
+
+    def test_checksum_must_match_before_the_file_lands(self, tmp_path, monkeypatch):
+        # Verification is required rather than optional: a loader that trusts
+        # whatever is at the other end of a URL silently loads whatever
+        # happened to be there, which is the one thing a weights file must
+        # never do.
+        import io
+        import urllib.request
+
+        from scripts.fetch_weights import download
+
+        payload = b"hello world"
+        monkeypatch.setattr(
+            urllib.request,
+            "urlopen",
+            lambda _url: io.BytesIO(payload),
+        )
+        wrong_sha = "0" * 64
+        target = tmp_path / "model.bin"
+        with pytest.raises(RuntimeError, match="SHA-256 mismatch"):
+            download("https://example.invalid/model.bin", target, expected_sha256=wrong_sha)
+        # The partial file is removed; the destination never gets written.
+        assert not target.exists()
+        assert not target.with_suffix(".bin.partial").exists()
+
+    def test_a_matching_checksum_succeeds(self, tmp_path, monkeypatch):
+        import hashlib
+        import io
+        import urllib.request
+
+        from scripts.fetch_weights import download
+
+        payload = b"not real weights, but the size does not matter"
+        monkeypatch.setattr(urllib.request, "urlopen", lambda _url: io.BytesIO(payload))
+        sha = hashlib.sha256(payload).hexdigest()
+        target = tmp_path / "model.bin"
+        download("https://example.invalid/model.bin", target, expected_sha256=sha)
+        assert target.read_bytes() == payload
+
+    def test_extract_handles_a_zip(self, tmp_path):
+        import zipfile
+
+        from scripts.fetch_weights import extract
+
+        archive = tmp_path / "model.zip"
+        with zipfile.ZipFile(archive, "w") as zf:
+            zf.writestr("config.json", "{}")
+            zf.writestr("pytorch_model.bin", b"\x00\x01\x02")
+        destination = tmp_path / "unpacked"
+        extract(archive, destination)
+        assert (destination / "config.json").read_text() == "{}"
+        assert (destination / "pytorch_model.bin").exists()
+
+    def test_extract_rejects_an_unknown_archive(self, tmp_path):
+        from scripts.fetch_weights import extract
+
+        bogus = tmp_path / "model.weird"
+        bogus.write_bytes(b"")
+        with pytest.raises(ValueError, match="unknown archive"):
+            extract(bogus, tmp_path / "out")

@@ -31,3 +31,12 @@ seed/*
 # stays out as regenerable output; this is what makes it regenerable, so
 # without it the committed model artefact could not be reproduced.
 !seed/sources.json
+
+
+# Encoder weights. Fetched via `scripts/fetch_weights.py`; see weights/README.md
+# for the configured artefacts and their SHA-256 pins. Large and reproducible
+# from the manifest, so they stay out of git -- the fetcher downloads what the
+# manifest names.
+weights/*
+!weights/README.md
+!weights/manifest.json

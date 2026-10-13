@@ -16,6 +16,33 @@ RETRIEVAL_TOP_K = 1000
 RRF_K = 60
 """Reciprocal Rank Fusion constant: each item scores sum(1 / (RRF_K + rank))."""
 
+RRF_ARM_WEIGHTS_PLACEHOLDER_EMBEDDING = (1.0, 0.25)
+"""RRF arm weights -- (bm25, cosine) -- used while the vector arm runs on
+``HashingEmbeddingModel``.
+
+Measured on all 350 hand-written queries, top-1 hit rate:
+
+===========================  =====  =====
+``(w_bm25, w_cos)``             @1     @3
+===========================  =====  =====
+``(1.0, 1.0)`` (standard)     36.6%  54.6%
+``(1.0, 0.50)``               38.6%  54.6%
+**``(1.0, 0.25)`` (default)** 40.9%  55.1%
+``(1.0, 0.00)`` (bm25 only)   40.0%  55.4%
+``(0.0, 1.0)`` (cosine only)  25.7%  44.9%
+===========================  =====  =====
+
+The hashing embedding gives 25% @1 on its own, so equal fusion drags the
+stronger arm down. The chosen weight keeps a little of the vector arm --
+it still rescues cases where BM25 misses -- without letting it dominate.
+
+A workaround, not a tuning knob. ``RetrievalService`` reads this only when
+the embedding model is the placeholder, so a real bi-encoder restores
+equal weighting without a config change."""
+
+RRF_ARM_WEIGHTS_EQUAL = (1.0, 1.0)
+"""RRF arm weights used with a real bi-encoder: standard RRF."""
+
 BM25_K1 = 1.2
 BM25_B = 0.75
 

@@ -11,7 +11,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ml.config import RETRIEVAL_TOP_K, RRF_K
+from ml.config import (
+    RETRIEVAL_TOP_K,
+    RRF_ARM_WEIGHTS_EQUAL,
+    RRF_ARM_WEIGHTS_PLACEHOLDER_EMBEDDING,
+    RRF_K,
+)
 from ml.retrieval.embedding import EmbeddingModel
 from ml.retrieval.filters import FilterSpec
 from ml.retrieval.fusion import reciprocal_rank_fusion
@@ -61,6 +66,7 @@ class RetrievalService:
         entry_store: dict[str, Entry],
         top_k: int = RETRIEVAL_TOP_K,
         rrf_k: int = RRF_K,
+        rrf_arm_weights: tuple[float, float] | None = None,
     ) -> None:
         self.keyword_index = keyword_index
         self.vector_index = vector_index
@@ -68,6 +74,19 @@ class RetrievalService:
         self.entry_store = entry_store
         self.top_k = top_k
         self.rrf_k = rrf_k
+        # Pick weights by what the embedding model actually is. The placeholder
+        # gives a 25%-@1 vector arm, so equal RRF pulls fused @1 down below
+        # BM25 alone -- see RRF_ARM_WEIGHTS_PLACEHOLDER_EMBEDDING for the full
+        # table. A real bi-encoder restores equal weighting without a config
+        # change.
+        if rrf_arm_weights is None:
+            from ml.retrieval.embedding import HashingEmbeddingModel
+
+            placeholder = isinstance(embedding_model, HashingEmbeddingModel)
+            rrf_arm_weights = (
+                RRF_ARM_WEIGHTS_PLACEHOLDER_EMBEDDING if placeholder else RRF_ARM_WEIGHTS_EQUAL
+            )
+        self.rrf_arm_weights = rrf_arm_weights
 
     # Input: request (Request), filters (FilterSpec | None)
     # Output: RetrievalResult
@@ -92,6 +111,7 @@ class RetrievalService:
         fused = reciprocal_rank_fusion(
             [[entry_id for entry_id, _ in keyword_hits], [entry_id for entry_id, _ in vector_hits]],
             k=self.rrf_k,
+            weights=self.rrf_arm_weights,
         )
 
         candidates: list[Candidate] = []
