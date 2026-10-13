@@ -80,6 +80,8 @@ def entry_from_record(record: dict) -> Entry | None:
         tags=tuple(record.get("tags") or ()),
         framework=record.get("framework"),
         license=record.get("license_spdx", "MIT"),
+        source_url=record.get("source_url"),
+        source_permalink=record.get("source_permalink"),
         owner_id=record.get("author"),
         visibility=Visibility.PUBLIC,
         dependencies=tuple(record.get("dependencies") or ()),

@@ -162,12 +162,20 @@ class RecommendationPipeline:
         # promise that nothing weak is returned.
         selected = maximal_marginal_relevance(above_cutoff, k=request.k, lambda_=self.mmr_lambda)
 
-        cards = tuple(SlimCard.from_candidate(c, c.calibrated_score or 0.0) for c in selected)
+        cards = tuple(
+            SlimCard.from_candidate(c, c.calibrated_score or 0.0, score_is_calibrated=cutoff_enforced)
+            for c in selected
+        )
         if not cards:
             reason = NO_MATCH_REASON if cutoff_enforced else UNCALIBRATED_REASON
         else:
             reason = None if cutoff_enforced else UNCALIBRATED_REASON
-        response = Response(query_id=query_id, results=cards, reason=reason)
+        response = Response(
+            query_id=query_id,
+            results=cards,
+            reason=reason,
+            cutoff_enforced=cutoff_enforced,
+        )
         log = RecommendationLog(
             query_id=query_id,
             model_versions=self.versions.as_dict(),
