@@ -41,7 +41,35 @@ the embedding model is the placeholder, so a real bi-encoder restores
 equal weighting without a config change."""
 
 RRF_ARM_WEIGHTS_EQUAL = (1.0, 1.0)
-"""RRF arm weights used with a real bi-encoder: standard RRF."""
+"""RRF arm weights used with a real bi-encoder: standard RRF.
+
+Swept on 350 queries with UniXcoder, after issue 31 took the language out of
+the embedded text -- @1 / @3 / @10 of fused retrieval:
+
+  (1.0, 0.25)   49.4  66.6  76.0
+  (1.0, 0.5)    49.1  67.4  79.7
+  (1.0, 1.0)    52.0  69.7  81.4   <-- this
+  (1.0, 1.5)    51.7  70.0  83.4
+  (1.0, 2.0)    51.7  68.9  83.7
+  (1.0, 3.0)    52.0  68.3  85.7
+  (0.0, 1.0)    52.9  68.9  84.3   cosine only
+  (1.0, 0.0)    40.0  55.4  72.0   BM25 only
+
+Equal weights win @3 and tie @1, so they stay. Two results here are traps.
+
+Cosine alone scores the best @1, and dropping BM25 would be the wrong lesson
+to draw from it: these queries were hand-written to avoid the vocabulary the
+descriptions use -- that is how the degenerate 98.4% BM25 result was broken,
+taking lexical overlap from 0.92 to 0.22 -- so the set is built to
+disadvantage BM25. Real traffic carries pasted identifiers, which is BM25's
+strength and what this set under-represents. Re-decide on the real queries
+from issue 19, not on these.
+
+Tilting toward the vector arm buys depth at the cost of the top ((1.0, 3.0)
+gives up 1.4 of @3 for 4.3 of @10). That trade is worth revisiting when a
+cross-encoder exists to re-order the top 100; today nothing re-ranks, so @1
+and @3 decide.
+"""
 
 BM25_K1 = 1.2
 BM25_B = 0.75

@@ -26,7 +26,21 @@ class RetrievalQuery:
     def keyword_text(self) -> str:
         """Lexical surface. Identifiers in the request text matter most here --
         a query naming ``stratified_split`` should hit it exactly -- so context
-        is appended but kept short enough not to drown the request out."""
+        is appended but kept short enough not to drown the request out.
+
+        The language stays, unlike in :attr:`vector_text`, and the reason is
+        measured rather than principled. A hard filter makes the term
+        redundant here too, and removing it does improve the BM25 arm on its
+        own: @1 40.0 -> 41.7, @3 55.4 -> 58.3. But the fused pipeline does not
+        improve, it drifts slightly down -- @1 52.0 -> 51.1, @3 69.7 -> 69.4,
+        @10 81.4 -> 81.7, which is one to three queries out of 350.
+
+        RRF fuses ranks, so it pays for arms whose errors are complementary,
+        not for arms that are individually strong. The language term appears to
+        make BM25 wrong where the vector arm is right, and sharpening BM25
+        alone erodes some of that. An arm-level measurement is not a decision;
+        only the fused number serves. See issue 31.
+        """
         ctx = self.request.project_context
         parts = [self.request.query, *ctx.languages]
         if ctx.framework:
