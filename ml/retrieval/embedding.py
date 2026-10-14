@@ -59,9 +59,17 @@ def entry_embedding_text(entry: Entry) -> str:
     Name, signature, docstring and description carry the meaning; the code
     body is included last and truncated, because a long implementation
     otherwise dominates the pooled vector with syntax rather than intent.
+
+    The language is deliberately absent, for the reason given on
+    :attr:`ml.retrieval.query.RetrievalQuery.vector_text`: a hard filter
+    already enforces it. On the entry side alone the tag is close to a wash
+    (@1 +0.9, @3 -0.9, @10 -0.8), because an entry's text is long enough that
+    one tag barely moves its pooled vector. It earns its removal in
+    combination: once the query text no longer names a language either,
+    dropping it here is worth a further 1.4 points of @1, since both sides
+    were being pulled toward the same per-language centroid. See issue 31.
     """
     parts = [
-        f"<lang:{entry.language.lower()}>",
         entry.name,
         entry.signature or "",
         entry.docstring,

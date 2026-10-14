@@ -48,6 +48,23 @@ BM25_B = 0.75
 
 EMBEDDING_DIM = 768
 
+ENTRY_EMBEDDING_TEXT_VERSION = 2
+"""Which recipe :func:`ml.retrieval.embedding.entry_embedding_text` is on.
+
+A stored entry vector is only comparable to a query vector if both were built
+by the same recipe. Change what gets embedded and every vector already in
+pgvector silently becomes a different kind of object -- the same train/serve
+mismatch that cost Stage 1 a factor of 50, but invisible, because cosine still
+returns a number. Bump this whenever the text changes, record it beside each
+stored vector, and treat a mismatch as "re-embed", not as a warning.
+
+History:
+  1 -- name, signature, docstring, description, code[:2000], behind a
+       ``<lang:...>`` prefix.
+  2 -- the ``<lang:...>`` prefix dropped; a hard filter already enforces
+       language. Issue 31.
+"""
+
 HNSW_EF_SEARCH = 100
 """Raise this when filtered vector search returns fewer rows than requested.
 

@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import hashlib
+
 import numpy as np
 import pytest
 
+from ml.config import ENTRY_EMBEDDING_TEXT_VERSION
+from ml.retrieval.embedding import entry_embedding_text
 from ml.retrieval.filters import FilterSpec, classify_dependency_compat
 from ml.retrieval.fusion import reciprocal_rank_fusion
 from ml.retrieval.keyword import InMemoryBM25Index, render_bm25_sql, tokenize
@@ -268,7 +272,7 @@ class TestPgvectorSettings:
 
 
 class TestQueryBuilding:
-    def test_vector_text_carries_the_full_context(self):
+    def test_vector_text_carries_the_context_the_filter_cannot(self):
         query = build_query(
             Request(
                 query="split a dataset",
@@ -281,8 +285,55 @@ class TestQueryBuilding:
             )
         )
         text = query.vector_text
-        for expected in ("split a dataset", "python", "pytorch", "torch", "training loop"):
+        for expected in ("split a dataset", "pytorch", "torch", "training loop"):
             assert expected in text
+
+    def test_vector_text_leaves_the_language_to_the_filter(self):
+        """A hard filter already restricts both arms to the requested language.
+
+        Repeating it in the embedded text cannot change which entries are
+        reachable, and it measurably costs recall by pulling the query toward
+        a per-language centroid -- see issue 31.
+        """
+        query = build_query(
+            Request(query="split a dataset", project_context=ProjectContext(languages=("python",)))
+        )
+        assert "python" not in query.vector_text
+        # The filter is where the language has to show up instead.
+        assert FilterSpec.from_request(Request(
+            query="split a dataset", project_context=ProjectContext(languages=("python",))
+        )).languages == ("python",)
+
+    def test_entry_embedding_text_leaves_the_language_to_the_filter(self):
+        text = entry_embedding_text(entry("e-lang", name="stratified_split", language="python"))
+        assert "stratified_split" in text
+        assert "<lang:" not in text
+
+    def test_entry_embedding_recipe_is_pinned_to_its_version(self):
+        """A tripwire, not a style check.
+
+        Entry vectors live in pgvector; query vectors are built on the fly. The
+        two are only comparable while both come from the same recipe, so
+        changing this text without re-embedding the library makes cosine return
+        numbers that mean nothing -- and it fails silently, because a number
+        still comes back. If this test fails, the recipe changed: bump
+        ENTRY_EMBEDDING_TEXT_VERSION and re-embed, or revert.
+        """
+        text = entry_embedding_text(
+            entry(
+                "e-version",
+                name="stratified_split",
+                description="split a dataset keeping class balance",
+                language="python",
+                signature="def stratified_split(rows, ratio)",
+                docstring="Split rows, preserving label proportions.",
+                code="def stratified_split(rows, ratio):\n    return rows\n",
+            )
+        )
+        assert ENTRY_EMBEDDING_TEXT_VERSION == 2
+        assert hashlib.sha256(text.encode()).hexdigest() == (
+            "67881bba3e6b98e96ee2c39dd433c79f0af2fa85a3ab68d0754e4e5decef3d90"
+        )
 
     def test_keyword_text_leads_with_the_request(self):
         query = build_query(
