@@ -432,3 +432,94 @@ class TestMMRLambdaByEmbedding:
             mmr_lambda=0.5,
         )
         assert pipe.mmr_lambda == 0.5
+
+
+class TestStage3HandWeightsByEmbedding:
+    """Stage 3's hand weights auto-select on the same signal MMR and RRF use."""
+
+    def test_a_real_embedding_gets_the_pass_through_variant(self):
+        # Measured on 350 queries with UniXcoder swapped in: the shipping
+        # hand weights scored @1 37.4%, pure retrieval order scored 47.1% --
+        # matching retrieval's true ceiling under the language filter. The
+        # weights with cosine + bm25 + rrf mixed are noise on top of fused
+        # retrieval, not a correction.
+        from ml.ranking.stage1 import LinearFeatureRanker
+        from ml.ranking.stage3 import (
+            FinalRanker,
+            LinearFinalRanker,
+            STAGE3_HAND_WEIGHTS_SEMANTIC_EMBEDDING,
+        )
+        from ml.ranking.pipeline import RecommendationPipeline
+        from ml.retrieval.keyword import InMemoryBM25Index
+        from ml.retrieval.service import RetrievalService
+        from ml.retrieval.vector import InMemoryVectorIndex
+
+        class FakeSemantic:
+            dimension = 768
+            def encode_queries(self, texts): return [[0.0] * 768] * len(texts)
+            def encode_entries(self, entries): return [[0.0] * 768] * len(entries)
+
+        service = RetrievalService(
+            keyword_index=InMemoryBM25Index([]),
+            vector_index=InMemoryVectorIndex([]),
+            embedding_model=FakeSemantic(), entry_store={},
+        )
+        pipe = RecommendationPipeline(
+            retrieval=service, stage1_ranker=LinearFeatureRanker(),
+            final_ranker=FinalRanker(model=LinearFinalRanker(), version="v"),
+        )
+        assert pipe.final_ranker.model.weights is STAGE3_HAND_WEIGHTS_SEMANTIC_EMBEDDING
+
+    def test_the_placeholder_keeps_the_feature_mix(self):
+        from ml.ranking.stage1 import LinearFeatureRanker
+        from ml.ranking.stage3 import (
+            FinalRanker,
+            LinearFinalRanker,
+            STAGE3_HAND_WEIGHTS_PLACEHOLDER_EMBEDDING,
+        )
+        from ml.ranking.pipeline import RecommendationPipeline
+        from ml.retrieval.embedding import HashingEmbeddingModel
+        from ml.retrieval.keyword import InMemoryBM25Index
+        from ml.retrieval.service import RetrievalService
+        from ml.retrieval.vector import InMemoryVectorIndex
+
+        service = RetrievalService(
+            keyword_index=InMemoryBM25Index([]),
+            vector_index=InMemoryVectorIndex([]),
+            embedding_model=HashingEmbeddingModel(), entry_store={},
+        )
+        pipe = RecommendationPipeline(
+            retrieval=service, stage1_ranker=LinearFeatureRanker(),
+            final_ranker=FinalRanker(model=LinearFinalRanker(), version="v"),
+        )
+        assert pipe.final_ranker.model.weights is STAGE3_HAND_WEIGHTS_PLACEHOLDER_EMBEDDING
+
+    def test_an_explicit_weight_set_is_not_overridden(self):
+        # A caller who supplied their own weights -- or loaded a trained
+        # model -- is left alone. The auto-swap only touches a LinearFinalRanker
+        # still using the placeholder defaults.
+        from ml.ranking.stage1 import LinearFeatureRanker
+        from ml.ranking.stage3 import FinalRanker, LinearFinalRanker, STAGE3_FEATURE_NAMES
+        from ml.ranking.pipeline import RecommendationPipeline
+        from ml.retrieval.keyword import InMemoryBM25Index
+        from ml.retrieval.service import RetrievalService
+        from ml.retrieval.vector import InMemoryVectorIndex
+
+        class FakeSemantic:
+            dimension = 768
+            def encode_queries(self, texts): return [[0.0] * 768] * len(texts)
+            def encode_entries(self, entries): return [[0.0] * 768] * len(entries)
+
+        my_weights = {name: 1.0 for name in STAGE3_FEATURE_NAMES}
+        service = RetrievalService(
+            keyword_index=InMemoryBM25Index([]),
+            vector_index=InMemoryVectorIndex([]),
+            embedding_model=FakeSemantic(), entry_store={},
+        )
+        pipe = RecommendationPipeline(
+            retrieval=service, stage1_ranker=LinearFeatureRanker(),
+            final_ranker=FinalRanker(
+                model=LinearFinalRanker(weights=my_weights), version="v"
+            ),
+        )
+        assert pipe.final_ranker.model.weights == my_weights

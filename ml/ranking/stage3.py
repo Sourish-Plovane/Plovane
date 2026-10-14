@@ -28,12 +28,35 @@ from ml.schemas import Candidate
 STAGE3_FEATURE_NAMES: tuple[str, ...] = (*FEATURE_NAMES, "cross_encoder_score")
 """Stage 1's features with the cross-encoder score appended last."""
 
-STAGE3_HAND_WEIGHTS: dict[str, float] = {
+STAGE3_HAND_WEIGHTS_PLACEHOLDER_EMBEDDING: dict[str, float] = {
     **HAND_WEIGHTS,
-    # Before there is training data the cross-encoder is still the most
-    # trustworthy signal in the row, so it outweighs everything else.
+    # When the vector arm is the hashing placeholder, the cross-encoder is
+    # still the most trustworthy signal; it outweighs everything else before
+    # there is training data to re-order on top.
     "cross_encoder_score": 3.0,
 }
+"""Stage 3 hand weights for the placeholder-embedding configuration."""
+
+STAGE3_HAND_WEIGHTS_SEMANTIC_EMBEDDING: dict[str, float] = {
+    name: 0.0 for name in STAGE3_FEATURE_NAMES
+} | {"rrf_rank": -3.0}
+"""Stage 3 hand weights for a real semantic encoder: trust retrieval order.
+
+Measured on 350 queries with UniXcoder swapped in: the shipping weights
+(cosine 1.0, bm25 0.8, rrf_rank -1.5, cross_encoder_score 3.0) scored
+@1 37.4% / @3 58.3%, versus retrieval's ceiling of @1 47.1% / @3 66.6%
+under the same language filter. Every hand-tuned feature mix I measured
+underperformed pure retrieval order; cosine 3.0 only scored 43.7%, pure
+retrieval order 47.1%. The explanation is simple: retrieval already
+fused BM25 with the strong encoder, so reweighting the fused ranking by
+individual signals is noise on top of a good decision.
+
+The weights go back to a feature mix once there is a cross-encoder score
+to re-order on (``cross_encoder_score`` carries the strongest signal and
+is zero today), or when Stage 3 is trained on real traffic."""
+
+STAGE3_HAND_WEIGHTS = STAGE3_HAND_WEIGHTS_PLACEHOLDER_EMBEDDING
+"""Default. Overridden by the pipeline when it sees a real embedding model."""
 
 
 # Input: candidates (Sequence[Candidate]), ctx (FeatureContext)

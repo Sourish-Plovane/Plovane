@@ -128,15 +128,35 @@ class RecommendationPipeline:
     # Changed by: Claude Code
     # Date: 2026-10-14
     def __post_init__(self) -> None:
-        if self.mmr_lambda is None:
-            from ml.retrieval.embedding import HashingEmbeddingModel
+        from ml.retrieval.embedding import HashingEmbeddingModel
+        from ml.ranking.stage3 import (
+            LinearFinalRanker,
+            STAGE3_HAND_WEIGHTS_PLACEHOLDER_EMBEDDING,
+            STAGE3_HAND_WEIGHTS_SEMANTIC_EMBEDDING,
+        )
 
-            placeholder = isinstance(self.retrieval.embedding_model, HashingEmbeddingModel)
+        placeholder = isinstance(self.retrieval.embedding_model, HashingEmbeddingModel)
+
+        if self.mmr_lambda is None:
             object.__setattr__(
                 self,
                 "mmr_lambda",
                 MMR_LAMBDA_PLACEHOLDER_EMBEDDING if placeholder else MMR_LAMBDA_SEMANTIC_EMBEDDING,
             )
+
+        # Swap Stage 3's hand weights to the semantic-mode variant when the
+        # encoder is strong. Only touches a LinearFinalRanker that is still
+        # using the placeholder-mode weights; a caller who supplied their own
+        # weights or a trained booster is left alone.
+        if not placeholder:
+            model = self.final_ranker.model
+            if (
+                isinstance(model, LinearFinalRanker)
+                and model.weights is STAGE3_HAND_WEIGHTS_PLACEHOLDER_EMBEDDING
+            ):
+                self.final_ranker.model = LinearFinalRanker(
+                    weights=STAGE3_HAND_WEIGHTS_SEMANTIC_EMBEDDING
+                )
 
     # Input: request (Request), project_embedding (np.ndarray | None)
     # Output: FeatureContext
