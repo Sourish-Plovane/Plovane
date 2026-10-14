@@ -316,3 +316,59 @@ class TestLanguageCoverage:
             assert check_language_coverage(
                 {"javascript", "html", "css", "python", "cpp", "cuda"}
             ) == ()
+
+
+class TestRerankedOrder:
+    """Pins the ordering convention the GPU training job reranks by.
+
+    A sign error here is invisible in a smoke test: random scores and inverted
+    scores both leave @10 untouched while wrecking @1, so a cheap run on a few
+    queries cannot tell them apart. These tests can.
+    """
+
+    @staticmethod
+    def _reranked_order():
+        # scripts/ is not a package, so load the module by path rather than
+        # adding an __init__.py that would make it one.
+        import importlib.util
+        import sys
+        from pathlib import Path
+
+        if "train_cross_encoder" in sys.modules:
+            return sys.modules["train_cross_encoder"].reranked_order
+        path = Path(__file__).resolve().parent.parent / "scripts" / "train_cross_encoder.py"
+        spec = importlib.util.spec_from_file_location("train_cross_encoder", path)
+        module = importlib.util.module_from_spec(spec)
+        # Registered before exec because @dataclass in the module resolves its
+        # own module out of sys.modules; a bare path load leaves that empty.
+        sys.modules["train_cross_encoder"] = module
+        spec.loader.exec_module(module)
+        return module.reranked_order
+
+    def test_highest_score_ranks_first(self):
+        order = self._reranked_order()
+        # Stage 3 gives cross_encoder_score a positive weight, so a higher
+        # score has to mean a better candidate here too.
+        assert order(["a", "b", "c"], [0.1, 0.9, 0.5], depth=3) == ["b", "c", "a"]
+
+    def test_an_oracle_scorer_puts_the_answer_first(self):
+        order = self._reranked_order()
+        ids = [f"e{i}" for i in range(10)]
+        oracle = [1.0 if i == "e7" else 0.0 for i in ids]
+        assert order(ids, oracle, depth=10)[0] == "e7"
+
+    def test_the_tail_beyond_the_depth_keeps_its_retrieval_order(self):
+        order = self._reranked_order()
+        ids = ["a", "b", "c", "d", "e"]
+        # Reranking the top 2 must not be able to touch anything below it,
+        # which is what keeps a wider cutoff comparable across runs.
+        assert order(ids, [0.0, 1.0], depth=2) == ["b", "a", "c", "d", "e"]
+
+    def test_a_depth_wider_than_the_candidate_list_is_not_an_error(self):
+        order = self._reranked_order()
+        assert order(["a", "b"], [0.0, 1.0], depth=50) == ["b", "a"]
+
+    def test_a_score_count_mismatch_is_refused(self):
+        order = self._reranked_order()
+        with pytest.raises(ValueError, match="2 scores for 3 candidates"):
+            order(["a", "b", "c"], [0.1, 0.2], depth=3)
