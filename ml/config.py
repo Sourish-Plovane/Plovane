@@ -68,7 +68,25 @@ CROSS_ENCODER_MAX_TOKENS = 512
 HARD_NEGATIVES_PER_GROUP = 15
 """One correct entry plus 15 hard negatives mined from retrieval results."""
 
-MMR_LAMBDA = 0.7
+MMR_LAMBDA_PLACEHOLDER_EMBEDDING = 0.7
+"""MMR relevance/diversity trade-off used while the vector arm is the hashing
+placeholder. 0.7 pushes 30% toward diversity, because near-duplicates clog the
+top of a weak retrieval and MMR's job is to clear them.
+
+A real semantic encoder does not produce near-duplicates in its top-10, so the
+diversity push removes the correct answer in favour of unrelated distractors.
+Measured on 350 queries with UniXcoder swapped in: MMR_LAMBDA=0.7 scored
+@3 39.7% / @10 49.1%, MMR_LAMBDA=1.0 scored @3 58.3% / @10 78.9% -- 29 points
+of @10 given back for free."""
+
+MMR_LAMBDA_SEMANTIC_EMBEDDING = 1.0
+"""MMR trade-off used with a real semantic encoder (code-pretrained, trained
+or distilled, anything beyond the lexical placeholder). 1.0 is pure relevance,
+no diversity push. The spec can be revisited once Stage 3 is trained on real
+traffic; the current value is the measured optimum against a trained encoder."""
+
+MMR_LAMBDA = MMR_LAMBDA_PLACEHOLDER_EMBEDDING
+"""Default. Overridden by the pipeline when it sees a real embedding model."""
 """Maximal Marginal Relevance trade-off; the spec's starting value."""
 
 RELEVANCE_CUTOFF = 0.5

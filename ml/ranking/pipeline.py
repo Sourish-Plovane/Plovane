@@ -19,7 +19,13 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from ml.config import MMR_LAMBDA, RELEVANCE_CUTOFF, STAGE1_TOP_K
+from ml.config import (
+    MMR_LAMBDA,
+    MMR_LAMBDA_PLACEHOLDER_EMBEDDING,
+    MMR_LAMBDA_SEMANTIC_EMBEDDING,
+    RELEVANCE_CUTOFF,
+    STAGE1_TOP_K,
+)
 from ml.ranking.features import FeatureContext, UsageIndex
 from ml.ranking.mmr import maximal_marginal_relevance
 from ml.ranking.stage1 import FeatureRanker, rank_stage1
@@ -105,9 +111,32 @@ class RecommendationPipeline:
     usage_index: UsageIndex = field(default_factory=UsageIndex)
     global_acceptance_rate: float = 0.0
     cutoff: float = RELEVANCE_CUTOFF
-    mmr_lambda: float = MMR_LAMBDA
+    mmr_lambda: float | None = None
+    """MMR relevance/diversity trade-off.
+
+    None means auto-pick by embedding model: 0.7 when the embedding model is
+    the hashing placeholder, 1.0 when it is a real encoder. Measured on 350
+    queries after swapping UniXcoder in: 0.7 scored @3 39.7% / @10 49.1%, 1.0
+    scored @3 58.3% / @10 78.9%. MMR's job is to clear near-duplicates and a
+    real encoder does not produce them in the top 10."""
     stage1_top_k: int = STAGE1_TOP_K
     versions: ModelVersions = field(default_factory=ModelVersions)
+
+    # Input: none
+    # Output: None
+    # Processing: Resolve mmr_lambda from the embedding model when None
+    # Changed by: Claude Code
+    # Date: 2026-10-14
+    def __post_init__(self) -> None:
+        if self.mmr_lambda is None:
+            from ml.retrieval.embedding import HashingEmbeddingModel
+
+            placeholder = isinstance(self.retrieval.embedding_model, HashingEmbeddingModel)
+            object.__setattr__(
+                self,
+                "mmr_lambda",
+                MMR_LAMBDA_PLACEHOLDER_EMBEDDING if placeholder else MMR_LAMBDA_SEMANTIC_EMBEDDING,
+            )
 
     # Input: request (Request), project_embedding (np.ndarray | None)
     # Output: FeatureContext

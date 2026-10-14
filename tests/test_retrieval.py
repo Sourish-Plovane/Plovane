@@ -346,3 +346,89 @@ class TestServiceAutoSelectsWeights:
             rrf_arm_weights=(0.5, 0.5),
         )
         assert service.rrf_arm_weights == (0.5, 0.5)
+
+
+class TestMMRLambdaByEmbedding:
+    """MMR λ=0.7 was tuned for the placeholder. A real encoder needs λ=1.0."""
+
+    def test_the_placeholder_gets_the_diversity_push(self):
+        from ml.config import MMR_LAMBDA_PLACEHOLDER_EMBEDDING
+        from ml.ingest.dataset import entry_from_record
+        from ml.ranking.stage1 import LinearFeatureRanker
+        from ml.ranking.stage3 import FinalRanker, LinearFinalRanker
+        from ml.ranking.pipeline import RecommendationPipeline
+        from ml.retrieval.embedding import HashingEmbeddingModel, embed_entries_inplace
+        from ml.retrieval.keyword import InMemoryBM25Index
+        from ml.retrieval.service import RetrievalService
+        from ml.retrieval.vector import InMemoryVectorIndex
+
+        entries = [entry_from_record({
+            "id": "r:f", "name": "f", "type": "helper", "language": "python",
+            "category": "x", "description": "x", "code": "def f(): pass",
+            "author": "o", "license_spdx": "MIT", "needs_review": False,
+            "missing": [], "description_source": "docstring", "code_metrics": {"lines": 1},
+        })]
+        model = HashingEmbeddingModel()
+        embed_entries_inplace(model, entries)
+        service = RetrievalService(
+            keyword_index=InMemoryBM25Index(entries),
+            vector_index=InMemoryVectorIndex(entries),
+            embedding_model=model, entry_store={e.id: e for e in entries},
+        )
+        pipe = RecommendationPipeline(
+            retrieval=service, stage1_ranker=LinearFeatureRanker(),
+            final_ranker=FinalRanker(model=LinearFinalRanker(), version="v"),
+        )
+        assert pipe.mmr_lambda == MMR_LAMBDA_PLACEHOLDER_EMBEDDING
+
+    def test_a_real_embedding_model_gets_no_diversity_push(self):
+        # Measured on 350 queries after swapping UniXcoder in: λ=0.7 gave
+        # back @3 39.7% / @10 49.1%; λ=1.0 gave 58.3% / 78.9%. A real encoder
+        # does not emit near-duplicates in the top 10, so there is nothing for
+        # MMR's diversity push to clear -- it just removes the correct answer.
+        from ml.config import MMR_LAMBDA_SEMANTIC_EMBEDDING
+        from ml.ranking.stage1 import LinearFeatureRanker
+        from ml.ranking.stage3 import FinalRanker, LinearFinalRanker
+        from ml.ranking.pipeline import RecommendationPipeline
+        from ml.retrieval.keyword import InMemoryBM25Index
+        from ml.retrieval.service import RetrievalService
+        from ml.retrieval.vector import InMemoryVectorIndex
+
+        class FakeSemantic:
+            dimension = 768
+            def encode_queries(self, texts):  # noqa: D401
+                return [[0.0] * 768] * len(texts)
+            def encode_entries(self, entries):
+                return [[0.0] * 768] * len(entries)
+
+        service = RetrievalService(
+            keyword_index=InMemoryBM25Index([]),
+            vector_index=InMemoryVectorIndex([]),
+            embedding_model=FakeSemantic(), entry_store={},
+        )
+        pipe = RecommendationPipeline(
+            retrieval=service, stage1_ranker=LinearFeatureRanker(),
+            final_ranker=FinalRanker(model=LinearFinalRanker(), version="v"),
+        )
+        assert pipe.mmr_lambda == MMR_LAMBDA_SEMANTIC_EMBEDDING
+
+    def test_an_explicit_lambda_overrides_the_default(self):
+        from ml.ranking.stage1 import LinearFeatureRanker
+        from ml.ranking.stage3 import FinalRanker, LinearFinalRanker
+        from ml.ranking.pipeline import RecommendationPipeline
+        from ml.retrieval.embedding import HashingEmbeddingModel
+        from ml.retrieval.keyword import InMemoryBM25Index
+        from ml.retrieval.service import RetrievalService
+        from ml.retrieval.vector import InMemoryVectorIndex
+
+        service = RetrievalService(
+            keyword_index=InMemoryBM25Index([]),
+            vector_index=InMemoryVectorIndex([]),
+            embedding_model=HashingEmbeddingModel(), entry_store={},
+        )
+        pipe = RecommendationPipeline(
+            retrieval=service, stage1_ranker=LinearFeatureRanker(),
+            final_ranker=FinalRanker(model=LinearFinalRanker(), version="v"),
+            mmr_lambda=0.5,
+        )
+        assert pipe.mmr_lambda == 0.5

@@ -1,1 +1,37 @@
-{"weights": {}}
+{
+  "weights": {
+    "unixcoder-base": {
+      "description": "microsoft/unixcoder-base, 125M params, pretrained on 6 languages. Downloaded directly from HuggingFace once HF was allowlisted on the environment.",
+      "source": "https://huggingface.co/microsoft/unixcoder-base",
+      "files": {
+        "pytorch_model.bin": {
+          "url": "https://huggingface.co/microsoft/unixcoder-base/resolve/main/pytorch_model.bin",
+          "sha256": "6732b60037b086557e4c731c3748c99b4fec735d9ffe3c4c70061fd142e6b9d9"
+        },
+        "config.json": {
+          "url": "https://huggingface.co/microsoft/unixcoder-base/resolve/main/config.json"
+        },
+        "vocab.json": {
+          "url": "https://huggingface.co/microsoft/unixcoder-base/resolve/main/vocab.json"
+        },
+        "merges.txt": {
+          "url": "https://huggingface.co/microsoft/unixcoder-base/resolve/main/merges.txt"
+        },
+        "tokenizer_config.json": {
+          "url": "https://huggingface.co/microsoft/unixcoder-base/resolve/main/tokenizer_config.json"
+        },
+        "special_tokens_map.json": {
+          "url": "https://huggingface.co/microsoft/unixcoder-base/resolve/main/special_tokens_map.json"
+        }
+      },
+      "measured": {
+        "retrieval_alone_at1": 0.457,
+        "fused_rrf_equal_at1": 0.534,
+        "fused_rrf_equal_at3": 0.694,
+        "fused_rrf_equal_at10": 0.82,
+        "vs_placeholder_at1_delta": "+28.3 points",
+        "vs_bm25_at1_delta": "+9.4 points"
+      }
+    }
+  }
+}
