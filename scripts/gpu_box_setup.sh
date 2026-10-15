@@ -77,11 +77,17 @@ python3 -u scripts/train_cross_encoder.py --smoke --smoke-queries 20 --negatives
 echo
 echo "== full run =="
 echo "starting at $(date -u +%FT%TZ); this is the part that costs money"
+# Defaults are sized for ~280 training queries per fold rather than taken
+# from the spec's TrainingConfig. Its 3 epochs at 8 groups a batch is
+# about 105 optimiser steps here; a 2-epoch CPU run at that scale ended at
+# loss 1.89 against a chance level of 2.08 -- it had not even fit its own
+# training data. 10 epochs at 4 groups a batch is about 690 steps.
 python3 -u scripts/train_cross_encoder.py \
-  --epochs "${EPOCHS:-3}" \
+  --epochs "${EPOCHS:-10}" \
   --negatives "${NEGATIVES:-15}" \
   --rerank-depth "${RERANK_DEPTH:-100}" \
-  --batch-groups "${BATCH_GROUPS:-8}" \
+  --batch-groups "${BATCH_GROUPS:-4}" \
+  --learning-rate "${LR:-3e-5}" \
   --out artifacts 2>&1 | tee artifacts/train.log
 
 echo

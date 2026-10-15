@@ -470,3 +470,40 @@ class TestTrainingNegatives:
             count=2,
         )
         assert [e.id for e in negatives] == ["a", "b"]
+
+
+class TestFusedOrder:
+    """Fusion must protect retrieval's order from a reranker that knows nothing."""
+
+    @staticmethod
+    def _fused():
+        TestRerankedOrder._reranked_order()
+        import sys
+
+        return sys.modules["train_cross_encoder"].fused_order
+
+    def test_agreement_keeps_the_order(self):
+        fused = self._fused()
+        assert fused(["a", "b", "c"], [3.0, 2.0, 1.0], depth=3) == ["a", "b", "c"]
+
+    def test_one_dissenting_signal_cannot_overturn_retrieval_alone(self):
+        # The reranker puts c first, retrieval puts it last. Under RRF, c moves
+        # up but does not take first place from an item both signals rate.
+        fused = self._fused()
+        order = fused(["a", "b", "c", "d"], [2.0, 1.0, 9.0, 0.0], depth=4)
+        assert order[0] == "a"
+        assert order.index("c") < 3
+
+    def test_a_reranker_that_is_pure_noise_costs_less_than_replacing(self):
+        # Retrieval had the answer first; a reverse-order reranker is the worst
+        # case. Replacing puts the answer last; fusion keeps it in the top half.
+        fused = self._fused()
+        reranked = TestRerankedOrder._reranked_order()
+        ids = [f"e{i}" for i in range(10)]
+        worst = [float(i) for i in range(10)]  # prefers the retrieval tail
+        assert reranked(ids, worst, depth=10).index("e0") == 9
+        assert fused(ids, worst, depth=10).index("e0") < 5
+
+    def test_the_tail_beyond_the_depth_is_untouched(self):
+        fused = self._fused()
+        assert fused(["a", "b", "c", "d"], [0.0, 1.0], depth=2)[2:] == ["c", "d"]

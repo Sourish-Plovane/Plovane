@@ -76,6 +76,9 @@ class FoldResult:
     train_groups: int
     baseline: dict[str, float]
     reranked: dict[str, float]
+    fused: dict[str, float]
+    loss_start: float
+    loss_end: float
     final_loss: float
     seconds: float
 
@@ -127,6 +130,32 @@ def reranked_order(
         raise ValueError(f"got {len(head_scores)} scores for {len(head)} candidates")
     order = sorted(range(len(head)), key=lambda i: -head_scores[i])
     return [head[i] for i in order] + list(candidate_ids[depth:])
+
+
+# Input: candidate_ids (Sequence[str]), head_scores (Sequence[float]), depth (int), k (int)
+# Output: list[str]
+# Processing: Reciprocal rank fusion of retrieval order and cross-encoder order.
+# Changed by: Claude Code
+# Date: 2026-10-15
+def fused_order(
+    candidate_ids: Sequence[str], head_scores: Sequence[float], *, depth: int, k: int = 60
+) -> list[str]:
+    """Fuse retrieval order with cross-encoder order instead of replacing it.
+
+    ``reranked_order`` throws retrieval's ordering away and trusts the
+    cross-encoder alone, which is the right test of a strong model and an
+    unfair one of a weak model: a half-trained reranker erases signal that
+    retrieval already had. The pipeline never does that -- Stage 3 weighs
+    ``cross_encoder_score`` against ``rrf_rank`` -- so this measures the
+    combination too, with the same RRF retrieval already uses. If the
+    cross-encoder carries any information, fusion beats retrieval alone; if it
+    carries none, fusion costs little.
+    """
+    head = list(candidate_ids[:depth])
+    reranked = reranked_order(head, head_scores, depth=depth)
+    ce_rank = {cid: r for r, cid in enumerate(reranked, start=1)}
+    score = {cid: 1.0 / (k + r) + 1.0 / (k + ce_rank[cid]) for r, cid in enumerate(head, start=1)}
+    return sorted(head, key=lambda cid: -score[cid]) + list(candidate_ids[depth:])
 
 
 # Input: candidates (Sequence), positive_id (str), held_out_ids (set[str]), count (int)
@@ -260,7 +289,7 @@ def main(args: argparse.Namespace) -> int:
         )
         history = train_cross_encoder(model, groups, config=config)
 
-        baseline_rows, reranked_rows = [], []
+        baseline_rows, reranked_rows, fused_rows = [], [], []
         for query in test_queries:
             candidates = retrieved[query.query]
             if not candidates:
@@ -276,13 +305,12 @@ def main(args: argparse.Namespace) -> int:
             # score_candidates takes Candidate objects, not entries: it reads
             # c.entry itself and writes the score back onto each candidate.
             scored = model.score_candidates(query_text, head)
+            ids = [c.id for c in candidates]
             reranked_rows.append(
-                hits_at(
-                    reranked_order(
-                        [c.id for c in candidates], scored, depth=args.rerank_depth
-                    ),
-                    query.entry_id,
-                )
+                hits_at(reranked_order(ids, scored, depth=args.rerank_depth), query.entry_id)
+            )
+            fused_rows.append(
+                hits_at(fused_order(ids, scored, depth=args.rerank_depth), query.entry_id)
             )
 
         result = FoldResult(
@@ -291,17 +319,30 @@ def main(args: argparse.Namespace) -> int:
             train_groups=len(groups),
             baseline=mean_hits(baseline_rows),
             reranked=mean_hits(reranked_rows),
+            fused=mean_hits(fused_rows),
+            # Means over the first and last tenth of steps: a single step's
+            # loss is too noisy to say whether the model learned.
+            loss_start=float(np.mean(history[: max(1, len(history) // 10)])),
+            loss_end=float(np.mean(history[-max(1, len(history) // 10) :])),
             final_loss=float(history[-1]) if history else float("nan"),
             seconds=time.time() - started,
         )
         results.append(result)
+        chance = float(np.log(1 + args.negatives))
         print(
             f"fold {fold}: {result.train_groups} groups -> {result.test_queries} test queries, "
-            f"loss {result.final_loss:.4f}, {result.seconds:.0f}s"
+            f"{result.seconds:.0f}s"
         )
+        print(
+            f"    loss {result.loss_start:.3f} -> {result.loss_end:.3f}"
+            f"   (chance is ln {1 + args.negatives} = {chance:.3f}; near it means nothing learned)"
+        )
+        print(f"    {'':5} {'retrieval':>10} {'reranked':>10} {'fused':>10}")
         for k in CUTOFFS:
-            before, after = result.baseline[f"@{k}"], result.reranked[f"@{k}"]
-            print(f"    @{k:<3} {100*before:5.1f}%  ->  {100*after:5.1f}%   {100*(after-before):+5.1f}")
+            print(
+                f"    @{k:<3} {100*result.baseline[f'@{k}']:9.1f}% {100*result.reranked[f'@{k}']:9.1f}%"
+                f" {100*result.fused[f'@{k}']:9.1f}%"
+            )
 
         if fold == 0:
             weights = out / "cross_encoder_fold0.pt"
@@ -324,11 +365,18 @@ def main(args: argparse.Namespace) -> int:
             f"@{k}": float(sum(s * r.reranked[f"@{k}"] for s, r in zip(share, results)))
             for k in CUTOFFS
         },
+        "fused": {
+            f"@{k}": float(sum(s * r.fused[f"@{k}"] for s, r in zip(share, results)))
+            for k in CUTOFFS
+        },
     }
     print("\nheld out by entry, all folds pooled:")
+    print(f"  {'':5} {'retrieval':>10} {'reranked':>10} {'fused':>10}")
     for k in CUTOFFS:
-        before, after = aggregate["baseline"][f"@{k}"], aggregate["reranked"][f"@{k}"]
-        print(f"  @{k:<3} retrieval {100*before:5.1f}%  ->  reranked {100*after:5.1f}%   {100*(after-before):+5.1f}")
+        print(
+            f"  @{k:<3} {100*aggregate['baseline'][f'@{k}']:9.1f}%"
+            f" {100*aggregate['reranked'][f'@{k}']:9.1f}% {100*aggregate['fused'][f'@{k}']:9.1f}%"
+        )
 
     report = {
         "aggregate": aggregate,
