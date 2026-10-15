@@ -26,6 +26,7 @@ from ml.ranking.cross_encoder import (  # noqa: E402
     linear_warmup_schedule,
     listwise_softmax_loss,
     mine_hard_negatives,
+    accumulate_batch_gradients,
     train_cross_encoder,
 )
 from ml.schemas import Candidate, Entry, EntryType  # noqa: E402
@@ -286,6 +287,57 @@ class TestTraining:
     def test_rejects_empty_training_set(self, model):
         with pytest.raises(ValueError, match="no training groups"):
             train_cross_encoder(model, [], device="cpu")
+
+    def test_per_group_backward_matches_one_backward_over_the_batch(self, tiny_tokenizer):
+        """Accumulating per group must be the same update, not an approximation.
+
+        The loop runs backward once per group so memory stays at one group's
+        activations; that is only acceptable if the gradient it leaves behind is
+        the gradient of the batch-mean loss. Groups of different sizes are used
+        on purpose, since that is where padding used to be needed.
+        """
+        batch = [
+            CrossEncoderGroup(
+                query_text="scaffold a new single page app with routing",
+                positive=template("good", description="single page app routing"),
+                negatives=(template("bad1", description="fastapi service auth migrations"),),
+            ),
+            CrossEncoderGroup(
+                query_text="python class def return",
+                positive=template("good2", description="python class def return"),
+                negatives=(
+                    template("bad2", description="react vite starter"),
+                    template("bad3", description="eslint bundle helper"),
+                ),
+            ),
+        ]
+
+        torch.manual_seed(0)
+        accumulated = build_model(tiny_tokenizer).eval()
+        torch.manual_seed(0)
+        stacked = build_model(tiny_tokenizer).eval()
+
+        loss = accumulate_batch_gradients(accumulated, batch, device=torch.device("cpu"))
+
+        losses = []
+        for group in batch:
+            encoded = stacked.tokenizer.collate(
+                [stacked.tokenizer.encode(group.query_text, e) for e in group.entries]
+            )
+            logits = stacked(encoded["input_ids"], encoded["attention_mask"])
+            losses.append(listwise_softmax_loss(logits.unsqueeze(0)))
+        reference = torch.stack(losses).mean()
+        reference.backward()
+
+        assert loss == pytest.approx(reference.detach().item(), rel=1e-5)
+        compared = 0
+        for (name, a), (_, b) in zip(accumulated.named_parameters(), stacked.named_parameters()):
+            if b.grad is None:
+                assert a.grad is None, name
+                continue
+            torch.testing.assert_close(a.grad, b.grad, rtol=1e-4, atol=1e-6, msg=name)
+            compared += 1
+        assert compared > 0
 
 
 class TestHardNegatives:

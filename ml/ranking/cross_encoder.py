@@ -491,31 +491,50 @@ def train_cross_encoder(
         for start in range(0, len(groups), config.batch_groups):
             batch = groups[start : start + config.batch_groups]
             optimizer.zero_grad(set_to_none=True)
-
-            # Groups are padded to a common size so one tensor covers the
-            # batch; the padded slots are masked out of the softmax with -inf
-            # rather than left to compete as plausible negatives.
-            width = max(len(g.entries) for g in batch)
-            losses = []
-            with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
-                for group in batch:
-                    pairs = [model.tokenizer.encode(group.query_text, e) for e in group.entries]
-                    encoded = model.tokenizer.collate(pairs)
-                    logits = model(
-                        encoded["input_ids"].to(device), encoded["attention_mask"].to(device)
-                    )
-                    if logits.numel() < width:
-                        pad = torch.full(
-                            (width - logits.numel(),), float("-inf"), device=logits.device, dtype=logits.dtype
-                        )
-                        logits = torch.cat([logits, pad])
-                    losses.append(listwise_softmax_loss(logits.unsqueeze(0)))
-                loss = torch.stack(losses).mean()
-
-            loss.backward()
+            loss = accumulate_batch_gradients(model, batch, device=device, bf16=use_bf16)
             torch.nn.utils.clip_grad_norm_(model.parameters(), config.max_grad_norm)
             optimizer.step()
             scheduler.step()
-            history.append(float(loss.detach().cpu()))
+            history.append(loss)
 
     return history
+
+
+# Input: model (CrossEncoder), batch (Sequence[CrossEncoderGroup]), device (torch.device), bf16 (bool)
+# Output: float
+# Processing: Leave the batch-mean loss gradient in .grad, one group alive at a time.
+# Changed by: Claude Code
+# Date: 2026-10-15
+def accumulate_batch_gradients(
+    model: CrossEncoder,
+    batch: Sequence[CrossEncoderGroup],
+    *,
+    device: torch.device,
+    bf16: bool = False,
+) -> float:
+    """Leave the gradient of the batch-mean loss in ``.grad``; return that loss.
+
+    Backward runs once per group, each loss scaled by ``1 / len(batch)``. The
+    batch loss is a mean, and the gradient of a mean is the mean of the
+    gradients, so the accumulated gradient is the same one a single backward
+    over the stacked losses would give -- but only one group's activations are
+    ever alive at once, so memory no longer grows with ``batch_groups``.
+
+    Stacking first is what the loop used to do, and it does not fit. Eight
+    groups of eight pairs at 256 tokens reached 14 GB on CPU and was killed by
+    the kernel; the GPU defaults -- sixteen pairs at 512 tokens -- hold roughly
+    four times as many tokens, which is past a 24 GB card even in bf16.
+
+    Groups no longer need padding to a common width, either: each group's
+    softmax is computed on its own, so there is nothing to align.
+    """
+    total = 0.0
+    for group in batch:
+        with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=bf16):
+            pairs = [model.tokenizer.encode(group.query_text, e) for e in group.entries]
+            encoded = model.tokenizer.collate(pairs)
+            logits = model(encoded["input_ids"].to(device), encoded["attention_mask"].to(device))
+            loss = listwise_softmax_loss(logits.unsqueeze(0)) / len(batch)
+        loss.backward()
+        total += float(loss.detach().cpu())
+    return total
