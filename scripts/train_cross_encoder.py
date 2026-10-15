@@ -202,7 +202,9 @@ def main(args: argparse.Namespace) -> int:
     query_fold = np.array([entry_fold[index_of[q.entry_id]] for q in queries])
 
     results: list[FoldResult] = []
-    for fold in range(folds):
+    # --max-folds runs the first N folds of the same split, so a partial run's
+    # numbers are a subset of the full run's rather than a different split.
+    for fold in range(min(folds, args.max_folds or folds)):
         started = time.time()
         train_queries = [q for q, f in zip(queries, query_fold) if f != fold]
         test_queries = [q for q, f in zip(queries, query_fold) if f == fold]
@@ -228,7 +230,7 @@ def main(args: argparse.Namespace) -> int:
         # logit is constant, so its gradient is zero.
         groups = [g for g in groups if g.negatives]
 
-        model = CrossEncoder(args.encoder)
+        model = CrossEncoder(args.encoder, max_tokens=args.max_tokens)
         config = TrainingConfig(
             epochs=1 if args.smoke else args.epochs,
             batch_groups=args.batch_groups,
@@ -317,6 +319,8 @@ def main(args: argparse.Namespace) -> int:
             "batch_groups": args.batch_groups,
             "learning_rate": args.learning_rate,
             "folds": folds,
+            "folds_run": len(results),
+            "max_tokens": args.max_tokens,
             "seed": args.seed,
             "smoke": args.smoke,
         },
@@ -354,6 +358,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--batch-groups", type=int, default=8)
     parser.add_argument("--learning-rate", type=float, default=2e-5)
     parser.add_argument("--folds", type=int, default=5)
+    parser.add_argument(
+        "--max-folds", type=int, default=0, help="run only the first N folds (0 = all)"
+    )
+    parser.add_argument(
+        "--max-tokens", type=int, default=512,
+        help="pair length; truncation drops code before name/signature/docstring",
+    )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--out", default="artifacts")
     parser.add_argument(
