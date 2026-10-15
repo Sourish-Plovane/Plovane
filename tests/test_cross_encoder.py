@@ -424,3 +424,49 @@ class TestRerankedOrder:
         order = self._reranked_order()
         with pytest.raises(ValueError, match="2 scores for 3 candidates"):
             order(["a", "b", "c"], [0.1, 0.2], depth=3)
+
+
+class TestTrainingNegatives:
+    """A held-out entry must be unseen in training: not a positive, not a negative.
+
+    The first real run let held-out entries in as negatives and reranking fell
+    below random, because training had taught the model to rank exactly the
+    test answers low.
+    """
+
+    @staticmethod
+    def _module():
+        TestRerankedOrder._reranked_order()  # loads and registers the script
+        import sys
+
+        return sys.modules["train_cross_encoder"]
+
+    @staticmethod
+    def _candidates(*ids):
+        return [Candidate(entry=template(i)) for i in ids]
+
+    def test_held_out_entries_are_never_negatives(self):
+        negatives = self._module().training_negatives(
+            self._candidates("pos", "test1", "a", "test2", "b"),
+            "pos",
+            {"test1", "test2"},
+            count=10,
+        )
+        assert [e.id for e in negatives] == ["a", "b"]
+
+    def test_the_positive_is_still_excluded(self):
+        negatives = self._module().training_negatives(
+            self._candidates("a", "pos", "b"), "pos", set(), count=10
+        )
+        assert "pos" not in [e.id for e in negatives]
+
+    def test_count_applies_after_the_held_out_fold_is_removed(self):
+        # Excluding first and counting second keeps the group full of eligible
+        # negatives instead of quietly shrinking it.
+        negatives = self._module().training_negatives(
+            self._candidates("test1", "test2", "a", "b", "c"),
+            "pos",
+            {"test1", "test2"},
+            count=2,
+        )
+        assert [e.id for e in negatives] == ["a", "b"]

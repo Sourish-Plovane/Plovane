@@ -129,6 +129,27 @@ def reranked_order(
     return [head[i] for i in order] + list(candidate_ids[depth:])
 
 
+# Input: candidates (Sequence), positive_id (str), held_out_ids (set[str]), count (int)
+# Output: list
+# Processing: Hard negatives for a training query, never drawn from the held-out fold.
+# Changed by: Claude Code
+# Date: 2026-10-15
+def training_negatives(candidates, positive_id: str, held_out_ids: set[str], *, count: int) -> list:
+    """Hard negatives for a training query, never drawn from the held-out fold.
+
+    Holding out by entry means a test entry is never a *positive* in training.
+    That is not enough: if it can still appear as a *negative*, training
+    explicitly teaches the model to rank it low, and the evaluation then asks
+    it to rank that same entry first. The first CPU run did exactly this --
+    34 of 37 test answers were trained as wrong, about 8 times each -- and
+    reranking dropped @1 from 55.4% to 2.7%, below the ~4% a random reorder of
+    the top 20 would give. Excluding the fold makes a held-out entry genuinely
+    unseen, which is what a newly added library entry is.
+    """
+    eligible = [c for c in candidates if c.id not in held_out_ids]
+    return mine_hard_negatives(eligible, [positive_id], count=count)
+
+
 # Input: path (Path)
 # Output: str
 # Processing: SHA-256 of a file, so the weights can be verified after transfer.
@@ -208,6 +229,7 @@ def main(args: argparse.Namespace) -> int:
         started = time.time()
         train_queries = [q for q, f in zip(queries, query_fold) if f != fold]
         test_queries = [q for q, f in zip(queries, query_fold) if f == fold]
+        held_out = {e.id for e, f in zip(entries, entry_fold) if f == fold}
         if not test_queries or not train_queries:
             print(f"fold {fold}: empty split, skipped")
             continue
@@ -219,8 +241,8 @@ def main(args: argparse.Namespace) -> int:
                 ).cross_encoder_text,
                 positive=by_id[q.entry_id],
                 negatives=tuple(
-                    mine_hard_negatives(
-                        retrieved[q.query], [q.entry_id], count=args.negatives
+                    training_negatives(
+                        retrieved[q.query], q.entry_id, held_out, count=args.negatives
                     )
                 ),
             )
