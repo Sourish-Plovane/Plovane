@@ -1,0 +1,42 @@
+== box ==
+NVIDIA RTX A4000, 16376 MiB, 595.71.05
+Python 3.11.10
+
+== code ==
+From https://github.com/Sourish-Plovane/Plovane
+ * branch            Sourish    -> FETCH_HEAD
+Already on 'Sourish'
+Your branch is up to date with 'origin/Sourish'.
+HEAD is now at e3185a4 gpu_box_setup puts the repo root on PYTHONPATH
+at e3185a4
+
+== deps ==
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable.It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+torch 2.5.1+cu124 cuda True
+
+== encoder weights ==
+Fetching 8 files:   0%|          | 0/8 [00:00<?, ?it/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Fetching 8 files:  12%|█▎        | 1/8 [00:00<00:01,  4.31it/s]Fetching 8 files:  38%|███▊      | 3/8 [00:00<00:00,  9.42it/s]Fetching 8 files:  88%|████████▊ | 7/8 [00:00<00:00, 16.06it/s]Fetching 8 files: 100%|██████████| 8/8 [00:06<00:00,  1.27it/s]
+downloaded to weights/unixcoder-base
+repository manifest records: {'weights': {'unixcoder-base': {'description': 'microsoft/unixcoder-base, 125M params, pretrained on 6 languages. Downloaded directly from HuggingFace once HF was allowlisted on the environment.', 'source': 'https://huggingface.co/microsoft/unixcoder-base', 'files': {'pytorch_model.bin': {'url': 'https://huggingface.co/microsoft/unixcoder-base/resolve/main/pytorch_model.bin', 'sha256': '6732b60037b086557e4c731c3748c99b4fec735d9ffe3c4c70061fd142e6b9d9'}, 'config.json': {'url': 'https://huggingface.co/microsoft/unixcoder-base/resolve/main/config.json'}, 'vocab.json': {'url': 'https://huggingface.co/microsoft/unixcoder-base/resolve/main/vocab.json'}, 'merges.txt': {'url': 'https://huggingface.co/microsoft/unixcoder-base/resolve/main/merges.txt'}, 'tokenizer_config.json': {'url': 'https://huggingface.co/microsoft/unixcoder-base/resolve/main/tokenizer_config.json'}, 'special_tokens_map.json': {'url': 'https://huggingface.co/microsoft/unixcoder-base/resolve/main/special_tokens_map.json'}}, 'measured': {'retrieval_alone_at1': 0.457, 'fused_rrf_equal_at1': 0.534, 'fused_rrf_equal_at3': 0.694, 'fused_rrf_equal_at10': 0.82, 'vs_placeholder_at1_delta': '+28.3 points', 'vs_bm25_at1_delta': '+9.4 points'}}}}
+
+== smoke test (minutes, catches a broken environment cheaply) ==
+torch 2.5.1+cu124, cuda available: True
+  device: NVIDIA RTX A4000
+Traceback (most recent call last):
+  File "/root/plovane/scripts/train_cross_encoder.py", line 451, in <module>
+    raise SystemExit(main(parse_args()))
+                     ^^^^^^^^^^^^^^^^^^
+  File "/root/plovane/scripts/train_cross_encoder.py", line 219, in main
+    dataset = load_dataset()
+              ^^^^^^^^^^^^^^
+  File "/root/plovane/ml/ingest/dataset.py", line 189, in load_dataset
+    for entry, is_authored in iter_entries(path):
+  File "/root/plovane/ml/ingest/dataset.py", line 156, in iter_entries
+    with Path(path).open(encoding="utf-8") as handle:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/conda/lib/python3.11/pathlib.py", line 1044, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'seed/entries.jsonl'
