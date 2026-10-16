@@ -72,6 +72,34 @@ else
 fi
 
 echo
+echo "== dataset =="
+# seed/entries.jsonl is gitignored, so a fresh clone does not have it.
+# Rebuild it from the repositories and commits seed/sources.json records.
+if [ ! -s seed/entries.jsonl ]; then
+  python3 - <<'PY'
+import json, pathlib, subprocess
+from ml.ingest.local_source import harvest_clones
+sources = json.loads(pathlib.Path("seed/sources.json").read_text())
+clones = pathlib.Path.home() / "sources"
+roots = []
+for source in sources["sources"]:
+    root = clones / source["repo"].replace("/", "_")
+    if not (root / ".git").exists():
+        root.mkdir(parents=True, exist_ok=True)
+        git = lambda *args: subprocess.run(["git", "-C", str(root), *args], check=True)
+        git("init", "-q")
+        git("remote", "add", "origin", f"https://github.com/{source['repo']}.git")
+        git("fetch", "-q", "--depth", "1", "origin", source["commit"])
+        git("checkout", "-q", "FETCH_HEAD")
+    roots.append(root)
+report = harvest_clones(roots, pathlib.Path("seed/entries.jsonl"))
+print(f"rebuilt {report['written']} entries (sources.json records {sources['entries']})")
+PY
+else
+  echo "already present"
+fi
+
+echo
 echo "== smoke test (minutes, catches a broken environment cheaply) =="
 python3 -u scripts/train_cross_encoder.py --smoke --smoke-queries 20 --negatives 4 \
   --rerank-depth 20 --out artifacts/smoke
