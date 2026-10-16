@@ -61,7 +61,7 @@ BRANCH = "Sourish"
 # CUDA 12.4 build: covers Ampere (sm_80/86) and Ada (sm_89). Blackwell
 # (sm_120, the RTX 50 series) needs a 12.8+ build, so compute_cap is capped
 # below it rather than renting a card this image cannot drive.
-IMAGE = "pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime"
+IMAGE = "pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime"
 
 # What the job needs, nothing more. Per-group backward keeps GPU memory to one
 # group's activations, so 16 GB is ample. Ampere or newer for bf16 and for
