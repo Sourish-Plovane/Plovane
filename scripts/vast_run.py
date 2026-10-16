@@ -82,6 +82,27 @@ OFFER_FILTER = {
 }
 
 
+# Input: name (str)
+# Output: str | None
+# Processing: An environment secret by name, ignoring case.
+# Changed by: Claude Code
+# Date: 2026-10-16
+def secret(name: str) -> str | None:
+    """An environment secret by name, ignoring case.
+
+    Environment variables are case-sensitive, and a secret saved in the
+    environment settings as ``Vast_Api_Key`` is not ``VAST_API_KEY``. Matching
+    without case means the spelling someone chose in a settings form does not
+    silently look like a missing key. An exact match still wins.
+    """
+    if os.environ.get(name):
+        return os.environ[name]
+    for key, value in os.environ.items():
+        if key.lower() == name.lower() and value:
+            return value
+    return None
+
+
 # Input: method (str), path (str), key (str | None), body (dict | None)
 # Output: dict
 # Processing: One call to the vast.ai REST API.
@@ -233,7 +254,7 @@ def run(args: argparse.Namespace) -> int:
         "label": f"plovane-stage2-{run_id}",
         "runtype": "ssh",
         "onstart": build_onstart(run_id, max_hours=args.max_hours),
-        "env": {"GH_TOKEN": os.environ.get("GH_RESULTS_TOKEN", "<GH_RESULTS_TOKEN>")},
+        "env": {"GH_TOKEN": secret("GH_RESULTS_TOKEN") or "<GH_RESULTS_TOKEN>"},
     }
     if args.dry_run:
         shown = dict(body, env={"GH_TOKEN": "<redacted>"})
@@ -245,9 +266,13 @@ def run(args: argparse.Namespace) -> int:
     if not args.yes:
         print("\nnot renting without --yes")
         return 2
-    key = os.environ.get("VAST_API_KEY")
-    if not key or not os.environ.get("GH_RESULTS_TOKEN"):
-        print("VAST_API_KEY and GH_RESULTS_TOKEN must both be set in the environment")
+    key = secret("VAST_API_KEY")
+    missing = [n for n in ("VAST_API_KEY", "GH_RESULTS_TOKEN") if not secret(n)]
+    if missing:
+        # Names only, never values. A secret stored as a network secret may be
+        # injected by the proxy rather than exported, in which case it will
+        # not appear here at all.
+        print(f"not set in this session's environment (any capitalisation): {', '.join(missing)}")
         return 2
 
     created = api("PUT", f"/asks/{offer['id']}/", key=key, body=body)

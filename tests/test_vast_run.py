@@ -8,6 +8,7 @@ network is touched; the functions under test are pure.
 from __future__ import annotations
 
 import importlib.util
+import os
 import sys
 from pathlib import Path
 
@@ -91,3 +92,22 @@ class TestOfferFilter:
 
     def test_asks_for_one_gpu(self, vast):
         assert vast.OFFER_FILTER["num_gpus"] == {"eq": 1}
+
+
+class TestSecret:
+    def test_matches_the_name_whatever_its_capitalisation(self, vast, monkeypatch):
+        monkeypatch.delenv("VAST_API_KEY", raising=False)
+        monkeypatch.setenv("Vast_Api_Key", "k1")
+        assert vast.secret("VAST_API_KEY") == "k1"
+
+    def test_an_exact_match_wins(self, vast, monkeypatch):
+        monkeypatch.setenv("VAST_API_KEY", "exact")
+        monkeypatch.setenv("vast_api_key", "other")
+        assert vast.secret("VAST_API_KEY") == "exact"
+
+    def test_absent_or_empty_is_none(self, vast, monkeypatch):
+        for name in [k for k in os.environ if k.lower() == "gh_results_token"]:
+            monkeypatch.delenv(name)
+        assert vast.secret("GH_RESULTS_TOKEN") is None
+        monkeypatch.setenv("GH_RESULTS_TOKEN", "")
+        assert vast.secret("GH_RESULTS_TOKEN") is None
