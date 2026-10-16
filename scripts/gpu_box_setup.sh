@@ -38,6 +38,8 @@ else
   git clone --branch "$BRANCH" --depth 50 "$REPO" "$WORKDIR"
 fi
 cd "$WORKDIR"
+# The training scripts import the ml package from the repository root.
+export PYTHONPATH="$WORKDIR${PYTHONPATH:+:$PYTHONPATH}"
 echo "at $(git rev-parse --short HEAD)"
 
 echo
