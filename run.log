@@ -1,0 +1,129 @@
+== box ==
+NVIDIA RTX A4000, 16376 MiB, 580.95.05
+Python 3.11.11
+
+== code ==
+warning: redirecting to https://github.com/Sourish-Plovane/Plovane.git/
+From https://github.com/Sourish-Plovane/Plovane
+ * branch            Sourish    -> FETCH_HEAD
+Already on 'Sourish'
+Your branch is up to date with 'origin/Sourish'.
+HEAD is now at b9eb195 vast_run rents the PyTorch 2.6 image
+at b9eb195
+
+== deps ==
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable.It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+torch 2.6.0+cu124 cuda True
+
+== encoder weights ==
+Fetching 8 files:   0%|          | 0/8 [00:00<?, ?it/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Fetching 8 files:  12%|█▎        | 1/8 [00:00<00:02,  3.12it/s]Fetching 8 files:  25%|██▌       | 2/8 [00:00<00:01,  5.16it/s]Fetching 8 files: 100%|██████████| 8/8 [00:07<00:00,  1.01it/s]Fetching 8 files: 100%|██████████| 8/8 [00:07<00:00,  1.10it/s]
+downloaded to weights/unixcoder-base
+repository manifest records: {'weights': {'unixcoder-base': {'description': 'microsoft/unixcoder-base, 125M params, pretrained on 6 languages. Downloaded directly from HuggingFace once HF was allowlisted on the environment.', 'source': 'https://huggingface.co/microsoft/unixcoder-base', 'files': {'pytorch_model.bin': {'url': 'https://huggingface.co/microsoft/unixcoder-base/resolve/main/pytorch_model.bin', 'sha256': '6732b60037b086557e4c731c3748c99b4fec735d9ffe3c4c70061fd142e6b9d9'}, 'config.json': {'url': 'https://huggingface.co/microsoft/unixcoder-base/resolve/main/config.json'}, 'vocab.json': {'url': 'https://huggingface.co/microsoft/unixcoder-base/resolve/main/vocab.json'}, 'merges.txt': {'url': 'https://huggingface.co/microsoft/unixcoder-base/resolve/main/merges.txt'}, 'tokenizer_config.json': {'url': 'https://huggingface.co/microsoft/unixcoder-base/resolve/main/tokenizer_config.json'}, 'special_tokens_map.json': {'url': 'https://huggingface.co/microsoft/unixcoder-base/resolve/main/special_tokens_map.json'}}, 'measured': {'retrieval_alone_at1': 0.457, 'fused_rrf_equal_at1': 0.534, 'fused_rrf_equal_at3': 0.694, 'fused_rrf_equal_at10': 0.82, 'vs_placeholder_at1_delta': '+28.3 points', 'vs_bm25_at1_delta': '+9.4 points'}}}}
+
+== dataset ==
+rebuilt 378 entries (sources.json records 378)
+
+== smoke test (minutes, catches a broken environment cheaply) ==
+torch 2.6.0+cu124, cuda available: True
+  device: NVIDIA RTX A4000
+library 378 entries, 20 queries
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 33272.20it/s]
+  rrf arm weights (1.0, 1.0)
+/root/plovane/ml/ranking/cross_encoder.py:254: UserWarning: encoder was not pretrained on html, css, cpp, cuda; validate NDCG@10 per language on the gold set before shipping, or choose another encoder
+  self.missing_languages = check_language_coverage(pretraining_languages)
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 32837.61it/s]
+[transformers] The new embeddings will be initialized from a multivariate normal distribution that has old embeddings' mean and covariance. As described in this article: https://nlp.stanford.edu/~johnhew/vocab-expansion.html. To disable this, use `mean_resizing=False`
+fold 0: 12 groups -> 8 test queries, 5s
+    loss 1.633 -> 1.572   (chance is ln 5 = 1.609; near it means nothing learned)
+           retrieval   reranked      fused
+    @1        62.5%       0.0%      25.0%
+    @3        62.5%       0.0%      25.0%
+    @10       75.0%      62.5%      75.0%
+    weights artifacts/smoke/cross_encoder_fold0.pt sha256 196eee8167a75d3a854113ac72a5cfa1e6defb9945def005ec8ccddd6a2c4e4d
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 22342.97it/s]
+fold 1: 8 groups -> 12 test queries, 4s
+    loss 1.701 -> 1.701   (chance is ln 5 = 1.609; near it means nothing learned)
+           retrieval   reranked      fused
+    @1        58.3%       0.0%      41.7%
+    @3        75.0%       8.3%      58.3%
+    @10       83.3%      75.0%      91.7%
+
+held out by entry, all folds pooled:
+         retrieval   reranked      fused
+  @1        60.0%       0.0%      35.0%
+  @3        70.0%       5.0%      45.0%
+  @10       80.0%      70.0%      85.0%
+
+wrote artifacts/smoke/cross_encoder_metrics.json
+commit the metrics file; keep the .pt out of git and host it for fetch_weights.py
+
+== full run ==
+starting at 2026-10-16T19:10:51Z; this is the part that costs money
+torch 2.6.0+cu124, cuda available: True
+  device: NVIDIA RTX A4000
+library 378 entries, 350 queries
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 32875.12it/s]
+  rrf arm weights (1.0, 1.0)
+/root/plovane/ml/ranking/cross_encoder.py:254: UserWarning: encoder was not pretrained on html, css, cpp, cuda; validate NDCG@10 per language on the gold set before shipping, or choose another encoder
+  self.missing_languages = check_language_coverage(pretraining_languages)
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 18124.83it/s]
+[transformers] The new embeddings will be initialized from a multivariate normal distribution that has old embeddings' mean and covariance. As described in this article: https://nlp.stanford.edu/~johnhew/vocab-expansion.html. To disable this, use `mean_resizing=False`
+fold 0: 274 groups -> 76 test queries, 495s
+    loss 2.741 -> 0.014   (chance is ln 16 = 2.773; near it means nothing learned)
+           retrieval   reranked      fused
+    @1        52.6%      68.4%      57.9%
+    @3        65.8%      89.5%      78.9%
+    @10       75.0%      98.7%      89.5%
+    weights artifacts/cross_encoder_fold0.pt sha256 47607e5382d1f042e115a9051c6ec2e9ad900e606f992517b933d1457619ca94
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 19685.07it/s]
+fold 1: 288 groups -> 62 test queries, 516s
+    loss 2.784 -> 0.011   (chance is ln 16 = 2.773; near it means nothing learned)
+           retrieval   reranked      fused
+    @1        46.8%      75.8%      54.8%
+    @3        64.5%      93.5%      77.4%
+    @10       77.4%      96.8%      91.9%
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 27630.64it/s]
+fold 2: 278 groups -> 72 test queries, 509s
+    loss 2.791 -> 0.005   (chance is ln 16 = 2.773; near it means nothing learned)
+           retrieval   reranked      fused
+    @1        52.8%      76.4%      63.9%
+    @3        70.8%      87.5%      81.9%
+    @10       86.1%      95.8%      93.1%
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 19065.89it/s]
+fold 3: 282 groups -> 68 test queries, 517s
+    loss 2.772 -> 0.001   (chance is ln 16 = 2.773; near it means nothing learned)
+           retrieval   reranked      fused
+    @1        60.3%      70.6%      69.1%
+    @3        79.4%      92.6%      86.8%
+    @10       85.3%      97.1%      92.6%
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 19885.80it/s]
+fold 4: 278 groups -> 72 test queries, 528s
+    loss 2.776 -> 0.007   (chance is ln 16 = 2.773; near it means nothing learned)
+           retrieval   reranked      fused
+    @1        47.2%      63.9%      61.1%
+    @3        68.1%      75.0%      80.6%
+    @10       83.3%      94.4%      93.1%
+
+held out by entry, all folds pooled:
+         retrieval   reranked      fused
+  @1        52.0%      70.9%      61.4%
+  @3        69.7%      87.4%      81.1%
+  @10       81.4%      96.6%      92.0%
+
+wrote artifacts/cross_encoder_metrics.json
+commit the metrics file; keep the .pt out of git and host it for fetch_weights.py
+
+== done ==
+collect these before you destroy the instance:
+total 482M
+-rw-r--r-- 1 root root 482M Oct 16 19:19 cross_encoder_fold0.pt
+-rw-r--r-- 1 root root 4.0K Oct 16 19:54 cross_encoder_metrics.json
+drwxr-xr-x 2 root root   82 Oct 16 19:10 smoke
+-rw-r--r-- 1 root root 3.5K Oct 16 19:54 train.log
+
+the metrics file is small and belongs in git:
+  artifacts/cross_encoder_metrics.json
+the .pt is large: host it somewhere and record its printed sha256 in
+weights/manifest.json, then scripts/fetch_weights.py can verify it.
