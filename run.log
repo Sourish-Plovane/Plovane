@@ -1,0 +1,51 @@
+== box ==
+NVIDIA RTX A4000, 16376 MiB, 580.178.04
+Python 3.11.10
+
+== code ==
+From https://github.com/Sourish-Plovane/Plovane
+ * branch            Sourish    -> FETCH_HEAD
+Already on 'Sourish'
+Your branch is up to date with 'origin/Sourish'.
+HEAD is now at 8796c0e gpu_box_setup rebuilds seed/entries.jsonl from seed/sources.json
+at 8796c0e
+
+== deps ==
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable.It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+torch 2.5.1+cu124 cuda True
+
+== encoder weights ==
+Fetching 8 files:   0%|          | 0/8 [00:00<?, ?it/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Fetching 8 files:  12%|█▎        | 1/8 [00:00<00:01,  5.79it/s]Fetching 8 files:  50%|█████     | 4/8 [00:00<00:00, 16.75it/s]Fetching 8 files:  88%|████████▊ | 7/8 [00:00<00:00, 20.35it/s]Fetching 8 files: 100%|██████████| 8/8 [00:05<00:00,  1.51it/s]
+downloaded to weights/unixcoder-base
+repository manifest records: {'weights': {'unixcoder-base': {'description': 'microsoft/unixcoder-base, 125M params, pretrained on 6 languages. Downloaded directly from HuggingFace once HF was allowlisted on the environment.', 'source': 'https://huggingface.co/microsoft/unixcoder-base', 'files': {'pytorch_model.bin': {'url': 'https://huggingface.co/microsoft/unixcoder-base/resolve/main/pytorch_model.bin', 'sha256': '6732b60037b086557e4c731c3748c99b4fec735d9ffe3c4c70061fd142e6b9d9'}, 'config.json': {'url': 'https://huggingface.co/microsoft/unixcoder-base/resolve/main/config.json'}, 'vocab.json': {'url': 'https://huggingface.co/microsoft/unixcoder-base/resolve/main/vocab.json'}, 'merges.txt': {'url': 'https://huggingface.co/microsoft/unixcoder-base/resolve/main/merges.txt'}, 'tokenizer_config.json': {'url': 'https://huggingface.co/microsoft/unixcoder-base/resolve/main/tokenizer_config.json'}, 'special_tokens_map.json': {'url': 'https://huggingface.co/microsoft/unixcoder-base/resolve/main/special_tokens_map.json'}}, 'measured': {'retrieval_alone_at1': 0.457, 'fused_rrf_equal_at1': 0.534, 'fused_rrf_equal_at3': 0.694, 'fused_rrf_equal_at10': 0.82, 'vs_placeholder_at1_delta': '+28.3 points', 'vs_bm25_at1_delta': '+9.4 points'}}}}
+
+== dataset ==
+rebuilt 378 entries (sources.json records 378)
+
+== smoke test (minutes, catches a broken environment cheaply) ==
+torch 2.5.1+cu124, cuda available: True
+  device: NVIDIA RTX A4000
+library 378 entries, 20 queries
+[transformers] Disabling PyTorch because PyTorch >= 2.6 is required but found 2.5.1+cu124
+[transformers] PyTorch was not found. Models won't be available and only tokenizers, configuration and file/data utilities can be used.
+Traceback (most recent call last):
+  File "/root/plovane/scripts/train_cross_encoder.py", line 451, in <module>
+    raise SystemExit(main(parse_args()))
+                     ^^^^^^^^^^^^^^^^^^
+  File "/root/plovane/scripts/train_cross_encoder.py", line 227, in main
+    encoder = CodeBiEncoder(args.encoder, dimension=768)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/plovane/ml/retrieval/bi_encoder.py", line 87, in __init__
+    self.encoder = AutoModel.from_pretrained(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/conda/lib/python3.11/site-packages/transformers/utils/import_utils.py", line 2424, in __getattribute__
+    requires_backends(cls, cls._backends)
+  File "/opt/conda/lib/python3.11/site-packages/transformers/utils/import_utils.py", line 2410, in requires_backends
+    raise ImportError("".join(failed))
+ImportError: 
+AutoModel requires the PyTorch library but it was not found in your environment. Check out the instructions on the
+installation page: https://pytorch.org/get-started/locally/ and follow the ones that match your environment.
+Please note that you may need to restart your runtime after installation.
+
