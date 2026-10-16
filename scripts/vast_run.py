@@ -45,6 +45,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -281,6 +282,17 @@ def run(args: argparse.Namespace) -> int:
         print(f"rent failed: {created}")
         return 1
     print(f"rented instance {instance}; results will arrive on branch {result_branch}")
+
+    # Python's default SIGTERM and SIGHUP handlers exit without running
+    # ``finally`` blocks, so a tool timeout or a closed terminal would leave
+    # the instance billing. Turning them into an exception routes them
+    # through the destroy below. SIGKILL cannot be caught; the box's own
+    # self-destroy is the backstop for that.
+    def _stop(signum, _frame):
+        raise SystemExit(f"received signal {signum}; destroying instance before exit")
+
+    signal.signal(signal.SIGTERM, _stop)
+    signal.signal(signal.SIGHUP, _stop)
 
     deadline = time.time() + args.max_hours * 3600 + 600  # box's own timeout, plus push time
     try:
