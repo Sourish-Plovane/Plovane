@@ -55,6 +55,22 @@ The weights go back to a feature mix once there is a cross-encoder score
 to re-order on (``cross_encoder_score`` carries the strongest signal and
 is zero today), or when Stage 3 is trained on real traffic."""
 
+STAGE3_HAND_WEIGHTS_WITH_CROSS_ENCODER: dict[str, float] = {
+    name: 0.0 for name in STAGE3_FEATURE_NAMES
+} | {"cross_encoder_score": 1.0, "rrf_rank": -0.01}
+"""Stage 3 hand weights once the trained cross-encoder scores the shortlist.
+
+Order by the cross-encoder; retrieval order only breaks ties. Measured on
+350 held-out queries (5 folds by entry, GPU run 20261017T142721Z, issue 35)
+by replaying this ranker over the saved per-query scores: @1 69.7% /
+@3 88.3% / @10 96.0%, against retrieval order's 52.0% / 69.7% / 81.4%.
+Mixing retrieval back in only cost: rrf_rank -3.0 with the cross-encoder
+at 3.0 scored @1 60.0%, at 30.0 still 68.0%, and nested CV over RRF-style
+fusions picked weights indistinguishable from the cross-encoder alone.
+Retrieval already chose the 100 candidates; inside them the cross-encoder
+is the better judge. Not certified -- the queries are assistant-authored
+(issue 19)."""
+
 STAGE3_HAND_WEIGHTS = STAGE3_HAND_WEIGHTS_PLACEHOLDER_EMBEDDING
 """Default. Overridden by the pipeline when it sees a real embedding model."""
 

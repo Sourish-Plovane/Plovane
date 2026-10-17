@@ -18,6 +18,9 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
+import os
+import re
 import shutil
 import sys
 import tarfile
@@ -27,6 +30,56 @@ from pathlib import Path
 
 CHUNK = 1 << 20  # 1 MiB
 WEIGHTS_ROOT = Path("weights")
+TOKEN_NAMES = ("GITHUB_TOKEN", "GH_TOKEN", "GH_RESULTS_TOKEN")
+RELEASE_URL = re.compile(
+    r"^https://github\.com/(?P<repo>[^/]+/[^/]+)/releases/download/(?P<tag>[^/]+)/(?P<name>[^/?]+)$"
+)
+
+
+# Input: none
+# Output: str | None
+# Processing: The first GitHub token set in the environment, by name only.
+# Changed by: Claude Code
+# Date: 2026-10-17
+def github_token() -> str | None:
+    """The first GitHub token set in the environment, matched by name only."""
+    for name in TOKEN_NAMES:
+        for key, value in os.environ.items():
+            if key.upper() == name and value:
+                return value
+    return None
+
+
+# Input: url (str), token (str | None)
+# Output: urllib.request.Request
+# Processing: The request that downloads url, through the API for a private release asset.
+# Changed by: Claude Code
+# Date: 2026-10-17
+def asset_request(url: str, token: str | None) -> urllib.request.Request:
+    """The request that downloads ``url``.
+
+    A release asset in a private repository cannot be fetched from its
+    ``github.com/.../releases/download`` link: that answers 404 to a token.
+    The API's asset endpoint with ``Accept: application/octet-stream`` does,
+    by redirecting to a signed storage URL. The token is added as an
+    *unredirected* header so it is never sent on to that storage host, which
+    would also reject a request carrying two credentials.
+    """
+    match = RELEASE_URL.match(url)
+    if token is None or match is None:
+        return urllib.request.Request(url)
+    auth = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+    lookup = urllib.request.Request(
+        f"https://api.github.com/repos/{match['repo']}/releases/tags/{match['tag']}", headers=auth
+    )
+    with urllib.request.urlopen(lookup) as response:
+        release = json.load(response)
+    asset = next((a for a in release.get("assets", []) if a["name"] == match["name"]), None)
+    if asset is None:
+        raise RuntimeError(f"release {match['tag']} has no asset named {match['name']}")
+    request = urllib.request.Request(asset["url"], headers={"Accept": "application/octet-stream"})
+    request.add_unredirected_header("Authorization", f"Bearer {token}")
+    return request
 
 
 # Input: url (str), destination (Path), expected_sha256 (str)
@@ -44,7 +97,8 @@ def download(url: str, destination: Path, *, expected_sha256: str) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
     partial = destination.with_suffix(destination.suffix + ".partial")
     hasher = hashlib.sha256()
-    with urllib.request.urlopen(url) as response, partial.open("wb") as handle:
+    request = asset_request(url, github_token())
+    with urllib.request.urlopen(request) as response, partial.open("wb") as handle:
         while chunk := response.read(CHUNK):
             handle.write(chunk)
             hasher.update(chunk)

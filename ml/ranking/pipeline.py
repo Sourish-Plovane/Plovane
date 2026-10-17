@@ -133,6 +133,7 @@ class RecommendationPipeline:
             LinearFinalRanker,
             STAGE3_HAND_WEIGHTS_PLACEHOLDER_EMBEDDING,
             STAGE3_HAND_WEIGHTS_SEMANTIC_EMBEDDING,
+            STAGE3_HAND_WEIGHTS_WITH_CROSS_ENCODER,
         )
 
         placeholder = isinstance(self.retrieval.embedding_model, HashingEmbeddingModel)
@@ -145,9 +146,11 @@ class RecommendationPipeline:
             )
 
         # Swap Stage 3's hand weights to the semantic-mode variant when the
-        # encoder is strong. Only touches a LinearFinalRanker that is still
-        # using the placeholder-mode weights; a caller who supplied their own
-        # weights or a trained booster is left alone.
+        # encoder is strong, and to the cross-encoder variant when a trained
+        # cross-encoder is scoring the shortlist. Only touches a
+        # LinearFinalRanker that is still using the placeholder-mode weights;
+        # a caller who supplied their own weights or a trained booster is
+        # left alone.
         if not placeholder:
             model = self.final_ranker.model
             if (
@@ -155,7 +158,9 @@ class RecommendationPipeline:
                 and model.weights is STAGE3_HAND_WEIGHTS_PLACEHOLDER_EMBEDDING
             ):
                 self.final_ranker.model = LinearFinalRanker(
-                    weights=STAGE3_HAND_WEIGHTS_SEMANTIC_EMBEDDING
+                    weights=STAGE3_HAND_WEIGHTS_WITH_CROSS_ENCODER
+                    if self.cross_encoder is not None
+                    else STAGE3_HAND_WEIGHTS_SEMANTIC_EMBEDDING
                 )
 
     # Input: request (Request), project_embedding (np.ndarray | None)

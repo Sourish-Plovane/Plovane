@@ -346,6 +346,36 @@ class CrossEncoder(nn.Module):
         return flat
 
 
+# Input: weights (str | Path), encoder_name (str), max_tokens (int), device (str | None)
+# Output: CrossEncoder
+# Processing: Rebuild the trained model and load its fine-tuned weights.
+# Changed by: Claude Code
+# Date: 2026-10-17
+def load_cross_encoder(
+    weights,
+    *,
+    encoder_name: str = "weights/unixcoder-base",
+    max_tokens: int = CROSS_ENCODER_MAX_TOKENS,
+    device: str | None = None,
+) -> "CrossEncoder":
+    """Rebuild the trained model and load its fine-tuned weights.
+
+    The checkpoint is a ``state_dict``, so the architecture comes from the
+    same constructor the trainer used -- same encoder, same added language
+    tokens, same head -- and ``strict=True`` refuses a checkpoint that does
+    not fit it rather than leaving layers at their pretrained values.
+    ``weights_only`` keeps ``torch.load`` from executing anything pickled in
+    the file. Returned in eval mode, on the GPU when there is one.
+    """
+    import torch
+
+    model = CrossEncoder(encoder_name, max_tokens=max_tokens)
+    state = torch.load(weights, map_location="cpu", weights_only=True)
+    model.load_state_dict(state, strict=True)
+    model.to(device or ("cuda" if torch.cuda.is_available() else "cpu"))
+    return model.eval()
+
+
 # -- Training ---------------------------------------------------------------
 
 

@@ -521,6 +521,52 @@ class TestStage3HandWeightsByEmbedding:
         )
         assert pipe.final_ranker.model.weights is STAGE3_HAND_WEIGHTS_SEMANTIC_EMBEDDING
 
+    def test_a_trained_cross_encoder_gets_the_cross_encoder_variant(self):
+        # Measured on 350 held-out queries: ordering by the cross-encoder
+        # scored @1 69.7% against retrieval order's 52.0%, and every mix of
+        # the two measured lower than the cross-encoder alone.
+        from ml.ranking.stage1 import LinearFeatureRanker
+        from ml.ranking.stage3 import (
+            FinalRanker,
+            LinearFinalRanker,
+            STAGE3_HAND_WEIGHTS_WITH_CROSS_ENCODER,
+        )
+        from ml.ranking.pipeline import RecommendationPipeline
+        from ml.retrieval.keyword import InMemoryBM25Index
+        from ml.retrieval.service import RetrievalService
+        from ml.retrieval.vector import InMemoryVectorIndex
+
+        class FakeSemantic:
+            dimension = 768
+            def encode_queries(self, texts): return [[0.0] * 768] * len(texts)
+            def encode_entries(self, entries): return [[0.0] * 768] * len(entries)
+
+        service = RetrievalService(
+            keyword_index=InMemoryBM25Index([]),
+            vector_index=InMemoryVectorIndex([]),
+            embedding_model=FakeSemantic(), entry_store={},
+        )
+        pipe = RecommendationPipeline(
+            retrieval=service, stage1_ranker=LinearFeatureRanker(),
+            final_ranker=FinalRanker(model=LinearFinalRanker(), version="v"),
+            cross_encoder=object(),
+        )
+        assert pipe.final_ranker.model.weights is STAGE3_HAND_WEIGHTS_WITH_CROSS_ENCODER
+
+    def test_the_cross_encoder_variant_orders_by_its_score(self):
+        import numpy as np
+        from ml.ranking.stage3 import (
+            LinearFinalRanker,
+            STAGE3_FEATURE_NAMES,
+            STAGE3_HAND_WEIGHTS_WITH_CROSS_ENCODER,
+        )
+
+        features = np.zeros((3, len(STAGE3_FEATURE_NAMES)), dtype=np.float32)
+        features[:, STAGE3_FEATURE_NAMES.index("rrf_rank")] = [1, 2, 3]
+        features[:, STAGE3_FEATURE_NAMES.index("cross_encoder_score")] = [0.1, 5.0, 2.0]
+        scores = LinearFinalRanker(weights=STAGE3_HAND_WEIGHTS_WITH_CROSS_ENCODER).score(features)
+        assert list(np.argsort(-scores)) == [1, 2, 0]
+
     def test_the_placeholder_keeps_the_feature_mix(self):
         from ml.ranking.stage1 import LinearFeatureRanker
         from ml.ranking.stage3 import (
