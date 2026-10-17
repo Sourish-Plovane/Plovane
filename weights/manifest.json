@@ -32,6 +32,25 @@
         "vs_placeholder_at1_delta": "+28.3 points",
         "vs_bm25_at1_delta": "+9.4 points"
       }
+    },
+    "cross-encoder-stage2": {
+      "description": "Stage 2 cross-encoder: unixcoder-base fully fine-tuned (all 12 layers plus a 768-256-1 head) on all 350 resolvable queries, 10 epochs, 15 negatives, lr 3e-5. A PyTorch state_dict for ml.ranking.cross_encoder.CrossEncoder. Trained on an RTX A4000, GPU run 20261017T142721Z (issue 35).",
+      "source": "https://github.com/Sourish-Plovane/Plovane/releases/tag/cross-encoder-20261017T142721Z",
+      "files": {
+        "cross_encoder_final.pt": {
+          "url": "https://github.com/Sourish-Plovane/Plovane/releases/download/cross-encoder-20261017T142721Z/cross_encoder_final.pt",
+          "sha256": "80bdc582b9adbe1294c6fa1103aa348331a9bbc76b4c9be6f7313f378cba9e53",
+          "bytes": 504611920
+        }
+      },
+      "measured": {
+        "note": "5-fold, held out by entry, same settings; the final model has no held-out score of its own. Not certified: queries are assistant-authored (issue 19).",
+        "retrieval_alone_at1": 0.52,
+        "reranked_at1": 0.697,
+        "reranked_at3": 0.883,
+        "reranked_at10": 0.96,
+        "fused_rrf_equal_at1": 0.617
+      }
     }
   }
 }
