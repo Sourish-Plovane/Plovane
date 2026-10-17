@@ -104,6 +104,14 @@ def secret(name: str) -> str | None:
     return None
 
 
+class ApiError(RuntimeError):
+    """A vast.ai API call that came back with an HTTP error status."""
+
+    def __init__(self, status: int, message: str):
+        super().__init__(message)
+        self.status = status
+
+
 # Input: method (str), path (str), key (str | None), body (dict | None)
 # Output: dict
 # Processing: One call to the vast.ai REST API.
@@ -125,8 +133,32 @@ def api(method: str, path: str, *, key: str | None = None, body: dict | None = N
     except urllib.error.HTTPError as exc:
         # The body names the reason (bad key, offer gone, out of credit); a
         # bare status code would not.
-        raise RuntimeError(f"{method} {path} -> {exc.code}: {exc.read()[:400]!r}") from None
+        raise ApiError(exc.code, f"{method} {path} -> {exc.code}: {exc.read()[:400]!r}") from None
     return json.loads(raw) if raw else {}
+
+
+# Input: instance (int), key (str)
+# Output: str
+# Processing: Destroy an instance; a 404 means it is already gone, not billing.
+# Changed by: Claude Code
+# Date: 2026-10-17
+def destroy(instance: int, key: str) -> str:
+    """Destroy an instance and say what happened.
+
+    The box destroys itself after pushing its results, so by the time this
+    runs vast.ai usually answers 404. That instance is gone and not billing;
+    reporting it as a failure sent the owner to the console for nothing.
+    """
+    try:
+        api("DELETE", f"/instances/{instance}/", key=key)
+    except ApiError as exc:
+        if exc.status == 404:
+            return f"instance {instance} already gone (the box destroyed itself)"
+        return (
+            f"!! could not destroy instance {instance}: {exc}\n"
+            f"!! it is still billing -- destroy it at https://cloud.vast.ai/instances/"
+        )
+    return f"destroyed instance {instance}"
 
 
 # Input: none
@@ -310,14 +342,7 @@ def run(args: argparse.Namespace) -> int:
         else:
             print(f"time cap of {args.max_hours}h reached without results")
     finally:
-        try:
-            api("DELETE", f"/instances/{instance}/", key=key)
-            print(f"destroyed instance {instance}")
-        except RuntimeError as exc:
-            print(
-                f"!! could not destroy instance {instance}: {exc}\n"
-                f"!! it is still billing -- destroy it at https://cloud.vast.ai/instances/"
-            )
+        print(destroy(instance, key))
 
     if not branch_exists(result_branch):
         return 1

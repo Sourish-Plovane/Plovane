@@ -111,3 +111,24 @@ class TestSecret:
         assert vast.secret("GH_RESULTS_TOKEN") is None
         monkeypatch.setenv("GH_RESULTS_TOKEN", "")
         assert vast.secret("GH_RESULTS_TOKEN") is None
+
+
+class TestDestroy:
+    def _api_raising(self, vast, status):
+        def api(*_args, **_kwargs):
+            raise vast.ApiError(status, f"DELETE /instances/1/ -> {status}")
+        return api
+
+    def test_reports_success(self, vast, monkeypatch):
+        monkeypatch.setattr(vast, "api", lambda *a, **k: {"success": True})
+        assert vast.destroy(1, "k") == "destroyed instance 1"
+
+    def test_a_404_means_already_gone_not_billing(self, vast, monkeypatch):
+        monkeypatch.setattr(vast, "api", self._api_raising(vast, 404))
+        message = vast.destroy(1, "k")
+        assert "already gone" in message and "billing" not in message
+
+    def test_any_other_error_warns_it_is_still_billing(self, vast, monkeypatch):
+        monkeypatch.setattr(vast, "api", self._api_raising(vast, 500))
+        message = vast.destroy(1, "k")
+        assert "could not destroy" in message and "still billing" in message
