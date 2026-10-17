@@ -56,6 +56,7 @@ from datetime import datetime, timezone
 
 API = "https://console.vast.ai/api/v0"
 REPO_PATH = "github.com/Sourish-Plovane/Plovane.git"
+REPO_SLUG = "Sourish-Plovane/Plovane"
 BRANCH = "Sourish"
 
 # CUDA 12.4 build: covers Ampere (sm_80/86) and Ada (sm_89). Blackwell
@@ -218,9 +219,28 @@ echo $? > /root/exit_status
 
 # Report back on a fresh orphan branch: metrics, logs, exit status.
 OUT=$(mktemp -d)
+
+# The final model is ~480 MB, over git's 100 MB file limit, so it goes up as
+# a release asset. Curl is never run verbose: -v would print the token.
+if [ -s artifacts/cross_encoder_final.pt ]; then
+  curl -s -X POST -H "Authorization: Bearer ${{GH_TOKEN}}" \\
+    -H "Accept: application/vnd.github+json" \\
+    "https://api.github.com/repos/{REPO_SLUG}/releases" \\
+    -d '{{"tag_name":"cross-encoder-{run_id}","target_commitish":"{BRANCH}","name":"Cross-encoder {run_id}","prerelease":true,"body":"Final Stage 2 cross-encoder from GPU run {run_id}. sha256 and settings are in cross_encoder_final.json on branch {result_branch}."}}' \\
+    > "$OUT"/release.json
+  RELEASE_ID=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("id", ""))' "$OUT"/release.json)
+  if [ -n "$RELEASE_ID" ]; then
+    curl -s -X POST -H "Authorization: Bearer ${{GH_TOKEN}}" \\
+      -H "Content-Type: application/octet-stream" \\
+      --data-binary @artifacts/cross_encoder_final.pt \\
+      "https://uploads.github.com/repos/{REPO_SLUG}/releases/$RELEASE_ID/assets?name=cross_encoder_final.pt" \\
+      > "$OUT"/release_asset.json
+  fi
+fi
 cp /root/run.log /root/onstart.log /root/exit_status "$OUT"/ 2>/dev/null
 cp artifacts/cross_encoder_metrics.json "$OUT"/ 2>/dev/null
 cp artifacts/cross_encoder_scores.jsonl "$OUT"/ 2>/dev/null
+cp artifacts/cross_encoder_final.json artifacts/final.log "$OUT"/ 2>/dev/null
 cp artifacts/smoke/cross_encoder_metrics.json "$OUT"/smoke_metrics.json 2>/dev/null
 nvidia-smi > "$OUT"/nvidia-smi.txt 2>&1
 sed -i "s#${{GH_TOKEN}}#<redacted>#g" "$OUT"/*.log 2>/dev/null

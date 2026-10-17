@@ -245,6 +245,64 @@ def main(args: argparse.Namespace) -> int:
         )
         retrieved[query.query] = list(retrieval.retrieve(request).candidates)
 
+    def build_groups(train_queries, held_out):
+        groups = [
+            CrossEncoderGroup(
+                query_text=build_query(
+                    Request(query=q.query, project_context=ProjectContext(languages=(q.language,)))
+                ).cross_encoder_text,
+                positive=by_id[q.entry_id],
+                negatives=tuple(
+                    training_negatives(
+                        retrieved[q.query], q.entry_id, held_out, count=args.negatives
+                    )
+                ),
+            )
+            for q in train_queries
+        ]
+        # A group with no negatives teaches nothing: the softmax over a single
+        # logit is constant, so its gradient is zero.
+        return [g for g in groups if g.negatives]
+
+    config = TrainingConfig(
+        epochs=1 if args.smoke else args.epochs,
+        batch_groups=args.batch_groups,
+        learning_rate=args.learning_rate,
+    )
+
+    # -- Final model: every query, nothing held out --------------------------
+    # The folds measure; this is the model that ships. It has no held-out
+    # score of its own -- the fold numbers are its estimate.
+    if args.final:
+        started = time.time()
+        groups = build_groups(queries, set())
+        model = CrossEncoder(args.encoder, max_tokens=args.max_tokens)
+        history = train_cross_encoder(model, groups, config=config)
+        weights = out / "cross_encoder_final.pt"
+        torch.save(model.state_dict(), weights)
+        tenth = max(1, len(history) // 10)
+        final = {
+            "file": weights.name,
+            "sha256": sha256_of(weights),
+            "bytes": weights.stat().st_size,
+            "train_groups": len(groups),
+            "loss_start": float(np.mean(history[:tenth])),
+            "loss_end": float(np.mean(history[-tenth:])),
+            "encoder": args.encoder,
+            "epochs": config.epochs,
+            "negatives": args.negatives,
+            "learning_rate": args.learning_rate,
+            "max_tokens": args.max_tokens,
+            "seconds": time.time() - started,
+        }
+        (out / "cross_encoder_final.json").write_text(json.dumps(final, indent=2))
+        print(
+            f"final: {len(groups)} groups, loss {final['loss_start']:.3f} -> "
+            f"{final['loss_end']:.3f}, {final['seconds']:.0f}s"
+        )
+        print(f"  weights {weights} sha256 {final['sha256']}")
+        return 0
+
     # -- Fold assignment, by entry ------------------------------------------
     folds = args.folds if not args.smoke else 2
     entry_fold = np.random.default_rng(args.seed).integers(0, folds, size=len(entries))
@@ -264,30 +322,8 @@ def main(args: argparse.Namespace) -> int:
             print(f"fold {fold}: empty split, skipped")
             continue
 
-        groups = [
-            CrossEncoderGroup(
-                query_text=build_query(
-                    Request(query=q.query, project_context=ProjectContext(languages=(q.language,)))
-                ).cross_encoder_text,
-                positive=by_id[q.entry_id],
-                negatives=tuple(
-                    training_negatives(
-                        retrieved[q.query], q.entry_id, held_out, count=args.negatives
-                    )
-                ),
-            )
-            for q in train_queries
-        ]
-        # A group with no negatives teaches nothing: the softmax over a single
-        # logit is constant, so its gradient is zero.
-        groups = [g for g in groups if g.negatives]
-
+        groups = build_groups(train_queries, held_out)
         model = CrossEncoder(args.encoder, max_tokens=args.max_tokens)
-        config = TrainingConfig(
-            epochs=1 if args.smoke else args.epochs,
-            batch_groups=args.batch_groups,
-            learning_rate=args.learning_rate,
-        )
         history = train_cross_encoder(model, groups, config=config)
 
         baseline_rows, reranked_rows, fused_rows = [], [], []
@@ -454,6 +490,10 @@ def parse_args() -> argparse.Namespace:
         "--smoke", action="store_true", help="two folds, one epoch, few queries"
     )
     parser.add_argument("--smoke-queries", type=int, default=20)
+    parser.add_argument(
+        "--final", action="store_true",
+        help="train one model on every query, save it, skip the folds",
+    )
     parser.add_argument(
         "--allow-cpu", action="store_true", help="run without CUDA (only sane with --smoke)"
     )

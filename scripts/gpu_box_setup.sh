@@ -121,6 +121,18 @@ python3 -u scripts/train_cross_encoder.py \
   --out artifacts 2>&1 | tee artifacts/train.log
 
 echo
+echo "== final model =="
+# Same settings, every query, nothing held out. The fold numbers above are
+# this model's estimate; it has no held-out score of its own.
+python3 -u scripts/train_cross_encoder.py --final \
+  --epochs "${EPOCHS:-10}" \
+  --negatives "${NEGATIVES:-15}" \
+  --rerank-depth "${RERANK_DEPTH:-100}" \
+  --batch-groups "${BATCH_GROUPS:-4}" \
+  --learning-rate "${LR:-3e-5}" \
+  --out artifacts 2>&1 | tee artifacts/final.log
+
+echo
 echo "== done =="
 echo "collect these before you destroy the instance:"
 ls -lh artifacts/

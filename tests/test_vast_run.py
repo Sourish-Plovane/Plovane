@@ -132,3 +132,17 @@ class TestDestroy:
         monkeypatch.setattr(vast, "api", self._api_raising(vast, 500))
         message = vast.destroy(1, "k")
         assert "could not destroy" in message and "still billing" in message
+
+
+class TestFinalWeights:
+    def test_uploads_the_final_model_as_a_release_asset(self, vast):
+        script = vast.build_onstart("20261017T000000Z", max_hours=1)
+        assert "cross-encoder-20261017T000000Z" in script
+        assert "assets?name=cross_encoder_final.pt" in script
+        # Before the results push, so the upload's answer is pushed with it.
+        assert script.index("release_asset.json") < script.index("git push")
+
+    def test_the_upload_never_runs_curl_verbose(self, vast):
+        script = vast.build_onstart("run1", max_hours=1)
+        commands = [l for l in script.splitlines() if not l.lstrip().startswith("#")]
+        assert not any(" -v " in l or l.rstrip().endswith(" -v") or "--verbose" in l for l in commands)
