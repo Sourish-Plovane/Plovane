@@ -254,6 +254,7 @@ def main(args: argparse.Namespace) -> int:
     results: list[FoldResult] = []
     # --max-folds runs the first N folds of the same split, so a partial run's
     # numbers are a subset of the full run's rather than a different split.
+    scores_rows: list[dict] = []
     for fold in range(min(folds, args.max_folds or folds)):
         started = time.time()
         train_queries = [q for q, f in zip(queries, query_fold) if f != fold]
@@ -312,6 +313,15 @@ def main(args: argparse.Namespace) -> int:
             fused_rows.append(
                 hits_at(fused_order(ids, scored, depth=args.rerank_depth), query.entry_id)
             )
+            # Per-query candidates and scores, so the fusion weights can be
+            # tuned offline afterwards instead of buying another GPU run.
+            scores_rows.append({
+                "fold": fold,
+                "query": query.query,
+                "target": query.entry_id,
+                "candidates": ids[: args.rerank_depth],
+                "ce_scores": [float(x) for x in scored],
+            })
 
         result = FoldResult(
             fold=fold,
@@ -410,6 +420,9 @@ def main(args: argparse.Namespace) -> int:
     metrics = out / "cross_encoder_metrics.json"
     metrics.write_text(json.dumps(report, indent=2))
     print(f"\nwrote {metrics}")
+    scores = out / "cross_encoder_scores.jsonl"
+    scores.write_text("".join(json.dumps(row) + "\n" for row in scores_rows))
+    print(f"wrote {scores} ({len(scores_rows)} queries)")
     print("commit the metrics file; keep the .pt out of git and host it for fetch_weights.py")
     return 0
 

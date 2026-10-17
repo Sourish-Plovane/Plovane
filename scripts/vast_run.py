@@ -220,6 +220,7 @@ echo $? > /root/exit_status
 OUT=$(mktemp -d)
 cp /root/run.log /root/onstart.log /root/exit_status "$OUT"/ 2>/dev/null
 cp artifacts/cross_encoder_metrics.json "$OUT"/ 2>/dev/null
+cp artifacts/cross_encoder_scores.jsonl "$OUT"/ 2>/dev/null
 cp artifacts/smoke/cross_encoder_metrics.json "$OUT"/smoke_metrics.json 2>/dev/null
 nvidia-smi > "$OUT"/nvidia-smi.txt 2>&1
 sed -i "s#${{GH_TOKEN}}#<redacted>#g" "$OUT"/*.log 2>/dev/null
