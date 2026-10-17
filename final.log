@@ -1,0 +1,11 @@
+torch 2.6.0+cu124, cuda available: True
+  device: NVIDIA RTX A4000
+library 378 entries, 350 queries
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 10656.04it/s]
+  rrf arm weights (1.0, 1.0)
+/root/plovane/ml/ranking/cross_encoder.py:254: UserWarning: encoder was not pretrained on html, css, cpp, cuda; validate NDCG@10 per language on the gold set before shipping, or choose another encoder
+  self.missing_languages = check_language_coverage(pretraining_languages)
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 14374.94it/s]
+[transformers] The new embeddings will be initialized from a multivariate normal distribution that has old embeddings' mean and covariance. As described in this article: https://nlp.stanford.edu/~johnhew/vocab-expansion.html. To disable this, use `mean_resizing=False`
+final: 350 groups, loss 2.784 -> 0.011, 638s
+  weights artifacts/cross_encoder_final.pt sha256 80bdc582b9adbe1294c6fa1103aa348331a9bbc76b4c9be6f7313f378cba9e53

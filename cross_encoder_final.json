@@ -1,0 +1,14 @@
+{
+  "file": "cross_encoder_final.pt",
+  "sha256": "80bdc582b9adbe1294c6fa1103aa348331a9bbc76b4c9be6f7313f378cba9e53",
+  "bytes": 504611920,
+  "train_groups": 350,
+  "loss_start": 2.7842240767045454,
+  "loss_end": 0.01102964681657878,
+  "encoder": "weights/unixcoder-base",
+  "epochs": 10,
+  "negatives": 15,
+  "learning_rate": 3e-05,
+  "max_tokens": 512,
+  "seconds": 637.7923564910889
+}

@@ -1,0 +1,90 @@
+{
+  "aggregate": {
+    "baseline": {
+      "@1": 0.6000000000000001,
+      "@3": 0.7,
+      "@10": 0.8
+    },
+    "reranked": {
+      "@1": 0.0,
+      "@3": 0.3,
+      "@10": 0.35
+    },
+    "fused": {
+      "@1": 0.2,
+      "@3": 0.45,
+      "@10": 0.8
+    }
+  },
+  "folds": [
+    {
+      "fold": 0,
+      "test_queries": 8,
+      "train_groups": 12,
+      "baseline": {
+        "@1": 0.625,
+        "@3": 0.625,
+        "@10": 0.75
+      },
+      "reranked": {
+        "@1": 0.0,
+        "@3": 0.5,
+        "@10": 0.625
+      },
+      "fused": {
+        "@1": 0.375,
+        "@3": 0.5,
+        "@10": 0.75
+      },
+      "loss_start": 1.60546875,
+      "loss_end": 1.6484375,
+      "final_loss": 1.6484375,
+      "seconds": 12.238443374633789
+    },
+    {
+      "fold": 1,
+      "test_queries": 12,
+      "train_groups": 8,
+      "baseline": {
+        "@1": 0.5833333333333334,
+        "@3": 0.75,
+        "@10": 0.8333333333333334
+      },
+      "reranked": {
+        "@1": 0.0,
+        "@3": 0.16666666666666666,
+        "@10": 0.16666666666666666
+      },
+      "fused": {
+        "@1": 0.08333333333333333,
+        "@3": 0.4166666666666667,
+        "@10": 0.8333333333333334
+      },
+      "loss_start": 1.654296875,
+      "loss_end": 1.654296875,
+      "final_loss": 1.654296875,
+      "seconds": 6.2974512577056885
+    }
+  ],
+  "settings": {
+    "encoder": "weights/unixcoder-base",
+    "epochs": 1,
+    "negatives": 4,
+    "rerank_depth": 20,
+    "batch_groups": 8,
+    "learning_rate": 2e-05,
+    "folds": 2,
+    "folds_run": 2,
+    "max_tokens": 512,
+    "seed": 0,
+    "smoke": true
+  },
+  "environment": {
+    "torch": "2.6.0+cu124",
+    "cuda": true,
+    "device": "NVIDIA RTX A4000",
+    "python": "3.11.11"
+  },
+  "certified": false,
+  "why_not_certified": "Queries are assistant-authored. Holding out by entry controls for entry memorisation, not for query style, so this measures headroom and not release readiness. See issue 19."
+}
