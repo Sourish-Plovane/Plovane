@@ -77,7 +77,33 @@ def ensure_base_encoder(manifest: dict) -> None:
     expected = files["pytorch_model.bin"]["sha256"]
     if sha256_of(weights) != expected:
         raise SystemExit(f"{weights} does not match the manifest's SHA-256; delete it and rerun")
+    ensure_safetensors(weights)
     print(f"OK  base encoder      {BASE_DIR.relative_to(ROOT)}")
+
+
+# Input: weights (Path)
+# Output: None
+# Processing: Write model.safetensors next to a verified pytorch_model.bin.
+# Changed by: Claude Code
+# Date: 2026-10-18
+def ensure_safetensors(weights: Path) -> None:
+    """Write ``model.safetensors`` next to the verified ``.bin``.
+
+    transformers refuses to ``torch.load`` a ``.bin`` on torch < 2.6, and 2.2.2
+    is the last torch built for Intel Macs. It prefers a safetensors file when
+    one is present, which loads without torch.load, so the same base weights
+    work on every torch. Converted only after the .bin's hash has passed.
+    """
+    target = weights.with_name("model.safetensors")
+    if target.exists():
+        return
+    import torch
+    from safetensors.torch import save_file
+
+    state = torch.load(weights, map_location="cpu", weights_only=True)
+    # clone(): tied weights share storage, which save_file rejects.
+    save_file({k: v.contiguous().clone() for k, v in state.items()}, str(target))
+    print(f"OK  converted         {target.relative_to(ROOT)} (for torch < 2.6)")
 
 
 # Input: manifest (dict)
