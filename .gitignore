@@ -40,3 +40,6 @@ seed/*
 weights/*
 !weights/README.md
 !weights/manifest.json
+
+# Library embeddings the MCP server caches (regenerated on demand).
+mcp_server/.cache/

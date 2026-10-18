@@ -1,0 +1,92 @@
+# Plovane MCP server
+
+Gives Claude Code, Claude Desktop or any other MCP client access to Plovane's
+models: the B06 helper recommender (retrieval plus the trained Stage 2
+cross-encoder), the helper finder, and hosted LLMs (Claude, OpenAI). It runs
+locally over stdio.
+
+## Setup (once)
+
+From the repository root:
+
+```sh
+pip install "mcp>=1.2" torch transformers numpy huggingface_hub
+GITHUB_TOKEN=<read access to Sourish-Plovane/Plovane> python -m mcp_server.setup
+```
+
+Setup downloads the base encoder and the trained weights (about 1 GB) and
+checks them. If `seed/entries.jsonl` is missing it rebuilds the library, then
+loads everything once so the library embeddings are cached. It ends by
+printing the exact command to register the server.
+
+## Register it
+
+**Claude Code**, run from the repository root:
+
+```sh
+claude mcp add plovane -- python -m mcp_server
+```
+
+**Claude Desktop**: add this to `~/Library/Application Support/Claude/claude_desktop_config.json`,
+using your own clone path and python:
+
+```json
+{
+  "mcpServers": {
+    "plovane": {
+      "command": "/usr/bin/python3",
+      "args": ["-m", "mcp_server"],
+      "cwd": "/Users/you/Plovane",
+      "env": {"PYTHONPATH": "/Users/you/Plovane", "ANTHROPIC_API_KEY": "..."}
+    }
+  }
+}
+```
+
+## Tools
+
+| Tool | Kind | What it does |
+|---|---|---|
+| `search_helpers` | basic | Searches the library for code that does what you describe. Returns the B06 envelope (see docs/b06_recommendation_api.md). |
+| `find_helpers_in_file` | basic | Lists the functions in a file that stand alone, with paste-ready code. Rule-based, so no model is needed. |
+| `get_helper` | basic | Returns one library entry in full by `block_id`. |
+| `list_categories` | basic | Counts the library's entries by category and language. |
+| `model_status` | basic | Shows what's loaded, the device, the rerank depth, measured accuracy, and which LLM keys are set (names only). |
+| `rerank_candidates` | complex | Scores your own snippets against a query with the cross-encoder. |
+| `check_file_against_library` | complex | Labels each function in a file `in_library`, `similar_exists` or `new`, with the closest library entry. |
+| `recommend_for_file` | complex | Suggests library helpers that fit what a file does, leaving out the ones the file already has. |
+| `explain_ranking` | complex | Shows each stage's rank and score for the top results. |
+| `batch_search` | complex | Runs several searches in one call. |
+| `ask_llm` | external | Sends a prompt to Claude (`anthropic`) or `openai`. |
+
+`find_helpers_in_file`, `check_file_against_library` and `recommend_for_file`
+take either `path`, or pasted `code` plus a `filename` (the filename sets the
+language).
+
+## Settings (environment variables)
+
+| Variable | Effect |
+|---|---|
+| `PLOVANE_RERANK_DEPTH` | How many candidates the cross-encoder rereads. The default is 20 on CPU (a few seconds; @1 67%) and 100 on GPU (@1 70%). |
+| `PLOVANE_NO_CROSS_ENCODER` | Skips the cross-encoder. Faster and needs less RAM, but @1 drops to 52%. |
+| `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` | Enable `ask_llm`. |
+| `PLOVANE_ANTHROPIC_MODEL`, `PLOVANE_OPENAI_MODEL` | Change the default model (`claude-sonnet-5-5`, `gpt-5`). |
+
+## Speed (laptop CPU, measured)
+
+The first tool call loads the models in about 10 s. On the very first start it
+also embeds the library, which takes about 80 s; the result is cached in
+`mcp_server/.cache/`. After that, a search takes about 2-3 s and a file check
+takes under 1 s. The server needs about 4 GB of RAM.
+
+## Known limits
+
+- The accuracy numbers come from assistant-written queries and are not
+  certified (issue 19).
+- The `in_library` cutoff (cosine 0.92) has been checked on one file only.
+- `recommend_for_file` builds its query from the file's function names and
+  docstrings. It is the least reliable tool and its results are loose
+  suggestions.
+- Some library entries' `code` begins with stray dependency names, e.g.
+  `toFormData` on its own line. That's a known ingest bug that hasn't been
+  fixed yet.
