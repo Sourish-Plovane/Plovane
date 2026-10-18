@@ -8,6 +8,7 @@ it is set by what the training harness certified, not by how the metric looked.
 | --- | --- | --- | --- |
 | `stage1_retrieval_fusion.txt` | 1 | **uncertified** | **No** |
 | `stage3_final.txt` | 3 | **uncertified** | **No** |
+| `cross-encoder-stage2` (release asset, see below) | 2 | **uncertified** | Only when passed to the pipeline explicitly |
 
 What ships today is the hand-weighted `LinearFeatureRanker` and
 `LinearFinalRanker`. They are real rankers, they were always the day-one plan,
@@ -63,3 +64,32 @@ hand-written, and `GoldQuery` refuses them for evaluation on purpose: whoever
 wrote them had read the entries, so each target is correct by construction.
 **No artefact here has been measured against real demand.** That needs the
 queries tracked in issue #19.
+
+## Stage 2 cross-encoder
+
+The trained cross-encoder is too large for git (505 MB), so it lives in the
+private release `cross-encoder-20261017T142721Z` and `weights/manifest.json`
+records its URL and SHA-256 as `cross-encoder-stage2`. From a fresh clone:
+
+```sh
+GITHUB_TOKEN=... python scripts/setup_cross_encoder.py
+```
+
+That fetches the base encoder and the trained weights, checks both hashes,
+loads the model and confirms it ranks a right entry above a wrong one. Then:
+
+```python
+from ml.ranking.cross_encoder import load_cross_encoder
+
+pipeline = RecommendationPipeline(
+    ...,
+    cross_encoder=load_cross_encoder("weights/cross-encoder-stage2/cross_encoder_final.pt"),
+)
+```
+
+With a cross-encoder passed in, Stage 3 orders by its score
+(`STAGE3_HAND_WEIGHTS_WITH_CROSS_ENCODER`). Held-out, 350 queries, 5 folds:
+@1 69.7% / @3 88.3% / @10 96.0%, against 52.0% / 69.7% / 81.4% for
+retrieval order. Not certified, for the reason above. Scoring 100 candidates
+takes 10-30 s on a CPU and well under a second on a GPU; reranking only the
+top 20 keeps @1 at 67.1% (issue 35).
