@@ -108,6 +108,11 @@ Agents use the same operations through MCP, grouped into 15 tools by noun
 which takes the slash command text. Grouping keeps the tool list small enough
 not to crowd an agent's context.
 
+An agent should start with `/board` (`plovane_view` with action `board_read`).
+It returns every block, arrow, endpoint and status the agent may see, in one
+call. `--layer N` narrows it to one layer and `--block ID` to one block's
+contents.
+
 Agents are held to their grants:
 - `/agent grant NAME PATH --mode read|read-write` gives access by path, and the most specific grant wins.
 - `/agent region` gives access to the blocks inside a canvas rectangle.
@@ -271,3 +276,4 @@ command answers `needs_confirmation` first.
 | `/focus` | `view.focus` | `plovane_view` |  | Dims everything except a block and its connections. | `/focus payments` |
 | `/layout` | `view.layout` | `plovane_view` |  | Rearranges the canvas automatically. | `/layout left-to-right` |
 | `/filter` | `view.filter` | `plovane_view` |  | Shows only certain block or arrow types. | `/filter --arrows api` |
+| `/board` | `board.read` | `plovane_view` |  | Reads the whiteboard: blocks, arrows, endpoints and status, for an AI to get the picture first. | `/board  or  /board --layer 3  or  /board --block payments` |

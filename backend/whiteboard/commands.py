@@ -180,6 +180,7 @@ COMMANDS: tuple[Command, ...] = (
     Command("focus", "view.focus", ("block",), example="/focus payments"),
     Command("layout", "view.layout", ("direction",), example="/layout left-to-right"),
     Command("filter", "view.filter", example="/filter --arrows api"),
+    Command("board", "board.read", example="/board  or  /board --layer 3  or  /board --block payments"),
 )
 
 BY_PHRASE = {c.phrase: c for c in COMMANDS}

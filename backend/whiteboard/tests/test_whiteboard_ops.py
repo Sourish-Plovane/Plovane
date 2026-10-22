@@ -549,3 +549,27 @@ def test_find_focus_layout_filter(tmp_path):
     assert xs == sorted(xs) and len(set(xs)) == 3
     assert ok(ws, "/filter --arrows api,database")["filter"] == {"blocks": [], "arrows": ["api", "database"]}
     assert fails(ws, "/filter --arrows teleport") == "INVALID_ARGS"
+
+
+# Input: tmp_path (Path)
+# Output: None
+# Processing: Check that /board gives the whole picture, one layer, one block, and only what an agent may read.
+# Changed by: Sourish
+# Date: 2026-10-22
+def test_board_read_gives_the_picture(tmp_path):
+    ws = project(tmp_path, {"web/checkout.py": '"""Checkout."""\n', "secret/keys.py": "K = 1\n"})
+    ok(ws, "/project import")
+    ok(ws, '/block add service "payments"')
+    ok(ws, "/endpoint add payments POST /charge")
+    ok(ws, "/endpoint link checkout.py -> payments:POST /charge")
+    whole = ok(ws, "/board")
+    assert {b["id"] for b in whole["blocks"]} >= {"payments", "checkout-py", "web", "secret"}
+    assert whole["endpoints"] == [{"id": "payments:POST /charge", "status": "built", "callers": ["checkout.py"]}]
+    assert {"from": "checkout.py", "to": "payments", "type": "api", "status": "built",
+            "endpoint": "payments:POST /charge"} in whole["arrows"]
+    assert [b["id"] for b in ok(ws, "/board --layer 1")["blocks"]] == ["payments"]
+    assert {b["id"] for b in ok(ws, "/board --block web")["blocks"]} == {"web", "checkout-py"}
+    ok(ws, "/agent add bot")
+    ok(ws, "/agent grant bot web --mode read", confirm=True)
+    seen = {b["id"] for b in ok(ws, "/board", actor="bot")["blocks"]}
+    assert "checkout-py" in seen and "keys-py" not in seen

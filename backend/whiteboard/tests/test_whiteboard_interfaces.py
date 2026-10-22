@@ -68,7 +68,7 @@ def test_http_errors_use_the_envelope_and_status(client):
 # Date: 2026-10-22
 def test_http_lists_every_command_for_the_frontend(client):
     listing = client.get("/api/v1/whiteboard/commands").get_json()["data"]["commands"]
-    assert len(listing) == 90
+    assert len(listing) == 91
     grant = next(c for c in listing if c["command"] == "/agent grant")
     assert grant["confirms"] and grant["people_only"]
 

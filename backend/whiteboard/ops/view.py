@@ -145,3 +145,50 @@ def filter_(ctx: Context, blocks: Any = None, arrows: Any = None, clear: Any = F
         raise OpError("INVALID_ARGS", "give --blocks kinds and/or --arrows types, or --clear")
     ctx.board.view["filter"] = {"blocks": kinds, "arrows": types}
     return {"filter": ctx.board.view["filter"]}
+
+
+# Input: ctx (Context), layer (Any), block (str | None), limit (Any)
+# Output: dict[str, Any]
+# Processing: Read the board: an overview, one layer, or one block with everything inside it.
+# Changed by: Sourish
+# Date: 2026-10-22
+@operation("board.read", command="/board", tool="plovane_board_read", group="plovane_view", mutates=False)
+def read(ctx: Context, layer: Any = None, block: str | None = None, limit: Any = 200) -> dict[str, Any]:
+    """Reads the whiteboard: blocks, arrows, endpoints and status, for an AI to get the picture first."""
+    cap = integer(limit, "limit")
+    board = ctx.board
+    if block is not None:
+        root = board.block(block)
+        ctx.require(root, "read")
+        chosen = [root, *board.descendants(root.id)]
+    else:
+        number = integer(layer, "layer") if layer is not None else None
+        chosen = [b for b in board.blocks.values() if number is None or b.layer == number]
+    if ctx.actor != "user":  # an agent sees only what it may read
+        chosen = [b for b in chosen if ctx.access(b) >= 1]
+    ids = {b.id for b in chosen}
+    shown = sorted(chosen, key=lambda b: (b.layer, b.parent or "", b.y, b.x))[:cap]
+    names = {b.id: b.name for b in board.blocks.values()}
+    arrows = [a for a in board.arrows.values() if a.source in ids or a.target in ids]
+    endpoints = [e for e in board.endpoints.values() if e.service in ids]
+    return {
+        "view": {k: board.view.get(k) for k in ("zoom", "layer", "focus", "theme")},
+        "layers": [{"number": l.number, "name": l.name, "zoom": [l.zoom_min, l.zoom_max],
+                    "blocks": sum(b.layer == l.number for b in chosen)}
+                   for l in sorted(board.layers.values(), key=lambda l: l.number)],
+        "blocks": [{"id": b.id, "kind": b.kind, "name": b.name, "layer": b.layer, "parent": b.parent,
+                    "path": b.path or b.meta.get("file"), "status": b.status,
+                    **({"health": b.meta["health"]} if b.meta.get("health") else {}),
+                    **({"library": b.meta["library"]} if b.meta.get("library") else {})} for b in shown],
+        "blocks_total": len(chosen),
+        "truncated": len(chosen) > cap,
+        "arrows": [{"from": names.get(a.source, a.source), "to": names.get(a.target, a.target), "type": a.type,
+                    "status": a.status, **({"endpoint": a.endpoint} if a.endpoint else {})} for a in arrows[:cap]],
+        "endpoints": [{"id": e.id, "status": e.status,
+                       "callers": [names.get(a.source, a.source) for a in board.arrows.values() if a.endpoint == e.id]}
+                      for e in endpoints],
+        "alerts": len(board.alerts),
+        "pending_compiles": sorted(board.compiles),
+        "templates": sorted(board.templates),
+        "agents": sorted(board.agents),
+    }

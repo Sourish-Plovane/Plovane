@@ -74,7 +74,7 @@ same as typing `/block add service auth`.
 
 | Tool | Actions |
 |---|---|
-| `plovane_layer`, `plovane_view` | layers, zoom, find, focus, layout, filter |
+| `plovane_layer`, `plovane_view` | read the whole board (`board_read`), layers, zoom, find, focus, layout, filter |
 | `plovane_project`, `plovane_block` | real folders and files, block add/move/group/split/merge/rename/delete/info |
 | `plovane_place`, `plovane_style` | placement, alignment, size, grid, styles, presets, theme |
 | `plovane_connect`, `plovane_endpoint` | arrows, imports, trace, dependencies, API endpoints and their client calls |
