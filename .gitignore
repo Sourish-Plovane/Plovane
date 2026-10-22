@@ -31,6 +31,7 @@ seed/*
 # stays out as regenerable output; this is what makes it regenerable, so
 # without it the committed model artefact could not be reproduced.
 !seed/sources.json
+!seed/README.md
 
 
 # Encoder weights. Fetched via `scripts/fetch_weights.py`; see weights/README.md
