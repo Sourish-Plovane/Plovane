@@ -151,14 +151,15 @@ def test_explain_reports_every_stage(engine):
 # Changed by: Sourish
 # Date: 2026-10-22
 def test_server_registers_the_tools(engine):
-    from ml.mcp_server.server import mcp
+    from ml.mcp_server.server import WHITEBOARD_TOOLS, mcp
 
     names = {t.name for t in asyncio.run(mcp.list_tools())}
     assert names == {
         "search_helpers", "find_helpers_in_file", "get_helper", "list_categories", "model_status",
         "rerank_candidates", "check_file_against_library", "recommend_for_file", "explain_ranking",
-        "batch_search", "ask_llm",
+        "batch_search", "ask_llm", *WHITEBOARD_TOOLS,
     }
+    assert len(WHITEBOARD_TOOLS) == 16
 
 
 # Input: monkeypatch

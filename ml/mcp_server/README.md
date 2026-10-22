@@ -64,6 +64,28 @@ using your own clone path and python:
 take either `path`, or pasted `code` plus a `filename` (the filename sets the
 language).
 
+### Whiteboard tools
+
+The server also carries the whiteboard: 15 tools grouped by noun plus
+`plovane_command`, 16 in all. Each grouped tool takes an `action`, its
+`args`, and optionally `confirm` and `dry_run`. For example, `plovane_block`
+with `{"action": "add", "args": {"kind": "service", "name": "auth"}}` does the
+same as typing `/block add service auth`.
+
+| Tool | Actions |
+|---|---|
+| `plovane_layer`, `plovane_view` | layers, zoom, find, focus, layout, filter |
+| `plovane_project`, `plovane_block` | real folders and files, block add/move/group/split/merge/rename/delete/info |
+| `plovane_place`, `plovane_style` | placement, alignment, size, grid, styles, presets, theme |
+| `plovane_connect`, `plovane_endpoint` | arrows, imports, trace, dependencies, API endpoints and their client calls |
+| `plovane_compile` | English step blocks, edit, compile with a test run, replace a step with a library helper |
+| `plovane_template`, `plovane_batch` | templates and all-or-nothing batches |
+| `plovane_library`, `plovane_code`, `plovane_history`, `plovane_agent` | library, code, scans, health, undo, Git, agent logs |
+| `plovane_command` | any slash command as text |
+
+The full command list is in `whiteboard/README.md`. Commands that grant or
+revoke access are not available here: a person runs them in the whiteboard.
+
 ## Settings (environment variables)
 
 | Variable | Effect |
@@ -72,6 +94,9 @@ language).
 | `PLOVANE_NO_CROSS_ENCODER` | Skips the cross-encoder. Faster and needs less RAM, but @1 drops to 52%. |
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` | Enable `ask_llm`. |
 | `PLOVANE_ANTHROPIC_MODEL`, `PLOVANE_OPENAI_MODEL` | Change the default model (`claude-sonnet-5-5`, `gpt-5`). |
+| `PLOVANE_PROJECT` | The project the whiteboard tools edit. The default is the folder the server starts in. |
+| `PLOVANE_AGENT` | The agent name the whiteboard tools act as, checked against its grants. Unset means a person. |
+| `PLOVANE_LLM_PROVIDER` | `anthropic` (the default) or `openai`, for the whiteboard's English blocks and `/explain`. |
 
 ## Speed (laptop CPU, measured)
 

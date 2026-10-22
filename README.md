@@ -12,6 +12,7 @@ Plovane/
 ├── Plovane_Handbook.md     architecture, block ownership and JSON contracts
 ├── pyproject.toml
 ├── ml/                     all ML work: model code, data, weights, training, serving, tests
+├── whiteboard/             whiteboard backend: board, slash commands, local API, agent tools
 ├── frontend/               desktop app (B01) and CLI (B02)
 └── docs/                   proposals for the handbook
 ```
@@ -22,6 +23,7 @@ Plovane/
 |---|---|
 | ML models, training, the recommendation API | `ml/README.md` |
 | Calling the recommender from the backend | `ml/serving/API.md` |
+| Whiteboard backend and its commands | `whiteboard/README.md` |
 | Frontend (desktop app, CLI) | `frontend/README.md` |
 
 Every folder has a README saying what belongs in it.
@@ -34,6 +36,7 @@ read -s "GITHUB_TOKEN?Paste GitHub token: "; export GITHUB_TOKEN; echo
 python -m ml.serving.setup            # download and verify the models
 python -m pytest                      # run the tests
 python -m ml.serving.service.app      # recommendation API on 127.0.0.1:8600
+python -m whiteboard.server --project .   # whiteboard API on 127.0.0.1:8700
 ```
 
 ## Conventions
