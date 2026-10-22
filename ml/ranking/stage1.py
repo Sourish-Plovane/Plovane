@@ -62,7 +62,7 @@ class TrainingGroup:
     # Input: none
     # Output: None
     # Processing: Post init
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def __post_init__(self) -> None:
         self.features = np.asarray(self.features, dtype=np.float32)
@@ -78,7 +78,7 @@ class TrainingGroup:
 # Input: groups (Sequence[TrainingGroup])
 # Output: tuple[np.ndarray, np.ndarray, list[int]]
 # Processing: Flatten
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def _flatten(groups: Sequence[TrainingGroup]) -> tuple[np.ndarray, np.ndarray, list[int]]:
     if not groups:
@@ -94,7 +94,7 @@ class FeatureRanker(Protocol):
     # Input: features (np.ndarray)
     # Output: np.ndarray
     # Processing: Score
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def score(self, features: np.ndarray) -> np.ndarray: ...
 
@@ -102,7 +102,7 @@ class FeatureRanker(Protocol):
 # Input: features (np.ndarray), method (str)
 # Output: np.ndarray
 # Processing: Put each column on a comparable within-query scale
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def normalize_within_query(features: np.ndarray, *, method: str = "rank") -> np.ndarray:
     """Rescale each column across this query's candidates. Order is preserved.
@@ -182,7 +182,7 @@ class LinearFeatureRanker:
     # Input: weights (dict[str, float] | None)
     # Output: None
     # Processing: Init
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def __init__(self, weights: dict[str, float] | None = None) -> None:
         weights = weights or HAND_WEIGHTS
@@ -195,7 +195,7 @@ class LinearFeatureRanker:
     # Input: features (np.ndarray)
     # Output: np.ndarray
     # Processing: Score
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def score(self, features: np.ndarray) -> np.ndarray:
         features = np.asarray(features, dtype=np.float32)
@@ -212,7 +212,7 @@ class LightGBMFeatureRanker:
     # Input: config (LightGBMConfig | None)
     # Output: None
     # Processing: Init
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def __init__(self, config: LightGBMConfig | None = None) -> None:
         self.config = config or LightGBMConfig()
@@ -221,7 +221,7 @@ class LightGBMFeatureRanker:
     # Input: groups (Sequence[TrainingGroup]), validation (Sequence[TrainingGroup] | None)
     # Output: LightGBMFeatureRanker
     # Processing: Fit
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def fit(
         self,
@@ -263,7 +263,7 @@ class LightGBMFeatureRanker:
     # Input: features (np.ndarray)
     # Output: np.ndarray
     # Processing: Score
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def score(self, features: np.ndarray) -> np.ndarray:
         if self.booster is None:
@@ -276,7 +276,7 @@ class LightGBMFeatureRanker:
     # Input: none
     # Output: dict[str, float]
     # Processing: Gain per feature. Worth reading before adding another one.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def feature_importance(self) -> dict[str, float]:
         """Gain per feature. Worth reading before adding another one."""
@@ -288,7 +288,7 @@ class LightGBMFeatureRanker:
     # Input: path (str | Path)
     # Output: None
     # Processing: Save
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def save(self, path: str | Path) -> None:
         if self.booster is None:
@@ -298,7 +298,7 @@ class LightGBMFeatureRanker:
     # Input: path (str | Path)
     # Output: LightGBMFeatureRanker
     # Processing: Load
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def load(self, path: str | Path) -> LightGBMFeatureRanker:
         import lightgbm as lgb
@@ -310,7 +310,7 @@ class LightGBMFeatureRanker:
 # Input: candidates (Sequence[Candidate]), ctx (FeatureContext), ranker (FeatureRanker), top_k (int)
 # Output: list[Candidate]
 # Processing: Score every candidate, keep the best ``top_k``.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def rank_stage1(
     candidates: Sequence[Candidate],

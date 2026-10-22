@@ -23,7 +23,7 @@ from ml.schemas import Candidate
 # Input: candidates (Sequence[Candidate]), k (int), lambda_ (float)
 # Output: list[Candidate]
 # Processing: Select at most ``k`` candidates, diversity-aware, best match first.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def maximal_marginal_relevance(
     candidates: Sequence[Candidate],

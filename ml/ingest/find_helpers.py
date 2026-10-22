@@ -29,7 +29,7 @@ from ml.ingest.extract import ExtractedUnit, extract, language_for_path
 # Input: unit (ExtractedUnit)
 # Output: dict[str, Any]
 # Processing: One function as a JSON-ready record.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-18
 def describe(unit: ExtractedUnit) -> dict[str, Any]:
     """One function as a JSON-ready record."""
@@ -49,7 +49,7 @@ def describe(unit: ExtractedUnit) -> dict[str, Any]:
 # Input: source (str), path (str)
 # Output: dict[str, Any]
 # Processing: Split a file's functions into helpers and near helpers.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-18
 def find_helpers(source: str, path: str) -> dict[str, Any]:
     """Split a file's functions into helpers and near helpers.
@@ -85,7 +85,7 @@ def find_helpers(source: str, path: str) -> dict[str, Any]:
 # Input: argv (list[str] | None)
 # Output: int
 # Processing: CLI entry point.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-18
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])

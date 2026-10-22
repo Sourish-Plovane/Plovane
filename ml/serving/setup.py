@@ -26,7 +26,7 @@ from ml.config import DATA_DIR, ML_ROOT  # noqa: E402  (after the path insert)
 # Input: none
 # Output: None
 # Processing: Rebuild ml/data/entries.jsonl from the pinned sources.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-18
 def rebuild_library() -> None:
     """Same steps as the "== dataset ==" stage of ml/training/gpu_box_setup.sh."""
@@ -43,7 +43,7 @@ def rebuild_library() -> None:
             # Input: *args (str)
             # Output: None
             # Processing: Run one git command in the source clone.
-            # Changed by: Claude Code
+            # Changed by: Sourish
             # Date: 2026-10-22
             def git(*args: str) -> None:
                 subprocess.run(["git", "-C", str(root), *args], check=True)
@@ -60,7 +60,7 @@ def rebuild_library() -> None:
 # Input: none
 # Output: int
 # Processing: CLI entry point.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-18
 def main() -> int:
     models = subprocess.run([sys.executable, str(ML_ROOT / "training" / "setup_cross_encoder.py")])

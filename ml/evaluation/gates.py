@@ -43,7 +43,7 @@ class MetricDelta:
     # Input: none
     # Output: float
     # Processing: Change
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def change(self) -> float:
@@ -52,7 +52,7 @@ class MetricDelta:
     # Input: none
     # Output: bool
     # Processing: Regressed
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def regressed(self) -> bool:
@@ -63,7 +63,7 @@ class MetricDelta:
     # Input: none
     # Output: str
     # Processing: Describe
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def describe(self) -> str:
         direction = "dropped" if self.higher_is_better else "rose"
@@ -83,7 +83,7 @@ class GateResult:
     # Input: none
     # Output: str
     # Processing: Summary
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def summary(self) -> str:
         if self.passed and not self.warnings:
@@ -110,7 +110,7 @@ class ReleaseGate:
     # Input: metric (str), baseline (MetricSnapshot), candidate (MetricSnapshot), tolerance (float)
     # Output: MetricDelta
     # Processing: Delta
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def _delta(self, metric: str, baseline: MetricSnapshot, candidate: MetricSnapshot, tolerance: float) -> MetricDelta:
         return MetricDelta(
@@ -124,7 +124,7 @@ class ReleaseGate:
     # Input: baseline (MetricSnapshot), candidate (MetricSnapshot)
     # Output: GateResult
     # Processing: Check
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def check(self, baseline: MetricSnapshot, candidate: MetricSnapshot) -> GateResult:
         blocking: list[str] = []

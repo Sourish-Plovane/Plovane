@@ -42,7 +42,7 @@ TEMPLATE_TYPE_TOKENS: tuple[str, ...] = ("<type:template>", "<type:bundle>", "<t
 # Input: entry (Entry)
 # Output: str
 # Processing: ``<type:template>`` and friends, so one model can serve both arms.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def type_token(entry: Entry) -> str:
     """``<type:template>`` and friends, so one model can serve both arms."""
@@ -52,7 +52,7 @@ def type_token(entry: Entry) -> str:
 # Input: entry (Entry)
 # Output: str
 # Processing: The candidate side's non-code half: name and description, no signature.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def template_head(entry: Entry) -> str:
     """The candidate side's non-code half: name and description, no signature."""
@@ -72,7 +72,7 @@ class TemplateCrossEncoderTokenizer(CrossEncoderTokenizer):
     # Input: tokenizer, max_tokens (int), query_max_tokens (int), min_code_tokens (int), head_max_tokens (int)
     # Output: None
     # Processing: Init
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def __init__(
         self,
@@ -90,7 +90,7 @@ class TemplateCrossEncoderTokenizer(CrossEncoderTokenizer):
     # Input: query_text (str), entry (Entry)
     # Output: EncodedPair
     # Processing: Encode
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def encode(self, query_text: str, entry: Entry) -> EncodedPair:
         budget = self.max_tokens - 3  # [CLS] ... [SEP] ... [SEP]
@@ -131,7 +131,7 @@ class TemplateCrossEncoder(CrossEncoder):
 # Input: entries (Sequence[Entry]), include_bundles (bool)
 # Output: list[Entry]
 # Processing: Filter a library down to what the template model is trained to score.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def template_entries(entries: Sequence[Entry], *, include_bundles: bool = True) -> list[Entry]:
     """Filter a library down to what the template model is trained to score."""

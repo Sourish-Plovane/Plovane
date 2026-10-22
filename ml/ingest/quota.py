@@ -105,7 +105,7 @@ class Cell:
     # Input: none
     # Output: int
     # Processing: Templates
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def templates(self) -> int:
@@ -114,7 +114,7 @@ class Cell:
     # Input: none
     # Output: int
     # Processing: Helpers
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def helpers(self) -> int:
@@ -129,7 +129,7 @@ class HarvestPlan:
     # Input: none
     # Output: int
     # Processing: Allocated
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def allocated(self) -> int:
@@ -138,7 +138,7 @@ class HarvestPlan:
     # Input: none
     # Output: int
     # Processing: Templates
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def templates(self) -> int:
@@ -147,7 +147,7 @@ class HarvestPlan:
     # Input: none
     # Output: int
     # Processing: Helpers
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def helpers(self) -> int:
@@ -156,7 +156,7 @@ class HarvestPlan:
     # Input: none
     # Output: dict[str, int]
     # Processing: By language
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def by_language(self) -> dict[str, int]:
         totals: dict[str, int] = {}
@@ -167,7 +167,7 @@ class HarvestPlan:
     # Input: none
     # Output: dict[str, int]
     # Processing: By category
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def by_category(self) -> dict[str, int]:
         totals: dict[str, int] = {}
@@ -178,7 +178,7 @@ class HarvestPlan:
     # Input: minimum (int)
     # Output: tuple[str, ...]
     # Processing: Languages the plan cannot bring up to the floor.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def thin_languages(self, minimum: int = MINIMUM_PER_LANGUAGE) -> tuple[str, ...]:
         """Languages the plan cannot bring up to the floor.
@@ -195,7 +195,7 @@ class HarvestPlan:
     # Input: none
     # Output: str
     # Processing: Summary
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def summary(self) -> str:
         lines = [
@@ -217,7 +217,7 @@ class HarvestPlan:
 # Input: language (str)
 # Output: list[str]
 # Processing: Cells for language
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def _cells_for_language(language: str) -> list[str]:
     return [cat for cat, langs in CATEGORY_LANGUAGES.items() if language in langs]
@@ -226,7 +226,7 @@ def _cells_for_language(language: str) -> list[str]:
 # Input: target (int), templates (int | None), template_share (float | None)
 # Output: float
 # Processing: Turn either way of asking for templates into one share.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def resolve_template_share(
     target: int, *, templates: int | None = None, template_share: float | None = None
@@ -253,7 +253,7 @@ def resolve_template_share(
 # Input: target (int), minimum_per_language (int), languages (tuple[str, ...]), templates (int | None), template_share (float | None)
 # Output: HarvestPlan
 # Processing: Allocate ``target`` entries across the feasible (category, language) cells.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def build_plan(
     target: int = 1200,

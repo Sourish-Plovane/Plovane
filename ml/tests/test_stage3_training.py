@@ -38,7 +38,7 @@ from ml.schemas import ProjectContext, Request
 # Input: name (str), description (str), language (str)
 # Output: dict
 # Processing: A harvest record good enough to load
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def record(name: str, description: str, *, language: str = "python") -> dict:
     return {
@@ -62,7 +62,7 @@ def record(name: str, description: str, *, language: str = "python") -> dict:
 # Input: none
 # Output: tuple[list, RetrievalService]
 # Processing: A small library and a retrieval service over it
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def tiny_library():
     descriptions = {
@@ -187,7 +187,7 @@ class TestCalibrationReport:
     # Input: observations (int), distinct (int), accept_rate (float), source (str)
     # Output: CalibrationReport
     # Processing: A calibration report with chosen properties
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def report(self, *, observations=500, distinct=40, accept_rate=0.4, source="usage:2026-10-12"):
         return CalibrationReport(
@@ -230,7 +230,7 @@ class TestStage3Report:
     # Input: features (tuple), calibration (CalibrationReport | None)
     # Output: Stage3Report
     # Processing: A Stage 3 report with chosen properties
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def report(self, features, calibration=None):
         from ml.evaluation.synthetic import OverlapReport
@@ -296,7 +296,7 @@ class TestCutoffHonesty:
     # Input: calibrator (IsotonicCalibrator | None)
     # Output: RecommendationPipeline
     # Processing: A pipeline over the tiny library
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def pipeline(self, calibrator=None):
         _, service = tiny_library()

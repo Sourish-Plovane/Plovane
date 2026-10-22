@@ -39,7 +39,7 @@ RELEASE_URL = re.compile(
 # Input: none
 # Output: str | None
 # Processing: The first GitHub token set in the environment, by name only.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-17
 def github_token() -> str | None:
     """The first GitHub token set in the environment, matched by name only."""
@@ -53,7 +53,7 @@ def github_token() -> str | None:
 # Input: url (str), token (str | None)
 # Output: urllib.request.Request
 # Processing: The request that downloads url, through the API for a private release asset.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-17
 def asset_request(url: str, token: str | None) -> urllib.request.Request:
     """The request that downloads ``url``.
@@ -85,7 +85,7 @@ def asset_request(url: str, token: str | None) -> urllib.request.Request:
 # Input: url (str), destination (Path), expected_sha256 (str)
 # Output: None
 # Processing: Stream a URL to disk and verify its SHA-256
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-13
 def download(url: str, destination: Path, *, expected_sha256: str) -> None:
     """Download, hash as we go, and fail loudly on a mismatch.
@@ -114,7 +114,7 @@ def download(url: str, destination: Path, *, expected_sha256: str) -> None:
 # Input: archive (Path), destination (Path)
 # Output: None
 # Processing: Extract a tar or zip archive into a directory
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-13
 def extract(archive: Path, destination: Path) -> None:
     """Unpack into a clean directory so a partial failure cannot shadow weights.
@@ -140,7 +140,7 @@ def extract(archive: Path, destination: Path) -> None:
 # Input: argv (list[str] | None)
 # Output: int
 # Processing: Download, verify and unpack an encoder
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-13
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point. Returns a shell exit code."""

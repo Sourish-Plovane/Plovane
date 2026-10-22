@@ -71,7 +71,7 @@ long self-contained line -- so nothing downstream would have caught them.
 # Input: path (str)
 # Output: str | None
 # Processing: Language for path
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def language_for_path(path: str) -> str | None:
     # Anchored with a leading slash so a root-level directory matches the same
@@ -134,7 +134,7 @@ class ExtractedUnit:
     # Input: none
     # Output: int
     # Processing: Line count
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def line_count(self) -> int:
@@ -143,7 +143,7 @@ class ExtractedUnit:
     # Input: none
     # Output: bool
     # Processing: Whether the code plus required_imports runs on its own
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def self_contained(self) -> bool:
@@ -162,7 +162,7 @@ class ExtractedUnit:
     # Input: none
     # Output: str
     # Processing: The code with its imports prepended, ready to paste
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def insertable_code(self) -> str:
@@ -183,7 +183,7 @@ class ExtractedUnit:
 # Input: node (ast.FunctionDef | ast.AsyncFunctionDef)
 # Output: str
 # Processing: Python signature
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def _python_signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
     args = [a.arg for a in node.args.posonlyargs + node.args.args]
@@ -199,7 +199,7 @@ def _python_signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
 # Input: tree (ast.Module)
 # Output: dict[str, str]
 # Processing: Map each name a module imports to the statement that binds it
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def _module_imports(tree: ast.Module) -> dict[str, str]:
     """Map each imported name to the statement that binds it.
@@ -227,7 +227,7 @@ def _module_imports(tree: ast.Module) -> dict[str, str]:
 # Input: fn (ast.FunctionDef | ast.AsyncFunctionDef)
 # Output: set[str]
 # Processing: Every name the function binds itself, so it is not free
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def _bound_locally(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
     """Every name the function binds itself.
@@ -265,7 +265,7 @@ def _bound_locally(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
 # Input: fn (ast.FunctionDef | ast.AsyncFunctionDef)
 # Output: set[str]
 # Processing: Names the function reads but does not bind
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def _free_names(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[set[str], set[str]]:
     """Free names, split into ``(runtime, annotation_only)``.
@@ -286,7 +286,7 @@ def _free_names(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[set[str], s
     # Input: node (ast.AST)
     # Output: set[str]
     # Processing: Free names loaded in a subtree, minus locals and builtins
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def names_in(node: ast.AST) -> set[str]:
         found: set[str] = set()
@@ -317,7 +317,7 @@ def _free_names(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[set[str], s
 # Input: fn (ast.FunctionDef | ast.AsyncFunctionDef), tree (ast.Module)
 # Output: tuple[tuple[str, ...], tuple[str, ...]]
 # Processing: Return (required_imports, unresolved_names) for one function
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def analyse_dependencies(
     fn: ast.FunctionDef | ast.AsyncFunctionDef, tree: ast.Module
@@ -353,7 +353,7 @@ def analyse_dependencies(
 # Input: source (str), library_rules (bool)
 # Output: list[ExtractedUnit]
 # Processing: Exact extraction of module-level functions via the AST.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def extract_python(source: str, *, library_rules: bool = True) -> list[ExtractedUnit]:
     """Exact extraction of module-level functions via the AST.
@@ -402,7 +402,7 @@ def extract_python(source: str, *, library_rules: bool = True) -> list[Extracted
 # Input: source (str), line (int)
 # Output: str
 # Processing: Read the doc comment immediately above a 1-indexed line
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def doc_comment_above(source: str, line: int) -> str:
     """Pull the description out of the comment block above a declaration.
@@ -565,7 +565,7 @@ _BRACE_AMBIENT = frozenset(
 # Input: source (str)
 # Output: set[str]
 # Processing: Names a brace-language module imports or defines at top level
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def _brace_module_names(source: str) -> tuple[set[str], set[str]]:
     """Return ``(imported, defined_locally)`` for a brace-language module.
@@ -597,7 +597,7 @@ def _brace_module_names(source: str) -> tuple[set[str], set[str]]:
 # Input: code (str)
 # Output: str
 # Processing: Blank out string literals and comments, keeping offsets
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def _strip_literals(code: str) -> str:
     """Replace the contents of strings and comments with spaces.
@@ -655,7 +655,7 @@ def _strip_literals(code: str) -> str:
 # Input: parameter_text (str), language (str)
 # Output: set[str]
 # Processing: Names bound by a brace-language parameter list
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def _brace_parameter_names(parameter_text: str, language: str) -> set[str]:
     """Parameter *names* only, not the types beside them.
@@ -717,7 +717,7 @@ def _brace_parameter_names(parameter_text: str, language: str) -> set[str]:
 # Input: source (str), code (str), own_name (str), language (str)
 # Output: tuple[tuple[str, ...], tuple[str, ...]]
 # Processing: Heuristic dependency split for a brace-language unit
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def analyse_brace_dependencies(
     source: str, code: str, own_name: str, language: str = "javascript"
@@ -792,7 +792,7 @@ def analyse_brace_dependencies(
 # Input: source (str), language (str), library_rules (bool)
 # Output: list[ExtractedUnit]
 # Processing: Heuristic extraction for brace languages. Marked ``needs_review``.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def extract_braced(source: str, language: str, *, library_rules: bool = True) -> list[ExtractedUnit]:
     """Heuristic extraction for brace languages. Marked ``needs_review``.
@@ -892,7 +892,7 @@ _NON_ASSET_SCHEMES = ("data:", "mailto:", "tel:", "javascript:", "about:", "#")
 # Input: target (str)
 # Output: bool
 # Processing: Whether a reference points at a fetchable remote asset
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def _is_remote_reference(target: str) -> bool:
     """True for an absolute URL, including a protocol-relative one.
@@ -909,7 +909,7 @@ def _is_remote_reference(target: str) -> bool:
 # Input: source (str), language (str)
 # Output: tuple[tuple[str, ...], tuple[str, ...]]
 # Processing: Split a template's external references into declarable and unresolvable
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def analyse_template_dependencies(source: str, language: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
     """Return ``(remote_references, local_references)`` for a whole-file template.
@@ -932,7 +932,7 @@ def analyse_template_dependencies(source: str, language: str) -> tuple[tuple[str
     # Input: target (str)
     # Output: None
     # Processing: File one reference into the remote or local bucket
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def record(target: str) -> None:
         target = target.strip()
@@ -965,7 +965,7 @@ def analyse_template_dependencies(source: str, language: str) -> tuple[tuple[str
 # Input: source (str), path (str), language (str), max_lines (int)
 # Output: ExtractedUnit | None
 # Processing: Treat a whole file as a template candidate.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def extract_file_as_template(
     source: str, path: str, language: str, *, max_lines: int = 400
@@ -1022,7 +1022,7 @@ NODE_BUILTINS = frozenset(
 # Input: statement (str)
 # Output: str | None
 # Processing: Top-level package a Python import statement names
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def _python_import_root(statement: str) -> str | None:
     """The installable package an import statement refers to, or None.
@@ -1050,7 +1050,7 @@ def _python_import_root(statement: str) -> str | None:
 # Input: required_imports (Sequence[str]), language (str), local_modules (Collection[str])
 # Output: tuple[str, ...]
 # Processing: Installable package names behind a unit's imports
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def dependency_names(
     required_imports, language: str, *, local_modules=()
@@ -1101,7 +1101,7 @@ def dependency_names(
 # Input: source (str), path (str), want_template (bool), library_rules (bool)
 # Output: list[ExtractedUnit]
 # Processing: Extract candidates from one file, dispatching on its language.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def extract(source: str, path: str, *, want_template: bool = False, library_rules: bool = True) -> list[ExtractedUnit]:
     """Extract candidates from one file, dispatching on its language.

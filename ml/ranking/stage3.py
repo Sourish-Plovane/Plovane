@@ -78,7 +78,7 @@ STAGE3_HAND_WEIGHTS = STAGE3_HAND_WEIGHTS_PLACEHOLDER_EMBEDDING
 # Input: candidates (Sequence[Candidate]), ctx (FeatureContext)
 # Output: np.ndarray
 # Processing: Stage 1 features plus the cross-encoder score, one row per candidate.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def build_stage3_matrix(candidates: Sequence[Candidate], ctx: FeatureContext) -> np.ndarray:
     """Stage 1 features plus the cross-encoder score, one row per candidate.
@@ -104,7 +104,7 @@ class LinearFinalRanker:
     # Input: weights (dict[str, float] | None)
     # Output: None
     # Processing: Init
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def __init__(self, weights: dict[str, float] | None = None) -> None:
         weights = weights or STAGE3_HAND_WEIGHTS
@@ -119,7 +119,7 @@ class LinearFinalRanker:
     # Input: features (np.ndarray)
     # Output: np.ndarray
     # Processing: Score
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def score(self, features: np.ndarray) -> np.ndarray:
         features = np.asarray(features, dtype=np.float32)
@@ -136,7 +136,7 @@ class LightGBMFinalRanker:
     # Input: config (LightGBMConfig | None)
     # Output: None
     # Processing: Init
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def __init__(self, config: LightGBMConfig | None = None) -> None:
         self.config = config or LightGBMConfig()
@@ -145,7 +145,7 @@ class LightGBMFinalRanker:
     # Input: groups (Sequence[TrainingGroup]), validation (Sequence[TrainingGroup] | None)
     # Output: LightGBMFinalRanker
     # Processing: Fit
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def fit(
         self,
@@ -198,7 +198,7 @@ class LightGBMFinalRanker:
     # Input: features (np.ndarray)
     # Output: np.ndarray
     # Processing: Score
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def score(self, features: np.ndarray) -> np.ndarray:
         if self.booster is None:
@@ -211,7 +211,7 @@ class LightGBMFinalRanker:
     # Input: none
     # Output: dict[str, float]
     # Processing: Feature importance
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def feature_importance(self) -> dict[str, float]:
         if self.booster is None:
@@ -222,7 +222,7 @@ class LightGBMFinalRanker:
     # Input: path (str | Path)
     # Output: None
     # Processing: Save
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def save(self, path: str | Path) -> None:
         if self.booster is None:
@@ -232,7 +232,7 @@ class LightGBMFinalRanker:
     # Input: path (str | Path)
     # Output: LightGBMFinalRanker
     # Processing: Load
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def load(self, path: str | Path) -> LightGBMFinalRanker:
         import lightgbm as lgb
@@ -257,7 +257,7 @@ class FinalRanker:
     # Input: candidates (Sequence[Candidate]), ctx (FeatureContext)
     # Output: list[Candidate]
     # Processing: Score, calibrate and sort, writing both scores onto the candidates.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def rank(self, candidates: Sequence[Candidate], ctx: FeatureContext) -> list[Candidate]:
         """Score, calibrate and sort, writing both scores onto the candidates."""
@@ -284,7 +284,7 @@ class FinalRanker:
     # Input: none
     # Output: bool
     # Processing: Is calibrated
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def is_calibrated(self) -> bool:

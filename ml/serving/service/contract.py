@@ -40,7 +40,7 @@ class ContractError(ValueError):
     # Input: message (str), code (str)
     # Output: None
     # Processing: Keep the machine-readable code next to the message.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     def __init__(self, message: str, code: str = "INVALID_REQUEST") -> None:
         super().__init__(message)
@@ -50,7 +50,7 @@ class ContractError(ValueError):
 # Input: code (str | None), language (str | None)
 # Output: str | None
 # Processing: One line naming the functions the caller's code defines.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def summarise_context(code: str | None, language: str | None) -> str | None:
     """What the code the user is editing defines, for the query's context.
@@ -71,7 +71,7 @@ def summarise_context(code: str | None, language: str | None) -> str | None:
 # Input: raw (Any)
 # Output: Request
 # Processing: Validate a §8.1 body and build the B06 request from it.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def request_from_handbook(raw: Any) -> Request:
     if not isinstance(raw, dict):
@@ -108,7 +108,7 @@ def request_from_handbook(raw: Any) -> Request:
 # Input: request_id (str | None), response (Response)
 # Output: dict[str, Any]
 # Processing: Build the §8.2 body from the pipeline's response.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def response_to_handbook(request_id: str | None, response: Response) -> dict[str, Any]:
     data = response.to_handbook_response()["data"]
@@ -118,7 +118,7 @@ def response_to_handbook(request_id: str | None, response: Response) -> dict[str
 # Input: request_id (str | None), code (str), message (str)
 # Output: dict[str, Any]
 # Processing: The error body, using the §4.1 error object.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def error_body(request_id: str | None, code: str, message: str) -> dict[str, Any]:
     return {"request_id": request_id, "error": {"code": code, "message": message}}

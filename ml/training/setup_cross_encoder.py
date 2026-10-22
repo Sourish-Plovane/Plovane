@@ -47,7 +47,7 @@ TRAINED_FILE = "cross_encoder_final.pt"
 # Input: path (Path)
 # Output: str
 # Processing: SHA-256 of a file, streamed.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-18
 def sha256_of(path: Path) -> str:
     """SHA-256 of a file, streamed so a 500 MB checkpoint is not read at once."""
@@ -61,7 +61,7 @@ def sha256_of(path: Path) -> str:
 # Input: manifest (dict)
 # Output: None
 # Processing: Fetch the base encoder if missing and verify its weights.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-18
 def ensure_base_encoder(manifest: dict) -> None:
     """Fetch ``unixcoder-base`` if it is missing, and verify its weights."""
@@ -85,7 +85,7 @@ def ensure_base_encoder(manifest: dict) -> None:
 # Input: weights (Path)
 # Output: None
 # Processing: Write model.safetensors next to a verified pytorch_model.bin.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-18
 def ensure_safetensors(weights: Path) -> None:
     """Write ``model.safetensors`` next to the verified ``.bin``.
@@ -110,7 +110,7 @@ def ensure_safetensors(weights: Path) -> None:
 # Input: manifest (dict)
 # Output: Path
 # Processing: Fetch the fine-tuned checkpoint if missing and verify it.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-18
 def ensure_trained_weights(manifest: dict) -> Path:
     """Fetch the fine-tuned checkpoint if missing or wrong, and verify it."""
@@ -134,7 +134,7 @@ def ensure_trained_weights(manifest: dict) -> Path:
 # Input: weights (Path)
 # Output: bool
 # Processing: Load the model and check it prefers the right entry for a query.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-18
 def check(weights: Path) -> bool:
     """Load the model and score one query against a right and a wrong entry."""
@@ -144,7 +144,7 @@ def check(weights: Path) -> bool:
     # Input: name (str), signature (str), docstring (str), code (str)
     # Output: Entry
     # Processing: A JavaScript library entry for the self-check.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     def entry(name: str, signature: str, docstring: str, code: str) -> Entry:
         return Entry(
@@ -180,7 +180,7 @@ def check(weights: Path) -> bool:
 # Input: none
 # Output: int
 # Processing: CLI entry point.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-18
 def main() -> int:
     manifest = json.loads(MANIFEST.read_text())

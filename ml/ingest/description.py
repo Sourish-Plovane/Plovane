@@ -41,7 +41,7 @@ class DescriptionSource(str, Enum):
     # Input: none
     # Output: bool
     # Processing: Whether a person wrote the description.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     @property
     def is_authored(self) -> bool:
@@ -58,7 +58,7 @@ class DescriptionGenerator(Protocol):
     # Input: name (str), signature (str | None), language (str), code (str)
     # Output: str
     # Processing: Protocol method: produce a description for one entry.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     def describe(self, *, name: str, signature: str | None, language: str, code: str) -> str: ...
 
@@ -66,7 +66,7 @@ class DescriptionGenerator(Protocol):
 # Input: identifier (str)
 # Output: str
 # Processing: Split snake_case and camelCase into a readable word sequence
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def words_from_identifier(identifier: str) -> str:
     """``stratified_split`` to "stratified split", ``readFileSync`` to "read file sync"."""
@@ -81,7 +81,7 @@ def words_from_identifier(identifier: str) -> str:
 # Input: signature (str | None)
 # Output: tuple[list[str], str | None]
 # Processing: Split a signature into parameter names and a return annotation
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def parse_signature(signature: str | None) -> tuple[list[str], str | None]:
     """Pull parameter names and the return type out of a signature string.
@@ -143,7 +143,7 @@ class NameSignatureDescriber:
     # Input: name (str), signature (str | None), language (str), code (str)
     # Output: str
     # Processing: Build a description from the identifier and signature only
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def describe(self, *, name: str, signature: str | None, language: str, code: str) -> str:
         phrase = words_from_identifier(name)
@@ -182,7 +182,7 @@ class LLMDescriber:
     # Input: client, max_words (int)
     # Output: None
     # Processing: Keep the model client and the description word limit.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     def __init__(self, client=None, *, max_words: int = 20) -> None:
         self.client = client
@@ -191,7 +191,7 @@ class LLMDescriber:
     # Input: name (str), signature (str | None), language (str), code (str)
     # Output: str
     # Processing: Ask the configured model for a one-line description
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def describe(self, *, name: str, signature: str | None, language: str, code: str) -> str:
         if self.client is None:
@@ -210,7 +210,7 @@ class LLMDescriber:
 # Input: record (dict), generator (DescriptionGenerator)
 # Output: dict
 # Processing: Fill a record's missing description and record its source
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def describe_record(record: dict, generator: DescriptionGenerator | None = None) -> dict:
     """Fill in a dataset record's description, in place, and say where from.

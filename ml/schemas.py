@@ -38,7 +38,7 @@ class DependencyCompat(str, Enum):
     # Input: none
     # Output: int
     # Processing: Ordinal
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def ordinal(self) -> int:
@@ -62,7 +62,7 @@ class ProjectContext:
     # Input: raw (dict[str, Any])
     # Output: ProjectContext
     # Processing: From dict
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> ProjectContext:
@@ -90,7 +90,7 @@ class Request:
     # Input: raw (dict[str, Any])
     # Output: Request
     # Processing: From dict
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> Request:
@@ -143,7 +143,7 @@ class Entry:
     # Input: none
     # Output: float
     # Processing: Raw rate. Stage 1 uses the smoothed version, not this one.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def acceptance_rate(self) -> float:
@@ -153,7 +153,7 @@ class Entry:
     # Input: none
     # Output: str
     # Processing: The keyword-index document: name, signature, docstring, tags and
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def indexed_text(self) -> str:
         """The keyword-index document: name, signature, docstring, tags and
@@ -165,7 +165,7 @@ class Entry:
     # Input: now (datetime | None)
     # Output: float
     # Processing: Large value when never retested, so staleness is never rewarded.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def days_since_retest(self, now: datetime | None = None) -> float:
         """Large value when never retested, so staleness is never rewarded."""
@@ -198,7 +198,7 @@ class Candidate:
     # Input: none
     # Output: str
     # Processing: Id
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def id(self) -> str:
@@ -249,7 +249,7 @@ class SlimCard:
     # Input: candidate (Candidate), score (float), score_is_calibrated (bool)
     # Output: SlimCard
     # Processing: Build a card from a ranked candidate
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-13
     @classmethod
     def from_candidate(
@@ -278,7 +278,7 @@ class SlimCard:
     # Input: none
     # Output: dict[str, Any]
     # Processing: Full card as the ML pipeline knows it, for internal use
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-13
     def to_dict(self) -> dict[str, Any]:
         out: dict[str, Any] = {
@@ -299,7 +299,7 @@ class SlimCard:
     # Input: none
     # Output: dict[str, Any]
     # Processing: Serialise to the handbook §5.2 block shape, with the proposed additions
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-13
     def to_handbook_block(self) -> dict[str, Any]:
         """Serialise to the handbook §5.2 ``code_blocks[]`` element.
@@ -354,7 +354,7 @@ class Response:
     # Input: none
     # Output: dict[str, Any]
     # Processing: Internal shape; used by pipeline consumers inside the ML package
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-13
     def to_dict(self) -> dict[str, Any]:
         out: dict[str, Any] = {
@@ -368,7 +368,7 @@ class Response:
     # Input: none
     # Output: dict[str, Any]
     # Processing: Serialise into the §4.1 envelope with the §5.2 data block
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-13
     def to_handbook_response(self) -> dict[str, Any]:
         """The exact wire shape B06 should emit across §5.2.

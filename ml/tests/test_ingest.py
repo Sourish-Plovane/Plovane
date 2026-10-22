@@ -878,7 +878,7 @@ class TestTemplateDependencies:
     # Input: source (str), path (str)
     # Output: ExtractedUnit
     # Processing: Extract one whole-file template, asserting a unit came back
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def unit(self, source: str, path: str):
         units = extract(source, path)
@@ -980,7 +980,7 @@ class TestMinifiedFilesAreSkipped:
 # Input: none
 # Output: LicenseVerdict
 # Processing: A usable permissive verdict for building a test repo
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def _mit_verdict():
     from ml.ingest.licensing import classify_license
@@ -1042,7 +1042,7 @@ class TestLocalModules:
     # Input: tmp_path (Path)
     # Output: LocalRepo
     # Processing: A minimal clone-like repo object rooted at tmp_path
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def repo(self, tmp_path):
         from ml.ingest.local_source import LocalRepo
@@ -1099,7 +1099,7 @@ class TestBraceFreeNames:
     # Input: source (str), language (str)
     # Output: ExtractedUnit
     # Processing: Extract one brace-language unit, asserting it was found
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def unit(self, source: str, language: str = "javascript"):
         units = extract_braced(source, language)

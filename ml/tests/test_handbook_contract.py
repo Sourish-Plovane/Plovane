@@ -29,7 +29,7 @@ from ml.schemas_library import (
 # Input: name (str), language (str)
 # Output: Entry
 # Processing: A library entry with every attribution field set
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-13
 def entry(name: str = "parse_date", language: str = "python") -> Entry:
     return Entry(
@@ -125,7 +125,7 @@ class TestHandbookResponseEnvelope:
     # Input: cards (tuple), reason (str | None), cutoff_enforced (bool)
     # Output: Response
     # Processing: Build a Response with chosen state
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-13
     def response(self, cards=(), reason=None, cutoff_enforced=True):
         return Response(

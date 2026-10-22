@@ -66,7 +66,7 @@ class LinearRanker:
     # Input: feature_names (Sequence[str]), weights (dict[str, float])
     # Output: None
     # Processing: Init
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def __init__(self, feature_names: Sequence[str], weights: dict[str, float]) -> None:
         unknown = set(weights) - set(feature_names)
@@ -79,7 +79,7 @@ class LinearRanker:
     # Input: features (np.ndarray)
     # Output: np.ndarray
     # Processing: Score
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def score(self, features: np.ndarray) -> np.ndarray:
         features = np.asarray(features, dtype=np.float32)
@@ -96,7 +96,7 @@ class LightGBMTemplateRanker:
     # Input: feature_names (Sequence[str]), config (LightGBMConfig | None)
     # Output: None
     # Processing: Init
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def __init__(self, feature_names: Sequence[str], config: LightGBMConfig | None = None) -> None:
         self.feature_names = tuple(feature_names)
@@ -106,7 +106,7 @@ class LightGBMTemplateRanker:
     # Input: groups (Sequence[TrainingGroup]), validation (Sequence[TrainingGroup] | None)
     # Output: LightGBMTemplateRanker
     # Processing: Fit
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def fit(
         self, groups: Sequence[TrainingGroup], *, validation: Sequence[TrainingGroup] | None = None
@@ -157,7 +157,7 @@ class LightGBMTemplateRanker:
     # Input: features (np.ndarray)
     # Output: np.ndarray
     # Processing: Score
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def score(self, features: np.ndarray) -> np.ndarray:
         if self.booster is None:
@@ -170,7 +170,7 @@ class LightGBMTemplateRanker:
     # Input: none
     # Output: dict[str, float]
     # Processing: Feature importance
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def feature_importance(self) -> dict[str, float]:
         if self.booster is None:
@@ -181,7 +181,7 @@ class LightGBMTemplateRanker:
     # Input: path (str | Path)
     # Output: None
     # Processing: Save
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def save(self, path: str | Path) -> None:
         if self.booster is None:
@@ -191,7 +191,7 @@ class LightGBMTemplateRanker:
     # Input: path (str | Path)
     # Output: LightGBMTemplateRanker
     # Processing: Load
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def load(self, path: str | Path) -> LightGBMTemplateRanker:
         import lightgbm as lgb
@@ -203,7 +203,7 @@ class LightGBMTemplateRanker:
 # Input: none
 # Output: LinearRanker
 # Processing: The untrained Stage 1 template ranker. Works on day one.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def default_stage1_ranker() -> LinearRanker:
     """The untrained Stage 1 template ranker. Works on day one."""
@@ -213,7 +213,7 @@ def default_stage1_ranker() -> LinearRanker:
 # Input: none
 # Output: LinearRanker
 # Processing: The untrained Stage 3 template ranker.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def default_stage3_ranker() -> LinearRanker:
     """The untrained Stage 3 template ranker."""

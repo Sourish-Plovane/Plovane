@@ -87,7 +87,7 @@ OFFER_FILTER = {
 # Input: name (str)
 # Output: str | None
 # Processing: An environment secret by name, ignoring case.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-16
 def secret(name: str) -> str | None:
     """An environment secret by name, ignoring case.
@@ -111,7 +111,7 @@ class ApiError(RuntimeError):
     # Input: status (int), message (str)
     # Output: None
     # Processing: Keep the HTTP status next to the error message.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     def __init__(self, status: int, message: str):
         super().__init__(message)
@@ -121,7 +121,7 @@ class ApiError(RuntimeError):
 # Input: method (str), path (str), key (str | None), body (dict | None)
 # Output: dict
 # Processing: One call to the vast.ai REST API.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-16
 def api(method: str, path: str, *, key: str | None = None, body: dict | None = None) -> dict:
     """One call to the vast.ai REST API."""
@@ -146,7 +146,7 @@ def api(method: str, path: str, *, key: str | None = None, body: dict | None = N
 # Input: instance (int), key (str)
 # Output: str
 # Processing: Destroy an instance; a 404 means it is already gone, not billing.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-17
 def destroy(instance: int, key: str) -> str:
     """Destroy an instance and say what happened.
@@ -170,7 +170,7 @@ def destroy(instance: int, key: str) -> str:
 # Input: none
 # Output: list[dict]
 # Processing: Offers that can run the job, cheapest first.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-16
 def search_offers() -> list[dict]:
     """Offers that can run the job, cheapest first."""
@@ -181,7 +181,7 @@ def search_offers() -> list[dict]:
 # Input: offers (list[dict]), max_price (float)
 # Output: dict
 # Processing: The cheapest offer at or under the cap; refuses rather than overspend.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-16
 def choose_offer(offers: list[dict], *, max_price: float) -> dict:
     """The cheapest offer at or under the cap; refuses rather than overspend."""
@@ -198,7 +198,7 @@ def choose_offer(offers: list[dict], *, max_price: float) -> dict:
 # Input: run_id (str), max_hours (float)
 # Output: str
 # Processing: The script the box runs on boot.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-16
 def build_onstart(run_id: str, *, max_hours: float) -> str:
     """The script the box runs on boot.
@@ -264,7 +264,7 @@ curl -s -X DELETE -H "Authorization: Bearer ${{CONTAINER_API_KEY}}" \\
 # Input: branch (str)
 # Output: bool
 # Processing: Whether the results branch has been pushed yet.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-16
 def branch_exists(branch: str) -> bool:
     """Whether the results branch has been pushed yet."""
@@ -278,7 +278,7 @@ def branch_exists(branch: str) -> bool:
 # Input: offers (list[dict])
 # Output: None
 # Processing: Print a short table of offers.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-16
 def print_offers(offers: list[dict]) -> None:
     print(f"{'gpu':14} {'$/hr':>6} {'vram':>5} {'reliab':>7} {'down':>6}  {'where':16} id")
@@ -293,7 +293,7 @@ def print_offers(offers: list[dict]) -> None:
 # Input: args (argparse.Namespace)
 # Output: int
 # Processing: Rent, wait for results, always destroy.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-16
 def run(args: argparse.Namespace) -> int:
     offers = search_offers()
@@ -349,7 +349,7 @@ def run(args: argparse.Namespace) -> int:
     # Input: signum, _frame
     # Output: None (raises SystemExit)
     # Processing: Turn a termination signal into an exit so the instance is destroyed.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     def _stop(signum, _frame):
         raise SystemExit(f"received signal {signum}; destroying instance before exit")
@@ -389,7 +389,7 @@ def run(args: argparse.Namespace) -> int:
 # Input: none
 # Output: int
 # Processing: CLI entry point.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-16
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)

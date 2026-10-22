@@ -30,7 +30,7 @@ class FeedbackStore:
     # Input: directory (Path | str | None)
     # Output: None
     # Processing: Open the store and load the query ids already served.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     def __init__(self, directory: Path | str | None = None) -> None:
         self.directory = Path(directory or os.environ.get("PLOVANE_LOG_DIR") or DEFAULT_DIR)
@@ -50,7 +50,7 @@ class FeedbackStore:
     # Input: path (Path), row (dict)
     # Output: None
     # Processing: Append one JSON line under the lock.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     def _append(self, path: Path, row: dict[str, Any]) -> None:
         with self._lock, path.open("a", encoding="utf-8") as handle:
@@ -59,7 +59,7 @@ class FeedbackStore:
     # Input: log (RecommendationLog), extra (dict | None)
     # Output: None
     # Processing: Record one served response.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     def record_recommendation(self, log: RecommendationLog, extra: dict[str, Any] | None = None) -> None:
         row = asdict(log) | (extra or {})
@@ -69,7 +69,7 @@ class FeedbackStore:
     # Input: query_id (str), block_id (str), outcome (str), user_id (str | None)
     # Output: dict[str, Any]
     # Processing: Record an accept or reject, refusing ids that were never served.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     def record_feedback(
         self, query_id: str, block_id: str, outcome: str, user_id: str | None = None

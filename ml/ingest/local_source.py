@@ -50,7 +50,7 @@ LICENSE_SIGNATURES: tuple[tuple[str, tuple[str, ...]], ...] = (
 # Input: text (str)
 # Output: str | None
 # Processing: Recover an SPDX identifier from licence file text
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def detect_license(text: str) -> str | None:
     """Match licence text to an SPDX id, or None when unsure.
@@ -82,7 +82,7 @@ class LocalRepo:
     # Input: none
     # Output: str
     # Processing: The owner/repo slug
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def full_name(self) -> str:
@@ -91,7 +91,7 @@ class LocalRepo:
     # Input: none
     # Output: frozenset[str]
     # Processing: Top-level Python module names defined inside this clone
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @cached_property
     def local_modules(self) -> frozenset[str]:
@@ -127,7 +127,7 @@ class LocalRepo:
 # Input: root (Path | str)
 # Output: LocalRepo | None
 # Processing: Read a clone's owner, sha, licence and holder; None if ineligible
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def open_repo(root: Path | str) -> LocalRepo | None:
     """Inspect a clone. Returns None when it cannot be harvested.
@@ -174,7 +174,7 @@ def open_repo(root: Path | str) -> LocalRepo | None:
 # Input: unit (ExtractedUnit), attribution (Attribution), repo (LocalRepo)
 # Output: list[str]
 # Processing: Name every field that could not be determined at harvest time
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def missing_fields(unit, attribution: Attribution, repo: LocalRepo) -> list[str]:
     """What this entry does not have, named rather than omitted.
@@ -209,7 +209,7 @@ def missing_fields(unit, attribution: Attribution, repo: LocalRepo) -> list[str]
 # Input: repo (LocalRepo), unit (ExtractedUnit), rel_path (str), category (str), describer (DescriptionGenerator | None)
 # Output: dict[str, object]
 # Processing: Build the entry record for one extracted unit
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def build_record(
     repo: LocalRepo,
@@ -277,7 +277,7 @@ def build_record(
 # Input: roots (list of Path | str), out_path (Path), category (str), min_quality (float)
 # Output: dict[str, object]
 # Processing: Harvest every eligible clone into one JSONL file
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def harvest_clones(
     roots,

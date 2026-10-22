@@ -56,7 +56,7 @@ class SimilarityReport:
     # Input: none
     # Output: bool
     # Processing: Whether the best match is close enough to be a duplicate.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     @property
     def has_duplicate(self) -> bool:
@@ -65,7 +65,7 @@ class SimilarityReport:
     # Input: none
     # Output: int
     # Processing: Number of near matches in the candidate's neighbourhood.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     @property
     def saturation(self) -> int:
@@ -74,7 +74,7 @@ class SimilarityReport:
     # Input: limit (int)
     # Output: bool
     # Processing: Whether the neighbourhood already has enough near matches.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     def is_saturated(self, limit: int = SATURATION_LIMIT) -> bool:
         return self.saturation >= limit
@@ -92,7 +92,7 @@ class LibraryIndex:
     # Input: entries (Sequence[Entry])
     # Output: None
     # Processing: Build the index from the entries' embeddings.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     def __init__(self, entries: Sequence[Entry] = ()) -> None:
         self._entries: list[Entry] = []
@@ -103,7 +103,7 @@ class LibraryIndex:
     # Input: none
     # Output: int
     # Processing: Number of indexed entries.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     def __len__(self) -> int:
         return len(self._entries)
@@ -111,7 +111,7 @@ class LibraryIndex:
     # Input: entries (Sequence[Entry])
     # Output: None
     # Processing: Replace the index, skipping entries without an embedding.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     def rebuild(self, entries: Sequence[Entry]) -> None:
         """Replace the index. Entries without an embedding are skipped.
@@ -132,7 +132,7 @@ class LibraryIndex:
     # Input: embedding (np.ndarray), exclude_ids (Sequence[str]), near_threshold (float), language (str | None)
     # Output: SimilarityReport
     # Processing: Compare one embedding against the library: best match and near matches.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     def compare(
         self,

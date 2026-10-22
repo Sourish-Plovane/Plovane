@@ -59,7 +59,7 @@ class SourceRef:
     # Input: none
     # Output: str
     # Processing: Full name
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def full_name(self) -> str:
@@ -68,7 +68,7 @@ class SourceRef:
     # Input: none
     # Output: str
     # Processing: A SHA-pinned URL, so the link still resolves after a force-push.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def permalink(self) -> str:
@@ -96,7 +96,7 @@ class Attribution:
     # Input: none
     # Output: None
     # Processing: Post init
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def __post_init__(self) -> None:
         if not self.verdict.usable:
@@ -117,7 +117,7 @@ class Attribution:
     # Input: none
     # Output: str
     # Processing: One line naming the source, holder and licence.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def credit_line(self) -> str:
         """One line naming the source, holder and licence."""
@@ -129,7 +129,7 @@ class Attribution:
     # Input: language (str)
     # Output: str
     # Processing: The attribution block to prepend to inserted code.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def header(self, language: str) -> str:
         """The attribution block to prepend to inserted code.
@@ -156,7 +156,7 @@ class Attribution:
     # Input: none
     # Output: dict[str, object]
     # Processing: Flat row for the entry's provenance column.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def as_record(self) -> dict[str, object]:
         """Flat row for the entry's provenance column."""
@@ -178,7 +178,7 @@ class Attribution:
 # Input: source (SourceRef), verdict (LicenseVerdict), license_text (str), parsed_holder (str | None), notice_text (str | None)
 # Output: Attribution
 # Processing: Assemble an attribution, falling back where the holder could not be parsed.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def build_attribution(
     source: SourceRef,
@@ -203,7 +203,7 @@ def build_attribution(
 # Input: attributions (list[Attribution])
 # Output: str
 # Processing: The THIRD_PARTY_LICENSES file for a project that inserted these entries.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def render_third_party_licenses(attributions: list[Attribution]) -> str:
     """The THIRD_PARTY_LICENSES file for a project that inserted these entries.

@@ -53,7 +53,7 @@ DESCRIPTION_AUTHORED = "docstring"
 # Input: record (dict)
 # Output: Entry | None
 # Processing: Convert one stored harvest record into an Entry
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def entry_from_record(record: dict) -> Entry | None:
     """Build an :class:`Entry` from one harvested record, or ``None`` to skip.
@@ -107,7 +107,7 @@ class Dataset:
     # Input: none
     # Output: int
     # Processing: Entry count
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def __len__(self) -> int:
         return len(self.entries)
@@ -115,7 +115,7 @@ class Dataset:
     # Input: none
     # Output: list[Entry]
     # Processing: The entries whose description is the author's own words
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def authored(self) -> list[Entry]:
@@ -129,7 +129,7 @@ class Dataset:
     # Input: none
     # Output: list[Entry]
     # Processing: The entries whose description was derived from the identifier
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def derived(self) -> list[Entry]:
@@ -138,7 +138,7 @@ class Dataset:
     # Input: none
     # Output: dict[str, int]
     # Processing: Entry counts per language
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def by_language(self) -> dict[str, int]:
         counts: dict[str, int] = {}
@@ -150,7 +150,7 @@ class Dataset:
 # Input: path (Path | str)
 # Output: Iterator[tuple[Entry, bool]]
 # Processing: Stream (entry, description_is_authored) pairs from a JSONL file
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def iter_entries(path: Path | str = DEFAULT_DATASET) -> Iterator[tuple[Entry, bool]]:
     """Yield ``(entry, authored)`` for every usable record, in file order."""
@@ -171,7 +171,7 @@ def iter_entries(path: Path | str = DEFAULT_DATASET) -> Iterator[tuple[Entry, bo
 # Input: path (Path | str), languages (Sequence[str] | None)
 # Output: Dataset
 # Processing: Load the harvested library, optionally restricted to languages
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def load_dataset(
     path: Path | str = DEFAULT_DATASET, *, languages: Sequence[str] | None = None
@@ -202,7 +202,7 @@ def load_dataset(
 # Input: entries (Sequence[Entry])
 # Output: dict[str, bool]
 # Processing: Report which usage-derived fields vary on this dataset
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def feature_support(entries: Sequence[Entry]) -> dict[str, bool]:
     """Which usage-derived fields actually vary across these entries.
@@ -215,7 +215,7 @@ def feature_support(entries: Sequence[Entry]) -> dict[str, bool]:
     # Input: values (list)
     # Output: bool
     # Processing: Whether a column holds more than one distinct value
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def varies(values: list) -> bool:
         return len(set(values)) > 1
@@ -247,7 +247,7 @@ __all__ = [
 # Input: path (Path | str), entry_ids (Collection[str] | None)
 # Output: list[SyntheticQuery]
 # Processing: Load hand-written training queries from a JSONL file
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def load_queries(path: Path | str = DEFAULT_QUERIES, entry_ids=None):
     """Load training queries written by hand rather than generated.

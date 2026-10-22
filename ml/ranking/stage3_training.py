@@ -91,7 +91,7 @@ class CalibrationReport:
     # Input: none
     # Output: bool
     # Processing: Whether the outcomes came from real traffic
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def outcomes_are_real(self) -> bool:
@@ -103,7 +103,7 @@ class CalibrationReport:
     # Input: none
     # Output: list[str]
     # Processing: Reasons this calibration cannot be trusted as a cutoff basis
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def blockers(self) -> list[str]:
@@ -134,7 +134,7 @@ class CalibrationReport:
     # Input: none
     # Output: bool
     # Processing: Whether the cutoff may be based on this calibration
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def certified(self) -> bool:
@@ -143,7 +143,7 @@ class CalibrationReport:
     # Input: none
     # Output: str
     # Processing: One-line calibration summary
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def summary(self) -> str:
         return (
@@ -156,7 +156,7 @@ class CalibrationReport:
 # Input: scores (Sequence[float]), accepted (Sequence[float]), outcome_source (str), bins (int)
 # Output: tuple[IsotonicCalibrator, CalibrationReport]
 # Processing: Fit a calibrator and measure how far its probabilities are off
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def fit_and_measure_calibration(
     scores: Sequence[float],
@@ -219,7 +219,7 @@ class Stage3Report:
     # Input: none
     # Output: bool
     # Processing: Whether the cross-encoder column carried any signal
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def has_cross_encoder(self) -> bool:
@@ -229,7 +229,7 @@ class Stage3Report:
     # Input: none
     # Output: list[str]
     # Processing: Reasons this is not Stage 3 as specified
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def blockers(self) -> list[str]:
@@ -262,7 +262,7 @@ class Stage3Report:
     # Input: none
     # Output: bool
     # Processing: Whether this run validates Stage 3 as specified
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def certified(self) -> bool:
@@ -271,7 +271,7 @@ class Stage3Report:
     # Input: none
     # Output: str
     # Processing: Human-readable Stage 3 report
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def summary(self) -> str:
         lines = [
@@ -306,7 +306,7 @@ class Stage3Report:
 # Input: groups (Sequence[LabelledGroup]), ctx (FeatureContext)
 # Output: list[LabelledGroup]
 # Processing: Re-featurise groups with the Stage 3 feature set
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def to_stage3_groups(
     groups: Sequence[LabelledGroup], ctx: FeatureContext, candidates_by_group=None
@@ -343,7 +343,7 @@ def to_stage3_groups(
 # Input: service (object), entries (Sequence[Entry]), queries (Sequence[SyntheticQuery]), ctx (FeatureContext | None), config (LightGBMConfig | None), model_path (str | None), outcomes (tuple | None)
 # Output: Stage3Report
 # Processing: Run the Stage 3 pipeline and report what it cannot establish
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def run_stage3_training(
     service,

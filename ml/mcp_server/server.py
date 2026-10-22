@@ -28,7 +28,7 @@ mcp = MCPServer("plovane")
 # Input: path (str | None), code (str | None), filename (str | None)
 # Output: tuple[str, str]
 # Processing: A file's source and name, from a path or pasted code.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-18
 def _source(path: str | None, code: str | None, filename: str | None) -> tuple[str, str]:
     if path:
@@ -45,7 +45,7 @@ def _source(path: str | None, code: str | None, filename: str | None) -> tuple[s
 # Input: query (str), language (str | None), k (int), dependencies (list[str] | None), drop_in_only (bool)
 # Output: dict[str, Any]
 # Processing: MCP tool: search the library with the full B06 pipeline.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 @mcp.tool()
 def search_helpers(
@@ -65,7 +65,7 @@ def search_helpers(
 # Input: path (str | None), code (str | None), filename (str | None), helpers_only (bool)
 # Output: dict[str, Any]
 # Processing: MCP tool: list the standalone helpers in one file.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 @mcp.tool()
 def find_helpers_in_file(
@@ -90,7 +90,7 @@ def find_helpers_in_file(
 # Input: block_id (str)
 # Output: dict[str, Any]
 # Processing: MCP tool: one library entry in full.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 @mcp.tool()
 def get_helper(block_id: str) -> dict[str, Any]:
@@ -102,7 +102,7 @@ def get_helper(block_id: str) -> dict[str, Any]:
 # Input: language (str | None)
 # Output: dict[str, Any]
 # Processing: MCP tool: library entry counts by category and language.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 @mcp.tool()
 def list_categories(language: str | None = None) -> dict[str, Any]:
@@ -113,7 +113,7 @@ def list_categories(language: str | None = None) -> dict[str, Any]:
 # Input: none
 # Output: dict[str, Any]
 # Processing: MCP tool: loaded models, device, accuracy and LLM keys set.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 @mcp.tool()
 def model_status() -> dict[str, Any]:
@@ -132,7 +132,7 @@ def model_status() -> dict[str, Any]:
 # Input: query (str), candidates (list[dict]), language (str | None)
 # Output: dict[str, Any]
 # Processing: MCP tool: cross-encoder scores for the caller's snippets.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 @mcp.tool()
 def rerank_candidates(query: str, candidates: list[dict], language: str | None = None) -> dict[str, Any]:
@@ -148,7 +148,7 @@ def rerank_candidates(query: str, candidates: list[dict], language: str | None =
 # Input: path (str | None), code (str | None), filename (str | None)
 # Output: dict[str, Any]
 # Processing: MCP tool: mark each function in a file in_library, similar_exists or new.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 @mcp.tool()
 def check_file_against_library(
@@ -166,7 +166,7 @@ def check_file_against_library(
 # Input: path (str | None), code (str | None), filename (str | None), k (int)
 # Output: dict[str, Any]
 # Processing: MCP tool: library helpers that fit what a file does.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 @mcp.tool()
 def recommend_for_file(
@@ -181,7 +181,7 @@ def recommend_for_file(
 # Input: query (str), language (str | None), k (int)
 # Output: dict[str, Any]
 # Processing: MCP tool: every stage's rank and score for the top results.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 @mcp.tool()
 def explain_ranking(query: str, language: str | None = None, k: int = 5) -> dict[str, Any]:
@@ -193,7 +193,7 @@ def explain_ranking(query: str, language: str | None = None, k: int = 5) -> dict
 # Input: queries (list[str]), language (str | None), k (int)
 # Output: dict[str, Any]
 # Processing: MCP tool: several library searches in one call.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 @mcp.tool()
 def batch_search(queries: list[str], language: str | None = None, k: int = 3) -> dict[str, Any]:
@@ -207,7 +207,7 @@ def batch_search(queries: list[str], language: str | None = None, k: int = 3) ->
 # Input: prompt (str), provider (str), model (str | None), system (str | None), max_tokens (int)
 # Output: dict[str, Any]
 # Processing: MCP tool: send a prompt to Claude or OpenAI.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 @mcp.tool()
 def ask_llm(
@@ -223,7 +223,7 @@ def ask_llm(
 # Input: none
 # Output: None
 # Processing: Run over stdio.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-18
 def main() -> None:
     mcp.run()

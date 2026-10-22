@@ -22,7 +22,7 @@ DATE = re.compile(r"^# Date: \d{4}-\d{2}-\d{2}$")
 # Input: lines (list[str]), node (ast.FunctionDef | ast.AsyncFunctionDef)
 # Output: str | None
 # Processing: What is wrong with one function's comment block, or None.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def problem(lines: list[str], node: ast.FunctionDef | ast.AsyncFunctionDef) -> str | None:
     first = min([node.lineno, *(d.lineno for d in node.decorator_list)])
@@ -39,7 +39,7 @@ def problem(lines: list[str], node: ast.FunctionDef | ast.AsyncFunctionDef) -> s
 # Input: path (Path)
 # Output: list[str]
 # Processing: Every violation in one file.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def check_file(path: Path) -> list[str]:
     source = path.read_text(encoding="utf-8")
@@ -56,7 +56,7 @@ def check_file(path: Path) -> list[str]:
 # Input: argv (list[str] | None)
 # Output: int
 # Processing: CLI entry point.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def main(argv: list[str] | None = None) -> int:
     targets = [Path(a) for a in (sys.argv[1:] if argv is None else argv)]

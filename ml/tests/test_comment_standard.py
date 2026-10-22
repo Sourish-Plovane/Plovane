@@ -17,7 +17,7 @@ SOURCE_FOLDERS = ("ml",)
 # Input: none
 # Output: None
 # Processing: Check that no source function lacks its comment block.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def test_source_functions_carry_the_comment_block():
     files = [f for folder in SOURCE_FOLDERS for f in sorted((ROOT / folder).rglob("*.py"))

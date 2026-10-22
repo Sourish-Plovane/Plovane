@@ -32,7 +32,7 @@ class EmbeddingModel(Protocol):
     # Input: texts (Sequence[str])
     # Output: np.ndarray
     # Processing: Return ``(len(texts), dimension)`` L2-normalised float32 vectors.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def encode_queries(self, texts: Sequence[str]) -> np.ndarray:
         """Return ``(len(texts), dimension)`` L2-normalised float32 vectors."""
@@ -41,7 +41,7 @@ class EmbeddingModel(Protocol):
     # Input: entries (Sequence[Entry])
     # Output: np.ndarray
     # Processing: Return ``(len(entries), dimension)`` L2-normalised float32 vectors.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def encode_entries(self, entries: Sequence[Entry]) -> np.ndarray:
         """Return ``(len(entries), dimension)`` L2-normalised float32 vectors."""
@@ -51,7 +51,7 @@ class EmbeddingModel(Protocol):
 # Input: entry (Entry)
 # Output: str
 # Processing: What gets embedded for an entry.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def entry_embedding_text(entry: Entry) -> str:
     """What gets embedded for an entry.
@@ -94,7 +94,7 @@ class HashingEmbeddingModel:
     # Input: dimension (int), seed (int)
     # Output: None
     # Processing: Init
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def __init__(self, dimension: int = EMBEDDING_DIM, *, seed: int = 0) -> None:
         self.dimension = dimension
@@ -103,7 +103,7 @@ class HashingEmbeddingModel:
     # Input: token (str)
     # Output: np.ndarray
     # Processing: Token vector
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def _token_vector(self, token: str) -> np.ndarray:
         digest = hashlib.blake2b(
@@ -115,7 +115,7 @@ class HashingEmbeddingModel:
     # Input: text (str)
     # Output: np.ndarray
     # Processing: Encode one
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def _encode_one(self, text: str) -> np.ndarray:
         from ml.retrieval.keyword import tokenize
@@ -128,7 +128,7 @@ class HashingEmbeddingModel:
     # Input: texts (Sequence[str])
     # Output: np.ndarray
     # Processing: Encode queries
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def encode_queries(self, texts: Sequence[str]) -> np.ndarray:
         if not texts:
@@ -138,7 +138,7 @@ class HashingEmbeddingModel:
     # Input: entries (Sequence[Entry])
     # Output: np.ndarray
     # Processing: Encode entries
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def encode_entries(self, entries: Sequence[Entry]) -> np.ndarray:
         return self.encode_queries([entry_embedding_text(e) for e in entries])
@@ -147,7 +147,7 @@ class HashingEmbeddingModel:
 # Input: model (EmbeddingModel), entries (Sequence[Entry])
 # Output: None
 # Processing: Fill in ``entry.embedding`` for a batch, ready for indexing.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def embed_entries_inplace(model: EmbeddingModel, entries: Sequence[Entry]) -> None:
     """Fill in ``entry.embedding`` for a batch, ready for indexing."""

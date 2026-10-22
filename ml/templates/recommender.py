@@ -75,7 +75,7 @@ class TemplateRecommender:
     # Input: none
     # Output: bool
     # Processing: Is calibrated
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def is_calibrated(self) -> bool:
@@ -84,7 +84,7 @@ class TemplateRecommender:
     # Input: none
     # Output: tuple[str, ...]
     # Processing: Entry types
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def _entry_types(self) -> tuple[str, ...]:
         return TEMPLATE_ENTRY_TYPES if self.include_bundles else ("template",)
@@ -92,7 +92,7 @@ class TemplateRecommender:
     # Input: request (Request)
     # Output: FilterSpec
     # Processing: The request's filters, restricted to template-like entries.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def filters_for(self, request: Request) -> FilterSpec:
         """The request's filters, restricted to template-like entries.
@@ -116,7 +116,7 @@ class TemplateRecommender:
     # Input: request (Request), project_embedding (np.ndarray | None)
     # Output: FeatureContext
     # Processing: Context
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def _context(self, request: Request, project_embedding: np.ndarray | None) -> FeatureContext:
         return FeatureContext.build(
@@ -130,7 +130,7 @@ class TemplateRecommender:
     # Input: request (Request), project_embedding (np.ndarray | None)
     # Output: tuple[Response, RecommendationLog]
     # Processing: Recommend
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def recommend(
         self,
@@ -178,7 +178,7 @@ class TemplateRecommender:
     # Input: candidates (Sequence[Candidate]), ctx (FeatureContext), framework (str | None)
     # Output: list[Candidate]
     # Processing: Stage1
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def _stage1(
         self, candidates: Sequence[Candidate], ctx: FeatureContext, framework: str | None
@@ -195,7 +195,7 @@ class TemplateRecommender:
     # Input: candidates (Sequence[Candidate]), ctx (FeatureContext), framework (str | None)
     # Output: list[Candidate]
     # Processing: Stage3
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def _stage3(
         self, candidates: Sequence[Candidate], ctx: FeatureContext, framework: str | None

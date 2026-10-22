@@ -35,7 +35,7 @@ class CodeMetrics:
     # Input: none
     # Output: float
     # Processing: Share of parameters carrying a type annotation
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def annotation_coverage(self) -> float:
@@ -46,7 +46,7 @@ class CodeMetrics:
     # Input: none
     # Output: float
     # Processing: Composite completeness score in 0 to 1, not a correctness signal
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def quality(self) -> float:
@@ -69,7 +69,7 @@ class CodeMetrics:
     # Input: none
     # Output: dict[str, object]
     # Processing: Flat dict for the entry JSON, derived values included
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def as_dict(self) -> dict[str, object]:
         out = asdict(self)
@@ -81,7 +81,7 @@ class CodeMetrics:
 # Input: unit (ExtractedUnit)
 # Output: CodeMetrics
 # Processing: Measure one extracted unit's structure
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def measure(unit) -> CodeMetrics:
     """Measure an :class:`~ml.ingest.extract.ExtractedUnit`.

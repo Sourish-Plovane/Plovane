@@ -90,7 +90,7 @@ class FoldResult:
 # Input: ranked_ids (list[str]), target (str)
 # Output: dict[str, float]
 # Processing: Hit rate at each cutoff for one query, as 0.0 or 1.0 per cutoff.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-14
 def hits_at(ranked_ids: list[str], target: str) -> dict[str, float]:
     """Hit rate at each cutoff for one query, as 0.0 or 1.0 per cutoff."""
@@ -100,7 +100,7 @@ def hits_at(ranked_ids: list[str], target: str) -> dict[str, float]:
 # Input: rows (list[dict[str, float]])
 # Output: dict[str, float]
 # Processing: Mean of per-query hit rates, which is the @k over a query set.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-14
 def mean_hits(rows: list[dict[str, float]]) -> dict[str, float]:
     """Mean of per-query hit rates, which is the @k over a query set."""
@@ -112,7 +112,7 @@ def mean_hits(rows: list[dict[str, float]]) -> dict[str, float]:
 # Input: candidate_ids (Sequence[str]), head_scores (Sequence[float]), depth (int)
 # Output: list[str]
 # Processing: Reorder the first `depth` candidates by score, keep the tail as-is.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-14
 def reranked_order(
     candidate_ids: Sequence[str], head_scores: Sequence[float], *, depth: int
@@ -139,7 +139,7 @@ def reranked_order(
 # Input: candidate_ids (Sequence[str]), head_scores (Sequence[float]), depth (int), k (int)
 # Output: list[str]
 # Processing: Reciprocal rank fusion of retrieval order and cross-encoder order.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-15
 def fused_order(
     candidate_ids: Sequence[str], head_scores: Sequence[float], *, depth: int, k: int = 60
@@ -165,7 +165,7 @@ def fused_order(
 # Input: candidates (Sequence), positive_id (str), held_out_ids (set[str]), count (int)
 # Output: list
 # Processing: Hard negatives for a training query, never drawn from the held-out fold.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-15
 def training_negatives(candidates, positive_id: str, held_out_ids: set[str], *, count: int) -> list:
     """Hard negatives for a training query, never drawn from the held-out fold.
@@ -186,7 +186,7 @@ def training_negatives(candidates, positive_id: str, held_out_ids: set[str], *, 
 # Input: path (Path)
 # Output: str
 # Processing: SHA-256 of a file, so the weights can be verified after transfer.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-14
 def sha256_of(path: Path) -> str:
     """SHA-256 of a file, so the weights can be verified after transfer."""
@@ -200,7 +200,7 @@ def sha256_of(path: Path) -> str:
 # Input: args (argparse.Namespace)
 # Output: int
 # Processing: Build retrieval, train per fold, measure, write artefacts.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-14
 def main(args: argparse.Namespace) -> int:
     import torch
@@ -252,7 +252,7 @@ def main(args: argparse.Namespace) -> int:
     # Input: train_queries, held_out
     # Output: list[CrossEncoderGroup]
     # Processing: Training groups (query, positive, negatives) excluding held-out entries.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     def build_groups(train_queries, held_out):
         groups = [
@@ -475,7 +475,7 @@ def main(args: argparse.Namespace) -> int:
 # Input: none
 # Output: argparse.Namespace
 # Processing: Parse arguments
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-14
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)

@@ -38,7 +38,7 @@ class ModelCard:
     # Input: none
     # Output: bool
     # Processing: Whether this model's weights are on this machine.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     @property
     def present(self) -> bool:
@@ -127,7 +127,7 @@ MODELS: tuple[ModelCard, ...] = (
 # Input: none
 # Output: list[dict]
 # Processing: Every model card as JSON, with whether its weights are present.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def as_json() -> list[dict]:
     return [asdict(card) | {"present": card.present} for card in MODELS]
@@ -136,7 +136,7 @@ def as_json() -> list[dict]:
 # Input: argv (list[str] | None)
 # Output: int
 # Processing: Print the registry as a table, or as JSON with --json.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def main(argv: list[str] | None = None) -> int:
     if "--json" in (sys.argv[1:] if argv is None else argv):

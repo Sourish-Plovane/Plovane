@@ -50,7 +50,7 @@ class Shortlist:
     # Input: none
     # Output: tuple[str, ...]
     # Processing: Candidate ids in shortlist order
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def candidate_ids(self) -> tuple[str, ...]:
@@ -59,7 +59,7 @@ class Shortlist:
     # Input: entry_id (str)
     # Output: int | None
     # Processing: Position of an entry in the shortlist, 1-indexed
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def rank_of(self, entry_id: str) -> int | None:
         for rank, candidate in enumerate(self.candidates, start=1):
@@ -104,7 +104,7 @@ class Labeller(Protocol):
     # Input: shortlist (Shortlist)
     # Output: Label
     # Processing: Protocol method: pick the relevant entries from a shortlist.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     def label(self, shortlist: Shortlist) -> Label: ...
 
@@ -121,7 +121,7 @@ class LLMLabeller:
     # Input: client, name (str)
     # Output: None
     # Processing: Keep the model client and the labeller's name.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     def __init__(self, client=None, *, name: str = "llm") -> None:
         self.client = client
@@ -130,7 +130,7 @@ class LLMLabeller:
     # Input: shortlist (Shortlist)
     # Output: str
     # Processing: Render the labelling prompt for one shortlist
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def build_prompt(self, shortlist: Shortlist) -> str:
         """Ask for an exact match, a partial one, or neither.
@@ -161,7 +161,7 @@ class LLMLabeller:
     # Input: shortlist (Shortlist)
     # Output: Label
     # Processing: Ask the model which shortlist entries are relevant
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def label(self, shortlist: Shortlist) -> Label:
         if self.client is None:
@@ -175,7 +175,7 @@ class LLMLabeller:
     # Input: shortlist (Shortlist), reply (str)
     # Output: Label
     # Processing: Turn a model reply into a Label, ignoring ids not on offer
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def parse_reply(self, shortlist: Shortlist, reply: str) -> Label:
         """Parse ``EXACT=<id> PARTIAL=<id>``.
@@ -216,7 +216,7 @@ class LLMLabeller:
 # Input: requests (Sequence[Request]), retrieval (RetrievalService), size (int)
 # Output: list[Shortlist]
 # Processing: Retrieve a candidate shortlist for each query
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def build_shortlists(
     requests: Sequence[Request],
@@ -250,7 +250,7 @@ def build_shortlists(
 # Input: labels (Sequence[Label]), holdout_fraction (float), validation_fraction (float)
 # Output: GoldSet
 # Processing: Turn labels into a GoldSet, dropping the unlabelled ones
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def gold_set_from_labels(
     labels: Sequence[Label],
@@ -294,7 +294,7 @@ def gold_set_from_labels(
 # Input: labels (Sequence[Label])
 # Output: dict[str, object]
 # Processing: Share of queries whose correct entry reached the shortlist
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def shortlist_recall(labels: Sequence[Label]) -> dict[str, object]:
     """How often retrieval put the right entry in front of the labeller.
@@ -332,7 +332,7 @@ def shortlist_recall(labels: Sequence[Label]) -> dict[str, object]:
 # Input: labels (Sequence[Label]), per_language (int), languages (Sequence[str])
 # Output: list[Label]
 # Processing: Stratified sample for a person to check, across every MVP language
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def verification_sample(
     labels: Sequence[Label],
@@ -370,7 +370,7 @@ def verification_sample(
 # Input: machine (Sequence[Label]), human (Sequence[Label])
 # Output: dict[str, object]
 # Processing: Agreement between a labeller and the human-checked sample
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def agreement(machine: Sequence[Label], human: Sequence[Label]) -> dict[str, object]:
     """Compare a labeller against the verified sample.
@@ -415,7 +415,7 @@ def agreement(machine: Sequence[Label], human: Sequence[Label]) -> dict[str, obj
 # Input: label (Label)
 # Output: str | None
 # Processing: The highest-graded entry id in a label, or None
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def _top_choice(label: Label) -> str | None:
     if not label.relevance:

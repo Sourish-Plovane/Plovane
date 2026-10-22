@@ -48,7 +48,7 @@ class Verdict(str, Enum):
     # Input: none
     # Output: bool
     # Processing: Whether this verdict says anything to the user.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     @property
     def is_suggestion(self) -> bool:
@@ -69,7 +69,7 @@ class Suggestion:
     # Input: none
     # Output: bool
     # Processing: Whether the user should be prompted about this candidate.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     @property
     def should_prompt(self) -> bool:
@@ -78,7 +78,7 @@ class Suggestion:
     # Input: none
     # Output: dict[str, object]
     # Processing: The suggestion as a JSON-ready dict.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     def as_dict(self) -> dict[str, object]:
         return {
@@ -103,7 +103,7 @@ class ReusabilitySuggester:
     # Input: unit, embedding (np.ndarray | None), tokens_spent (int | None), exclude_ids (tuple[str, ...]), existing_score (float | None)
     # Output: Suggestion
     # Processing: Decide whether a candidate is new, a duplicate, saturated or not worth saving.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     def judge(
         self,
@@ -187,7 +187,7 @@ class ReusabilitySuggester:
     # Input: score (ReusabilityScore)
     # Output: str
     # Processing: Name the weakest reusability signal for a 'not worth it' verdict.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     @staticmethod
     def _why_not_worth(score: ReusabilityScore) -> str:

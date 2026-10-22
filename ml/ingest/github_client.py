@@ -36,7 +36,7 @@ class GitHubError(RuntimeError):
     # Input: status (int), message (str), url (str)
     # Output: None
     # Processing: Init
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def __init__(self, status: int, message: str, url: str) -> None:
         super().__init__(f"{status} from {url}: {message}")
@@ -57,7 +57,7 @@ class RateLimitState:
     # Input: none
     # Output: float
     # Processing: Seconds until reset
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def seconds_until_reset(self) -> float:
@@ -89,7 +89,7 @@ class GitHubClient:
     # Input: none
     # Output: None
     # Processing: Post init
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def __post_init__(self) -> None:
         if not self.token:
@@ -103,7 +103,7 @@ class GitHubClient:
     # Input: none
     # Output: dict[str, str]
     # Processing: Headers
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def _headers(self) -> dict[str, str]:
         headers = {
@@ -118,7 +118,7 @@ class GitHubClient:
     # Input: headers (Any), resource (str)
     # Output: None
     # Processing: Note limits
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def _note_limits(self, headers: Any, resource: str) -> None:
         remaining = headers.get("X-RateLimit-Remaining")
@@ -132,7 +132,7 @@ class GitHubClient:
     # Input: none
     # Output: None
     # Processing: Throttle
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def _throttle(self) -> None:
         if self.min_interval_seconds > 0:
@@ -155,7 +155,7 @@ class GitHubClient:
     # Input: path (str), params (dict[str, Any] | None)
     # Output: Any
     # Processing: GET a path relative to the API root, returning decoded JSON.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def get(self, path: str, params: dict[str, Any] | None = None) -> Any:
         """GET a path relative to the API root, returning decoded JSON."""
@@ -187,7 +187,7 @@ class GitHubClient:
     # Input: owner (str), repo (str)
     # Output: dict[str, Any]
     # Processing: Repository
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def repository(self, owner: str, repo: str) -> dict[str, Any]:
         return self.get(f"/repos/{owner}/{repo}")
@@ -195,7 +195,7 @@ class GitHubClient:
     # Input: owner (str), repo (str)
     # Output: dict[str, Any] | None
     # Processing: The repository's licence, or None when it has none.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def license_info(self, owner: str, repo: str) -> dict[str, Any] | None:
         """The repository's licence, or None when it has none.
@@ -215,7 +215,7 @@ class GitHubClient:
     # Input: owner (str), repo (str), ref (str | None)
     # Output: str
     # Processing: Resolve a ref to a commit SHA, so provenance pins bytes not branches.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def default_branch_sha(self, owner: str, repo: str, ref: str | None = None) -> str:
         """Resolve a ref to a commit SHA, so provenance pins bytes not branches."""
@@ -226,7 +226,7 @@ class GitHubClient:
     # Input: owner (str), repo (str), path (str), ref (str | None)
     # Output: str
     # Processing: Fetch and decode one file's text.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def file_contents(self, owner: str, repo: str, path: str, ref: str | None = None) -> str:
         """Fetch and decode one file's text."""
@@ -241,7 +241,7 @@ class GitHubClient:
     # Input: owner (str), repo (str), sha (str), recursive (bool)
     # Output: list[dict[str, Any]]
     # Processing: List a commit's files. ``truncated`` means the repo exceeded the
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def tree(self, owner: str, repo: str, sha: str, *, recursive: bool = True) -> list[dict[str, Any]]:
         """List a commit's files. ``truncated`` means the repo exceeded the
@@ -255,7 +255,7 @@ class GitHubClient:
     # Input: query (str), sort (str), per_page (int), page (int)
     # Output: dict[str, Any]
     # Processing: Repository search. Costs against the 30-per-minute search budget.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def search_repositories(
         self, query: str, *, sort: str = "stars", per_page: int = 50, page: int = 1

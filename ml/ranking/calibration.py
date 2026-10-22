@@ -25,7 +25,7 @@ import numpy as np
 # Input: x (np.ndarray), y (np.ndarray), weights (np.ndarray | None)
 # Output: tuple[np.ndarray, np.ndarray]
 # Processing: Fit a non-decreasing step function to ``(x, y)`` by PAVA.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def pool_adjacent_violators(
     x: np.ndarray, y: np.ndarray, weights: np.ndarray | None = None
@@ -89,7 +89,7 @@ class IsotonicCalibrator:
     # Input: clip (tuple[float, float])
     # Output: None
     # Processing: Init
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def __init__(self, *, clip: tuple[float, float] = (0.0, 1.0)) -> None:
         self.clip = clip
@@ -99,7 +99,7 @@ class IsotonicCalibrator:
     # Input: none
     # Output: bool
     # Processing: Fitted
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def fitted(self) -> bool:
@@ -108,7 +108,7 @@ class IsotonicCalibrator:
     # Input: scores (np.ndarray), accepted (np.ndarray), weights (np.ndarray | None)
     # Output: IsotonicCalibrator
     # Processing: Fit on a held-out set of ``(score, accepted)`` observations.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def fit(
         self, scores: np.ndarray, accepted: np.ndarray, *, weights: np.ndarray | None = None
@@ -128,7 +128,7 @@ class IsotonicCalibrator:
     # Input: scores (np.ndarray)
     # Output: np.ndarray
     # Processing: Interpolate between fitted points; clamp outside the fitted range.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def predict(self, scores: np.ndarray) -> np.ndarray:
         """Interpolate between fitted points; clamp outside the fitted range.
@@ -152,7 +152,7 @@ class IsotonicCalibrator:
     # Input: path (str | Path)
     # Output: None
     # Processing: Save
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def save(self, path: str | Path) -> None:
         if self.thresholds is None or self.values is None:
@@ -162,7 +162,7 @@ class IsotonicCalibrator:
     # Input: path (str | Path)
     # Output: IsotonicCalibrator
     # Processing: Load
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def load(self, path: str | Path) -> IsotonicCalibrator:
         data = np.load(str(path))

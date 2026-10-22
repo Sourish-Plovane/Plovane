@@ -58,7 +58,7 @@ class UsageIndex:
     # Input: project_embeddings (Mapping[str, np.ndarray] | None), project_usage (Mapping[str, Mapping[str, int]] | None)
     # Output: None
     # Processing: Init
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def __init__(
         self,
@@ -80,7 +80,7 @@ class UsageIndex:
     # Input: none
     # Output: int
     # Processing: Library-wide usage events, the denominator for an entry's base rate.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def total_usage(self) -> int:
@@ -90,7 +90,7 @@ class UsageIndex:
     # Input: embedding (np.ndarray | None), k (int)
     # Output: list[str]
     # Processing: The k most similar projects by cosine similarity on project embeddings.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def nearest_projects(self, embedding: np.ndarray | None, *, k: int = CO_USAGE_NEIGHBOURS) -> list[str]:
         """The k most similar projects by cosine similarity on project embeddings."""
@@ -104,7 +104,7 @@ class UsageIndex:
     # Input: project_ids (Sequence[str])
     # Output: Counter[str]
     # Processing: How often each entry was used across the given projects.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def co_usage_counts(self, project_ids: Sequence[str]) -> Counter[str]:
         """How often each entry was used across the given projects."""
@@ -131,7 +131,7 @@ class FeatureContext:
     # Input: usage_index (UsageIndex), project_embedding (np.ndarray | None), global_acceptance_rate (float), installed_dependencies (Sequence[str]), requester_id (str | None), neighbours (int), now (datetime | None)
     # Output: FeatureContext
     # Processing: Build
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @classmethod
     def build(
@@ -160,7 +160,7 @@ class FeatureContext:
 # Input: candidate (Candidate), ctx (FeatureContext)
 # Output: float
 # Processing: Local usage rate divided by the entry's overall usage rate.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def co_usage_lift(candidate: Candidate, ctx: FeatureContext) -> float:
     """Local usage rate divided by the entry's overall usage rate.
@@ -186,7 +186,7 @@ def co_usage_lift(candidate: Candidate, ctx: FeatureContext) -> float:
 # Input: candidate (Candidate), ctx (FeatureContext)
 # Output: float
 # Processing: Acceptance rate pulled toward the global average by a pseudo-count.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def smoothed_acceptance(candidate: Candidate, ctx: FeatureContext) -> float:
     """Acceptance rate pulled toward the global average by a pseudo-count.
@@ -204,7 +204,7 @@ def smoothed_acceptance(candidate: Candidate, ctx: FeatureContext) -> float:
 # Input: candidate (Candidate), ctx (FeatureContext)
 # Output: list[float]
 # Processing: One feature vector, in :data:`FEATURE_NAMES` order.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def feature_row(candidate: Candidate, ctx: FeatureContext) -> list[float]:
     """One feature vector, in :data:`FEATURE_NAMES` order."""
@@ -229,7 +229,7 @@ def feature_row(candidate: Candidate, ctx: FeatureContext) -> list[float]:
 # Input: candidates (Sequence[Candidate]), ctx (FeatureContext)
 # Output: np.ndarray
 # Processing: ``(len(candidates), len(FEATURE_NAMES))`` float32 matrix.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def build_feature_matrix(candidates: Sequence[Candidate], ctx: FeatureContext) -> np.ndarray:
     """``(len(candidates), len(FEATURE_NAMES))`` float32 matrix."""

@@ -52,7 +52,7 @@ from ml.schemas import Entry, EntryType
 # Input: name (str), description (str), language (str), authored (bool)
 # Output: dict
 # Processing: A harvest record good enough to load
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def record(name: str, description: str, *, language: str = "python", authored: bool = True) -> dict:
     return {
@@ -104,7 +104,7 @@ class TestLoadDataset:
     # Input: tmp_path (Path), rows (list[dict])
     # Output: Path
     # Processing: Write rows to a JSONL file
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def write(self, tmp_path, rows):
         path = tmp_path / "entries.jsonl"
@@ -234,7 +234,7 @@ class TestMeasureOverlap:
     # Input: entry_id (str), text (str)
     # Output: SyntheticQuery
     # Processing: A synthetic query for a given entry
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def query(self, entry_id: str, text: str) -> SyntheticQuery:
         return SyntheticQuery(query=text, entry_id=entry_id, language="python")
@@ -281,7 +281,7 @@ class TestMeasureOverlap:
 # Input: none
 # Output: tuple[list[Entry], RetrievalService]
 # Processing: A small library and a retrieval service over it
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def tiny_library():
     descriptions = {
@@ -384,7 +384,7 @@ class TestEvaluateRanker:
     # Input: target_position (int)
     # Output: LabelledGroup
     # Processing: A group whose relevant row sits at a chosen position
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def group(self, target_position: int, size: int = 4) -> LabelledGroup:
         features = np.zeros((size, len(FEATURE_NAMES)), dtype=np.float32)
@@ -423,7 +423,7 @@ class TestTrainingReport:
     # Input: mean_overlap (float), informative (int), trained_ndcg (float), baseline_ndcg (float)
     # Output: TrainingReport
     # Processing: A report with chosen diagnostics
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def report(
         self,
@@ -544,7 +544,7 @@ class TestLoadQueries:
     # Input: tmp_path (Path), rows (list[dict])
     # Output: Path
     # Processing: Write query rows to a JSONL file
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def write(self, tmp_path, rows):
         path = tmp_path / "queries.jsonl"
@@ -554,7 +554,7 @@ class TestLoadQueries:
     # Input: query (str), entry_id (str)
     # Output: dict
     # Processing: One stored query row
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def row(self, query: str, entry_id: str) -> dict:
         return {
@@ -669,7 +669,7 @@ class TestSignalGroupScope:
     # Input: features (tuple[str, ...]), importance (dict | None)
     # Output: TrainingReport
     # Processing: A report whose varying features and gains are chosen
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def report(self, features, importance=None):
         from ml.evaluation.synthetic import OverlapReport

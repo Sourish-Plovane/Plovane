@@ -55,7 +55,7 @@ pasting something it will have to undo."""
 # Input: none
 # Output: str
 # Processing: A unique id tying a response to the agent's later accept or reject.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def new_query_id() -> str:
     """A unique id tying a response to the agent's later accept or reject.
@@ -82,7 +82,7 @@ class ModelVersions:
     # Input: none
     # Output: dict[str, str]
     # Processing: As dict
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def as_dict(self) -> dict[str, str]:
         return {
@@ -125,7 +125,7 @@ class RecommendationPipeline:
     # Input: none
     # Output: None
     # Processing: Resolve mmr_lambda from the embedding model when None
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-14
     def __post_init__(self) -> None:
         from ml.retrieval.embedding import HashingEmbeddingModel
@@ -166,7 +166,7 @@ class RecommendationPipeline:
     # Input: request (Request), project_embedding (np.ndarray | None)
     # Output: FeatureContext
     # Processing: Feature context
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def _feature_context(self, request: Request, project_embedding: np.ndarray | None) -> FeatureContext:
         return FeatureContext.build(
@@ -180,7 +180,7 @@ class RecommendationPipeline:
     # Input: request (Request), filters (FilterSpec | None), project_embedding (np.ndarray | None)
     # Output: tuple[Response, RecommendationLog]
     # Processing: Recommend
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def recommend(
         self,
@@ -246,7 +246,7 @@ class RecommendationPipeline:
     # Input: request (Request), candidates (Sequence[Candidate]), project_embedding (np.ndarray | None)
     # Output: list[Candidate]
     # Processing: Run the ranking stages over a fixed candidate set.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def rank_only(
         self,

@@ -65,7 +65,7 @@ class LibrarySearchRequest:
     # Input: none
     # Output: dict[str, Any]
     # Processing: Serialise to the §6 wire shape
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-13
     def to_handbook_payload(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -133,7 +133,7 @@ class LibraryBlock:
     # Input: none
     # Output: dict[str, Any]
     # Processing: Wire shape for one block in the §6 response
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-13
     def to_handbook_payload(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -195,7 +195,7 @@ class LibrarySearchResponse:
     # Input: none
     # Output: dict[str, Any]
     # Processing: Serialise to the §6 wire shape
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-13
     def to_handbook_payload(self) -> dict[str, Any]:
         return {
@@ -228,7 +228,7 @@ class LibraryGetBlocksRequest:
     # Input: none
     # Output: dict[str, Any]
     # Processing: Wire shape for one §6 get_blocks request
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-13
     def to_handbook_payload(self) -> dict[str, Any]:
         return {

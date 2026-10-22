@@ -43,7 +43,7 @@ TEMPLATE_STAGE3_FEATURE_NAMES: tuple[str, ...] = (*TEMPLATE_FEATURE_NAMES, "cros
 # Input: candidate (Candidate), framework (str | None)
 # Output: float
 # Processing: 1.0 exact match, 0.5 framework-agnostic, 0.0 mismatch.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def framework_match(candidate: Candidate, framework: str | None) -> float:
     """1.0 exact match, 0.5 framework-agnostic, 0.0 mismatch.
@@ -67,7 +67,7 @@ def framework_match(candidate: Candidate, framework: str | None) -> float:
 # Input: candidate (Candidate), installed (Sequence[str])
 # Output: float
 # Processing: How many of the template's dependencies the project does not have, log-scaled.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def new_dependency_count(candidate: Candidate, installed: Sequence[str]) -> float:
     """How many of the template's dependencies the project does not have, log-scaled.
@@ -85,7 +85,7 @@ def new_dependency_count(candidate: Candidate, installed: Sequence[str]) -> floa
 # Input: candidate (Candidate)
 # Output: float
 # Processing: Files or entries the template brings. 1 for a single-file template.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def member_count(candidate: Candidate) -> float:
     """Files or entries the template brings. 1 for a single-file template.
@@ -104,7 +104,7 @@ def member_count(candidate: Candidate) -> float:
 # Input: candidate (Candidate), ctx (FeatureContext), framework (str | None)
 # Output: list[float]
 # Processing: Template feature row
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def template_feature_row(candidate: Candidate, ctx: FeatureContext, *, framework: str | None) -> list[float]:
     return [
@@ -117,7 +117,7 @@ def template_feature_row(candidate: Candidate, ctx: FeatureContext, *, framework
 # Input: candidates (Sequence[Candidate]), ctx (FeatureContext), framework (str | None)
 # Output: np.ndarray
 # Processing: Shared features plus the three template features, one row per candidate.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def build_template_feature_matrix(
     candidates: Sequence[Candidate], ctx: FeatureContext, *, framework: str | None = None
@@ -135,7 +135,7 @@ def build_template_feature_matrix(
 # Input: candidates (Sequence[Candidate]), ctx (FeatureContext), framework (str | None)
 # Output: np.ndarray
 # Processing: Template features plus the cross-encoder score, appended last.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def build_template_stage3_matrix(
     candidates: Sequence[Candidate], ctx: FeatureContext, *, framework: str | None = None
@@ -154,7 +154,7 @@ def build_template_stage3_matrix(
 # Input: candidate (Candidate), include_bundles (bool)
 # Output: bool
 # Processing: Whether a candidate belongs in template results.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def is_template_like(candidate: Candidate, *, include_bundles: bool = True) -> bool:
     """Whether a candidate belongs in template results.

@@ -192,7 +192,7 @@ class LightGBMConfig:
     # Input: none
     # Output: dict[str, object]
     # Processing: As params
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def as_params(self) -> dict[str, object]:
         params: dict[str, object] = {

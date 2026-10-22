@@ -33,7 +33,7 @@ COUNT = """export function countWords(text) {
 # Input: name (str), code (str), description (str)
 # Output: Entry
 # Processing: A JavaScript library entry for the test library.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def entry(name: str, code: str, description: str) -> Entry:
     return Entry(
@@ -45,7 +45,7 @@ def entry(name: str, code: str, description: str) -> Entry:
 # Input: none
 # Output: Engine (yielded)
 # Processing: A placeholder-encoder engine installed as the shared engine for one test.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 @pytest.fixture
 def engine():
@@ -65,7 +65,7 @@ def engine():
 # Input: engine
 # Output: None
 # Processing: Check that search returns the b06 envelope.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def test_search_returns_the_b06_envelope(engine):
     result = engine.search("combine a base url with a relative url", language="javascript", k=1)
@@ -76,7 +76,7 @@ def test_search_returns_the_b06_envelope(engine):
 # Input: engine
 # Output: None
 # Processing: Check that get unknown id suggests close ones.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def test_get_unknown_id_suggests_close_ones(engine):
     assert engine.get("demo:combineURLs")["code"] == COMBINE
@@ -86,7 +86,7 @@ def test_get_unknown_id_suggests_close_ones(engine):
 # Input: engine
 # Output: None
 # Processing: Check that categories count by language.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def test_categories_count_by_language(engine):
     assert engine.categories("javascript")["total"] == 2
@@ -96,7 +96,7 @@ def test_categories_count_by_language(engine):
 # Input: engine
 # Output: None
 # Processing: Check that check file marks a verbatim copy in library.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def test_check_file_marks_a_verbatim_copy_in_library(engine):
     report = engine.check_file(COMBINE, "urls.js")
@@ -108,7 +108,7 @@ def test_check_file_marks_a_verbatim_copy_in_library(engine):
 # Input: engine
 # Output: None
 # Processing: Check that check file rejects unknown types.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def test_check_file_rejects_unknown_types(engine):
     assert engine.check_file("x", "notes.txt")["error"] == "unsupported file type"
@@ -117,7 +117,7 @@ def test_check_file_rejects_unknown_types(engine):
 # Input: engine
 # Output: None
 # Processing: Check that recommend for file leaves out what the file has.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def test_recommend_for_file_leaves_out_what_the_file_has(engine):
     result = engine.recommend_for_file(COMBINE, "urls.js", k=5)
@@ -129,7 +129,7 @@ def test_recommend_for_file_leaves_out_what_the_file_has(engine):
 # Input: engine
 # Output: None
 # Processing: Check that rerank needs the cross encoder.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def test_rerank_needs_the_cross_encoder(engine):
     assert "error" in engine.rerank("q", [{"name": "a", "code": "x"}])
@@ -138,7 +138,7 @@ def test_rerank_needs_the_cross_encoder(engine):
 # Input: engine
 # Output: None
 # Processing: Check that explain reports every stage.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def test_explain_reports_every_stage(engine):
     (top, *_) = engine.explain("count the words in text", language="javascript")["results"]
@@ -148,7 +148,7 @@ def test_explain_reports_every_stage(engine):
 # Input: engine
 # Output: None
 # Processing: Check that server registers the tools.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def test_server_registers_the_tools(engine):
     from ml.mcp_server.server import mcp
@@ -164,7 +164,7 @@ def test_server_registers_the_tools(engine):
 # Input: monkeypatch
 # Output: None
 # Processing: Check that ask llm without a key names the variable.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def test_ask_llm_without_a_key_names_the_variable(monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)

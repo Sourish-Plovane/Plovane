@@ -29,7 +29,7 @@ COMBINE = """export default function combineURLs(baseURL, relativeURL) {
 # Input: name (str), code (str), description (str)
 # Output: Entry
 # Processing: A JavaScript library entry for the test library.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def entry(name: str, code: str, description: str) -> Entry:
     return Entry(
@@ -41,7 +41,7 @@ def entry(name: str, code: str, description: str) -> Entry:
 # Input: tmp_path (Path)
 # Output: FlaskClient
 # Processing: A test client over a placeholder engine and a temporary log dir.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 @pytest.fixture
 def client(tmp_path):
@@ -60,7 +60,7 @@ def client(tmp_path):
 # Input: client (FlaskClient)
 # Output: dict
 # Processing: One §8.1 recommendation round trip.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def recommend(client, **overrides):
     payload = {"request_id": "req_1", "user_id": "usr_1", "project_id": "proj_1",
@@ -72,7 +72,7 @@ def recommend(client, **overrides):
 # Input: client (FlaskClient)
 # Output: None
 # Processing: §8.1 in gives §8.2 out with the request id echoed.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def test_recommend_speaks_section_8(client):
     reply = recommend(client)
@@ -86,7 +86,7 @@ def test_recommend_speaks_section_8(client):
 # Input: client (FlaskClient)
 # Output: None
 # Processing: A missing description is a 400 with the error object.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def test_recommend_rejects_a_bad_body(client):
     reply = recommend(client, description="")
@@ -99,7 +99,7 @@ def test_recommend_rejects_a_bad_body(client):
 # Input: client (FlaskClient), tmp_path (Path)
 # Output: None
 # Processing: Feedback is accepted only for blocks actually served.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def test_feedback_joins_on_what_was_served(client, tmp_path):
     query_id = recommend(client).get_json()["query_id"]
@@ -120,7 +120,7 @@ def test_feedback_joins_on_what_was_served(client, tmp_path):
 # Input: tmp_path (Path)
 # Output: None
 # Processing: A restarted store still knows what it served.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def test_store_survives_a_restart(client, tmp_path):
     query_id = recommend(client).get_json()["query_id"]
@@ -131,7 +131,7 @@ def test_store_survives_a_restart(client, tmp_path):
 # Input: client (FlaskClient)
 # Output: None
 # Processing: File routes, block lookup, models and health respond.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def test_file_and_lookup_routes(client):
     checked = client.post("/v1/check-file", json={"filename": "urls.js", "code": COMBINE}).get_json()
@@ -149,7 +149,7 @@ def test_file_and_lookup_routes(client):
 # Input: none
 # Output: None
 # Processing: The §8.1 mapping fills the B06 request as documented.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def test_contract_mapping():
     req = request_from_handbook({

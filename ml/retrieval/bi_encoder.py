@@ -35,7 +35,7 @@ includes C++, CUDA, HTML and CSS, which most code encoders under-represent."""
 # Input: hidden_states (Tensor), attention_mask (Tensor)
 # Output: Tensor
 # Processing: Average token vectors over real tokens only.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def mean_pool(hidden_states: Tensor, attention_mask: Tensor) -> Tensor:
     """Average token vectors over real tokens only.
@@ -61,7 +61,7 @@ class CodeBiEncoder(nn.Module):
     # Input: encoder_name (str), dimension (int), trust_remote_code (bool)
     # Output: None
     # Processing: Init
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def __init__(
         self,
@@ -97,7 +97,7 @@ class CodeBiEncoder(nn.Module):
     # Input: input_ids (Tensor), attention_mask (Tensor)
     # Output: Tensor
     # Processing: Forward
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def forward(self, input_ids: Tensor, attention_mask: Tensor) -> Tensor:
         output = self.encoder(input_ids=input_ids, attention_mask=attention_mask)
@@ -109,7 +109,7 @@ class CodeBiEncoder(nn.Module):
     # Input: texts (Sequence[str]), max_length (int), batch_size (int)
     # Output: np.ndarray
     # Processing: Encode texts
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def _encode_texts(self, texts: Sequence[str], *, max_length: int, batch_size: int) -> np.ndarray:
         if not texts:
@@ -139,7 +139,7 @@ class CodeBiEncoder(nn.Module):
     # Input: texts (Sequence[str]), max_length (int), batch_size (int)
     # Output: np.ndarray
     # Processing: Queries are short, so they get a tighter length budget than entries.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def encode_queries(
         self, texts: Sequence[str], *, max_length: int = 256, batch_size: int = 32
@@ -150,7 +150,7 @@ class CodeBiEncoder(nn.Module):
     # Input: entries (Sequence[Entry]), max_length (int), batch_size (int)
     # Output: np.ndarray
     # Processing: Encode entries
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def encode_entries(
         self, entries: Sequence[Entry], *, max_length: int = 512, batch_size: int = 16
@@ -163,7 +163,7 @@ class CodeBiEncoder(nn.Module):
 # Input: query_vectors (Tensor), entry_vectors (Tensor), temperature (float)
 # Output: Tensor
 # Processing: Contrastive loss with in-batch negatives.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def info_nce_loss(
     query_vectors: Tensor,

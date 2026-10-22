@@ -20,7 +20,7 @@ KEY_NAMES = {"anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY"}
 # Input: none
 # Output: dict[str, bool]
 # Processing: Which providers have a key set, by name only.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-18
 def configured() -> dict[str, bool]:
     return {provider: bool(os.environ.get(name)) for provider, name in KEY_NAMES.items()}
@@ -29,7 +29,7 @@ def configured() -> dict[str, bool]:
 # Input: url (str), headers (dict), body (dict)
 # Output: dict[str, Any]
 # Processing: POST JSON, return JSON.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-18
 def _post(url: str, headers: dict[str, str], body: dict[str, Any]) -> dict[str, Any]:
     request = urllib.request.Request(
@@ -43,7 +43,7 @@ def _post(url: str, headers: dict[str, str], body: dict[str, Any]) -> dict[str, 
 # Input: prompt (str), provider (str), model (str | None), system (str | None), max_tokens (int)
 # Output: dict[str, Any]
 # Processing: Send one prompt to a hosted model and return its text.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-18
 def ask(
     prompt: str, *, provider: str = "anthropic", model: str | None = None,

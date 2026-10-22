@@ -126,7 +126,7 @@ class LabelledGroup:
     # Input: none
     # Output: TrainingGroup
     # Processing: Narrow to what LightGBM consumes
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def as_training_group(self) -> TrainingGroup:
         return TrainingGroup(features=self.features, labels=self.labels, query_id=self.query_id)
@@ -135,7 +135,7 @@ class LabelledGroup:
 # Input: query_id (str), fractions (tuple[float, float, float])
 # Output: str
 # Processing: Deterministically assign a key to train, valid or test
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def _assign_split(key: str, fractions: tuple[float, float, float]) -> str:
     """Hash a key into one of three splits. Stable across runs and machines.
@@ -157,7 +157,7 @@ def _assign_split(key: str, fractions: tuple[float, float, float]) -> str:
 # Input: queries (Sequence[SyntheticQuery]), fractions (tuple[float, float, float])
 # Output: dict[str, list[SyntheticQuery]]
 # Processing: Split queries into train/valid/test by source entry
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def split_by_entry(
     queries: Sequence[SyntheticQuery],
@@ -183,7 +183,7 @@ def split_by_entry(
 # Input: service (object), query (SyntheticQuery), ctx (FeatureContext), negatives (int), query_id (str)
 # Output: LabelledGroup | None
 # Processing: Retrieve for one query and label the candidates
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def assemble_group(
     service,
@@ -261,7 +261,7 @@ def assemble_group(
 # Input: service (object), queries (Sequence[SyntheticQuery]), ctx (FeatureContext), negatives (int)
 # Output: list[LabelledGroup]
 # Processing: Assemble a labelled group per query, dropping retrieval misses
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def assemble_groups(
     service,
@@ -284,7 +284,7 @@ def assemble_groups(
 # Input: ranker (FeatureRanker), groups (Sequence[LabelledGroup]), ndcg_k (int), recall_k (int)
 # Output: dict[str, float]
 # Processing: Score each group and average the ranking metrics
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def evaluate_ranker(
     ranker: FeatureRanker,
@@ -341,7 +341,7 @@ class CrossValidationResult:
     # Input: none
     # Output: float
     # Processing: Mean improvement over the baseline across folds
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def mean_delta(self) -> float:
@@ -350,7 +350,7 @@ class CrossValidationResult:
     # Input: none
     # Output: float
     # Processing: Standard deviation of the per-fold improvement
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def delta_std(self) -> float:
@@ -359,7 +359,7 @@ class CrossValidationResult:
     # Input: none
     # Output: int
     # Processing: How many folds the trained model won
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def folds_won(self) -> int:
@@ -368,7 +368,7 @@ class CrossValidationResult:
     # Input: none
     # Output: bool
     # Processing: Whether the model beat the baseline on every fold
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def consistent(self) -> bool:
@@ -383,7 +383,7 @@ class CrossValidationResult:
     # Input: none
     # Output: str
     # Processing: One-line summary of the cross-validated comparison
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def summary(self) -> str:
         base, trained = np.asarray(self.baseline), np.asarray(self.trained)
@@ -398,7 +398,7 @@ class CrossValidationResult:
 # Input: groups (Sequence[LabelledGroup]), folds (int), config (LightGBMConfig | None)
 # Output: CrossValidationResult
 # Processing: Cross-validate the trained ranker against the baseline by entry
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def cross_validate(
     groups: Sequence[LabelledGroup],
@@ -418,7 +418,7 @@ def cross_validate(
     # Input: entry_id (str)
     # Output: int
     # Processing: Assign an entry to a fold, stably
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def fold_of(entry_id: str) -> int:
         return int(hashlib.blake2b(entry_id.encode(), digest_size=8).hexdigest(), 16) % folds
@@ -466,7 +466,7 @@ class TrainingReport:
     # Input: none
     # Output: tuple[str, ...]
     # Processing: Which of the spec's signal groups had a feature that varied
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def covered_groups(self) -> tuple[str, ...]:
@@ -479,7 +479,7 @@ class TrainingReport:
     # Input: none
     # Output: tuple[str, ...]
     # Processing: Signal groups with no varying feature at all
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def uncovered_groups(self) -> tuple[str, ...]:
@@ -489,7 +489,7 @@ class TrainingReport:
     # Input: none
     # Output: tuple[str, ...]
     # Processing: Features that varied but carry almost none of the decision
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def barely_used_features(self) -> tuple[str, ...]:
@@ -506,7 +506,7 @@ class TrainingReport:
     # Input: none
     # Output: TrainingScope
     # Processing: What this run is entitled to claim
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def scope(self) -> TrainingScope:
@@ -521,7 +521,7 @@ class TrainingReport:
     # Input: none
     # Output: list[str]
     # Processing: Reasons the run is invalid even at its own scope
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def blockers(self) -> list[str]:
@@ -566,7 +566,7 @@ class TrainingReport:
     # Input: none
     # Output: list[str]
     # Processing: True limits that narrow the claim without invalidating it
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def caveats(self) -> list[str]:
@@ -606,7 +606,7 @@ class TrainingReport:
     # Input: none
     # Output: bool
     # Processing: Whether this run validates the ranker at its scope
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def certified(self) -> bool:
@@ -616,7 +616,7 @@ class TrainingReport:
     # Input: none
     # Output: str
     # Processing: Human-readable training report
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def summary(self) -> str:
         lines = [
@@ -656,7 +656,7 @@ class TrainingReport:
 # Input: service (object), entries (Sequence[Entry]), queries (Sequence[SyntheticQuery]), ctx (FeatureContext), config (LightGBMConfig | None), model_path (str | None), cv_folds (int)
 # Output: TrainingReport
 # Processing: Run the full Stage 1 training pipeline and report honestly
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def run_stage1_training(
     service,
@@ -753,7 +753,7 @@ __all__ = [
 # Input: argv (Sequence[str] | None)
 # Output: int
 # Processing: CLI -- build the library, generate queries, train, print the report
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def main(argv: Sequence[str] | None = None) -> int:
     """Run a Stage 1 training pass over a harvested dataset.

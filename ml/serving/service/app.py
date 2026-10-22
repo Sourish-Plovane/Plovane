@@ -45,7 +45,7 @@ MAX_BODY_BYTES = 2 * 1024 * 1024
 # Input: engine_factory (Callable[[], Engine] | None), store (FeedbackStore | None)
 # Output: Flask
 # Processing: Build the Flask app with its routes.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def create_app(
     engine_factory: Callable[[], Engine] | None = None, store: FeedbackStore | None = None
@@ -60,7 +60,7 @@ def create_app(
     # Input: none
     # Output: dict[str, Any]
     # Processing: The JSON body, or a ContractError when there is none.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     def body() -> dict[str, Any]:
         raw = request.get_json(silent=True)
@@ -71,7 +71,7 @@ def create_app(
     # Input: raw (dict[str, Any])
     # Output: tuple[str, str]
     # Processing: The filename and code from a file-carrying body.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     def file_fields(raw: dict[str, Any]) -> tuple[str, str]:
         filename, code = raw.get("filename"), raw.get("code")
@@ -82,7 +82,7 @@ def create_app(
     # Input: exc (ContractError)
     # Output: tuple
     # Processing: 400 with the error object.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     @app.errorhandler(ContractError)
     def bad_request(exc: ContractError):
@@ -93,7 +93,7 @@ def create_app(
     # Input: exc (Exception)
     # Output: tuple
     # Processing: 413 for an oversized body.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     @app.errorhandler(413)
     def too_large(exc: Exception):
@@ -102,7 +102,7 @@ def create_app(
     # Input: exc (RuntimeError)
     # Output: tuple
     # Processing: 503 when the models cannot be loaded.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     @app.errorhandler(RuntimeError)
     def unavailable(exc: RuntimeError):
@@ -111,7 +111,7 @@ def create_app(
     # Input: none
     # Output: Response
     # Processing: §8.1 -> pipeline -> §8.2, logging what was served.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     @app.post("/v1/recommend")
     def recommend():
@@ -126,7 +126,7 @@ def create_app(
     # Input: none
     # Output: Response
     # Processing: Record a user's accept or reject of a served block.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     @app.post("/v1/feedback")
     def record_feedback():
@@ -145,7 +145,7 @@ def create_app(
     # Input: none
     # Output: Response
     # Processing: Which functions in a file the library already has.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     @app.post("/v1/check-file")
     def check_file():
@@ -155,7 +155,7 @@ def create_app(
     # Input: none
     # Output: Response
     # Processing: The standalone helpers in a file; needs no model.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     @app.post("/v1/find-helpers")
     def find_helpers_route():
@@ -167,7 +167,7 @@ def create_app(
     # Input: none
     # Output: Response
     # Processing: Cross-encoder scores for the caller's own snippets.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     @app.post("/v1/rerank")
     def rerank():
@@ -182,7 +182,7 @@ def create_app(
     # Input: block_id (str)
     # Output: Response
     # Processing: One library entry, or 404 with close ids.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     @app.get("/v1/blocks/<path:block_id>")
     def get_block(block_id: str):
@@ -192,7 +192,7 @@ def create_app(
     # Input: none
     # Output: Response
     # Processing: The registry, plus what this process has loaded.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     @app.get("/v1/models")
     def models():
@@ -201,7 +201,7 @@ def create_app(
     # Input: none
     # Output: Response
     # Processing: Liveness: answers without loading anything.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     @app.get("/healthz")
     def healthz():
@@ -210,7 +210,7 @@ def create_app(
     # Input: none
     # Output: Response
     # Processing: Readiness: models loaded and ranking a known pair right.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     @app.get("/readyz")
     def readyz():
@@ -224,7 +224,7 @@ def create_app(
 # Input: argv (list[str] | None)
 # Output: None
 # Processing: Run the development server.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Plovane model backend (development server)")

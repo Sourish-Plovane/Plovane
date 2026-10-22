@@ -51,7 +51,7 @@ class ReusabilityScore:
     # Input: none
     # Output: tuple[str, ...]
     # Processing: List the unmet requirements that block a library entry.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     @property
     def blockers(self) -> tuple[str, ...]:
@@ -77,7 +77,7 @@ class ReusabilityScore:
     # Input: none
     # Output: float
     # Processing: Weighted total in 0-1, capped when a requirement is unmet.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     @property
     def score(self) -> float:
@@ -99,7 +99,7 @@ class ReusabilityScore:
     # Input: none
     # Output: dict[str, object]
     # Processing: The score and its parts as a JSON-ready dict.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     def as_dict(self) -> dict[str, object]:
         return {
@@ -117,7 +117,7 @@ class ReusabilityScore:
 # Input: code (str), param_count (int), annotated (int)
 # Output: float
 # Processing: Score how much code looks like a general utility rather than glue.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def generality(code: str, *, param_count: int, annotated: int) -> float:
     """How much the code looks like a utility rather than one project's glue.
@@ -143,7 +143,7 @@ def generality(code: str, *, param_count: int, annotated: int) -> float:
 # Input: docstring (str)
 # Output: float
 # Processing: Credit a docstring, more for one that says something.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def documentation(docstring: str) -> float:
     """Credit for a description, with more for one that says something.
@@ -165,7 +165,7 @@ def documentation(docstring: str) -> float:
 # Input: tokens_spent (int | None), saturation (int)
 # Output: float
 # Processing: Normalise token spend to 0-1, or 0.5 when unknown.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def token_value(tokens_spent: int | None, *, saturation: int = TOKEN_SATURATION) -> float:
     """Normalised token spend, or a neutral 0.5 when it is unknown.
@@ -184,7 +184,7 @@ def token_value(tokens_spent: int | None, *, saturation: int = TOKEN_SATURATION)
 # Input: unit, tokens_spent (int | None)
 # Output: ReusabilityScore
 # Processing: Score an extracted unit's reusability.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-22
 def score_unit(unit, *, tokens_spent: int | None = None) -> ReusabilityScore:
     """Score an :class:`~ml.ingest.extract.ExtractedUnit`."""

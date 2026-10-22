@@ -64,7 +64,7 @@ NDCG@10 per language either way.
 # Input: encoder_pretraining_languages (Iterable[str]), mvp_languages (Sequence[str])
 # Output: tuple[str, ...]
 # Processing: Return the MVP languages the encoder was not pretrained on, and warn.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def check_language_coverage(
     encoder_pretraining_languages: Iterable[str],
@@ -90,7 +90,7 @@ def check_language_coverage(
 # Input: language (str)
 # Output: str
 # Processing: ``<lang:cuda>`` and friends.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def language_token(language: str) -> str:
     """``<lang:cuda>`` and friends.
@@ -106,7 +106,7 @@ def language_token(language: str) -> str:
 # Input: entry (Entry)
 # Output: tuple[str, str]
 # Processing: The candidate side, split into the part that must survive truncation
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def entry_text(entry: Entry) -> tuple[str, str]:
     """The candidate side, split into the part that must survive truncation
@@ -138,7 +138,7 @@ class CrossEncoderTokenizer:
     # Input: tokenizer, max_tokens (int), query_max_tokens (int)
     # Output: None
     # Processing: Init
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def __init__(self, tokenizer, *, max_tokens: int = CROSS_ENCODER_MAX_TOKENS, query_max_tokens: int = 192) -> None:
         self.tokenizer = tokenizer
@@ -154,7 +154,7 @@ class CrossEncoderTokenizer:
     # Input: text (str)
     # Output: list[int]
     # Processing: Ids
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def _ids(self, text: str) -> list[int]:
         if not text:
@@ -164,7 +164,7 @@ class CrossEncoderTokenizer:
     # Input: query_text (str), entry (Entry)
     # Output: EncodedPair
     # Processing: Encode
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def encode(self, query_text: str, entry: Entry) -> EncodedPair:
         # [CLS] ... [SEP] ... [SEP]
@@ -186,7 +186,7 @@ class CrossEncoderTokenizer:
     # Input: pairs (Sequence[EncodedPair])
     # Output: dict[str, Tensor]
     # Processing: Pad a batch to its longest member, not to 512.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def collate(self, pairs: Sequence[EncodedPair]) -> dict[str, Tensor]:
         """Pad a batch to its longest member, not to 512.
@@ -224,7 +224,7 @@ class CrossEncoder(nn.Module):
     # Input: encoder_name (str), hidden_dropout (float), head_dim (int), max_tokens (int), pretraining_languages (Iterable[str]), check_languages (bool), tokenizer, encoder
     # Output: None
     # Processing: Build the model, downloading the pretrained encoder by name.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def __init__(
         self,
@@ -295,7 +295,7 @@ class CrossEncoder(nn.Module):
     # Input: input_ids (Tensor), attention_mask (Tensor)
     # Output: Tensor
     # Processing: Return one relevance logit per row.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def forward(self, input_ids: Tensor, attention_mask: Tensor) -> Tensor:
         """Return one relevance logit per row.
@@ -314,7 +314,7 @@ class CrossEncoder(nn.Module):
     # Input: query_text (str), candidates (Sequence[Candidate]), batch_size (int)
     # Output: np.ndarray
     # Processing: Score one query against its candidates, writing scores back on them.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @torch.inference_mode()
     def score_candidates(
@@ -350,7 +350,7 @@ class CrossEncoder(nn.Module):
 # Input: weights (str | Path), encoder_name (str), max_tokens (int), device (str | None)
 # Output: CrossEncoder
 # Processing: Rebuild the trained model and load its fine-tuned weights.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-17
 def load_cross_encoder(
     weights,
@@ -395,7 +395,7 @@ class CrossEncoderGroup:
     # Input: none
     # Output: tuple[Entry, ...]
     # Processing: Entries
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def entries(self) -> tuple[Entry, ...]:
@@ -405,7 +405,7 @@ class CrossEncoderGroup:
 # Input: retrieved (Sequence[Candidate]), positive_ids (Sequence[str]), count (int)
 # Output: list[Entry]
 # Processing: Wrong entries that retrieval ranked highly.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def mine_hard_negatives(
     retrieved: Sequence[Candidate],
@@ -428,7 +428,7 @@ def mine_hard_negatives(
 # Input: logits (Tensor), positive_index (int)
 # Output: Tensor
 # Processing: Softmax cross-entropy over the group.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def listwise_softmax_loss(logits: Tensor, *, positive_index: int = 0) -> Tensor:
     """Softmax cross-entropy over the group.
@@ -451,7 +451,7 @@ def listwise_softmax_loss(logits: Tensor, *, positive_index: int = 0) -> Tensor:
 # Input: optimizer, total_steps (int), warmup_fraction (float)
 # Output: unannotated
 # Processing: Linear warmup over the first ``warmup_fraction`` of steps, then linear decay.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def linear_warmup_schedule(optimizer, *, total_steps: int, warmup_fraction: float):
     """Linear warmup over the first ``warmup_fraction`` of steps, then linear decay.
@@ -467,7 +467,7 @@ def linear_warmup_schedule(optimizer, *, total_steps: int, warmup_fraction: floa
     # Input: step (int)
     # Output: float
     # Processing: Lr lambda
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def lr_lambda(step: int) -> float:
         if step < warmup_steps:
@@ -481,7 +481,7 @@ def linear_warmup_schedule(optimizer, *, total_steps: int, warmup_fraction: floa
 # Input: model (CrossEncoder), groups (Sequence[CrossEncoderGroup]), config (TrainingConfig | None), device (str | torch.device | None)
 # Output: list[float]
 # Processing: Fine-tune all layers with the spec's optimiser settings.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def train_cross_encoder(
     model: CrossEncoder,
@@ -534,7 +534,7 @@ def train_cross_encoder(
 # Input: model (CrossEncoder), batch (Sequence[CrossEncoderGroup]), device (torch.device), bf16 (bool)
 # Output: float
 # Processing: Leave the batch-mean loss gradient in .grad, one group alive at a time.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-15
 def accumulate_batch_gradients(
     model: CrossEncoder,

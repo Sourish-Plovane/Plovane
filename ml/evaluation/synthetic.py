@@ -72,7 +72,7 @@ class SyntheticQuery:
     # Input: none
     # Output: dict[str, object]
     # Processing: Flat record for a training-data file
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def as_dict(self) -> dict[str, object]:
         return {
@@ -93,7 +93,7 @@ class QueryGenerator(Protocol):
     # Input: entry (Entry), count (int)
     # Output: list[SyntheticQuery]
     # Processing: Produce up to count training queries for one entry
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def generate(self, entry: Entry, *, count: int = 3) -> list[SyntheticQuery]: ...
 
@@ -101,7 +101,7 @@ class QueryGenerator(Protocol):
 # Input: entry (Entry)
 # Output: tuple[str, bool]
 # Processing: An action phrase and whether it is a verb phrase
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def action_phrase(entry: Entry) -> tuple[str, bool]:
     """Return ``(phrase, is_verb_phrase)`` describing what the entry does.
@@ -161,7 +161,7 @@ class TemplatedQueryGenerator:
     # Input: entry (Entry), count (int)
     # Output: list[SyntheticQuery]
     # Processing: Compose request-shaped phrasings from the entry's description
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def generate(self, entry: Entry, *, count: int = 3) -> list[SyntheticQuery]:
         action, is_verb = action_phrase(entry)
@@ -201,7 +201,7 @@ class DeepSeekQueryGenerator:
     # Input: client (object | None), model (str)
     # Output: None
     # Processing: Init
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def __init__(self, client=None, *, model: str = "deepseek-chat") -> None:
         self.client = client
@@ -210,7 +210,7 @@ class DeepSeekQueryGenerator:
     # Input: entry (Entry), count (int)
     # Output: str
     # Processing: Render the generation prompt for one entry
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def build_prompt(self, entry: Entry, count: int) -> str:
         """Ask for how a developer would phrase the need, not a restatement.
@@ -231,7 +231,7 @@ class DeepSeekQueryGenerator:
     # Input: entry (Entry), count (int)
     # Output: list[SyntheticQuery]
     # Processing: Ask the model for queries a developer would type
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def generate(self, entry: Entry, *, count: int = 3) -> list[SyntheticQuery]:
         if self.client is None:
@@ -259,7 +259,7 @@ class DeepSeekQueryGenerator:
 # Input: entries (Sequence[Entry]), generator (QueryGenerator | None), per_entry (int)
 # Output: list[SyntheticQuery]
 # Processing: Generate training queries across a set of entries
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def generate_training_queries(
     entries: Sequence[Entry],
@@ -323,7 +323,7 @@ _WORD = re.compile(r"[a-z0-9]+")
 # Input: text (str)
 # Output: frozenset[str]
 # Processing: Content words of a string, lowercased
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def content_tokens(text: str) -> frozenset[str]:
     """Content words only -- stopwords and one- or two-character tokens out.
@@ -342,7 +342,7 @@ def content_tokens(text: str) -> frozenset[str]:
 # Input: query (str), target_text (str)
 # Output: float
 # Processing: Fraction of the query's content words found in the target text
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def lexical_overlap(query: str, target_text: str) -> float:
     """What fraction of the query's content words appear in the target.
@@ -373,7 +373,7 @@ class OverlapReport:
     # Input: none
     # Output: bool
     # Processing: Whether the set is too lexically coupled to train on
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def degenerate(self) -> bool:
@@ -383,7 +383,7 @@ class OverlapReport:
     # Input: none
     # Output: str
     # Processing: One-paragraph summary for a training log
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def summary(self) -> str:
         verdict = "DEGENERATE" if self.degenerate else "usable"
@@ -399,7 +399,7 @@ class OverlapReport:
 # Input: queries (Sequence[SyntheticQuery]), target_text (Mapping[str, str]), threshold (float)
 # Output: OverlapReport
 # Processing: Measure how much the query set restates its source entries
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def measure_overlap(
     queries: Sequence[SyntheticQuery],

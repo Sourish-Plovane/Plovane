@@ -48,7 +48,7 @@ SIMILAR_THRESHOLD = 0.75
 # Input: none
 # Output: int
 # Processing: How many shortlisted candidates the cross-encoder scores.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-18
 def rerank_depth(device: str) -> int:
     """How many shortlisted candidates the cross-encoder scores per query.
@@ -65,7 +65,7 @@ def rerank_depth(device: str) -> int:
 # Input: path (Path)
 # Output: str
 # Processing: Short SHA-256 of a file.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-18
 def file_hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()[:16]
@@ -74,7 +74,7 @@ def file_hash(path: Path) -> str:
 # Input: unit (ExtractedUnit)
 # Output: Entry
 # Processing: A function from the user's file, shaped like a library entry.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-18
 def unit_as_entry(unit) -> Entry:
     """A function from the user's file, shaped like a library entry so the
@@ -89,7 +89,7 @@ def unit_as_entry(unit) -> Entry:
 # Input: entry (Entry), full (bool)
 # Output: dict[str, Any]
 # Processing: A library entry as JSON.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-18
 def entry_record(entry: Entry, *, full: bool = False) -> dict[str, Any]:
     record = {
@@ -130,7 +130,7 @@ class Engine:
     # Input: none
     # Output: None
     # Processing: Build retrieval, the pipeline and the duplicate index.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-18
     def __post_init__(self) -> None:
         from ml.ranking.pipeline import ModelVersions, RecommendationPipeline
@@ -166,7 +166,7 @@ class Engine:
     # Input: none
     # Output: Engine
     # Processing: Load the library, encoder and cross-encoder from disk.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     @classmethod
     def load(cls) -> Engine:
@@ -224,7 +224,7 @@ class Engine:
     # Input: query (str), language (str | None), k (int), dependencies (list[str]), drop_in_only (bool)
     # Output: dict[str, Any]
     # Processing: Search the library with the full B06 pipeline.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     def search(
         self, query: str, *, language: str | None = None, k: int = 5,
@@ -246,7 +246,7 @@ class Engine:
     # Input: request (Request)
     # Output: tuple[Response, RecommendationLog]
     # Processing: Run the full pipeline once, serialised by the engine lock.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     def recommend(self, request: Request):
         """The pipeline's response and its server-side log, for callers that
@@ -257,7 +257,7 @@ class Engine:
     # Input: block_id (str)
     # Output: dict[str, Any]
     # Processing: One library entry, code included.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-18
     def get(self, block_id: str) -> dict[str, Any]:
         entry = self.by_id.get(block_id)
@@ -269,7 +269,7 @@ class Engine:
     # Input: language (str | None)
     # Output: dict[str, Any]
     # Processing: Library contents by category and language.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-18
     def categories(self, language: str | None = None) -> dict[str, Any]:
         entries = [e for e in self.entries if language is None or e.language == language.lower()]
@@ -282,7 +282,7 @@ class Engine:
     # Input: none
     # Output: dict[str, Any]
     # Processing: What is loaded and how good it is.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-18
     def status(self) -> dict[str, Any]:
         return {
@@ -303,7 +303,7 @@ class Engine:
     # Input: none
     # Output: tuple[bool, str]
     # Processing: Prove the loaded models rank a known right answer first.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-22
     def self_check(self) -> tuple[bool, str]:
         """The readiness test: a URL-joining query must rank a URL-joining
@@ -336,7 +336,7 @@ class Engine:
     # Input: query (str), candidates (list[dict]), language (str | None)
     # Output: dict[str, Any]
     # Processing: Cross-encoder scores for caller-supplied code.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-18
     def rerank(self, query: str, candidates: list[dict], *, language: str | None = None) -> dict[str, Any]:
         """Score the caller's own snippets against a query, best first."""
@@ -366,7 +366,7 @@ class Engine:
     # Input: source (str), path (str)
     # Output: list[tuple[ExtractedUnit, np.ndarray]]
     # Processing: The file's functions with their embeddings.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-18
     def _embedded_units(self, source: str, path: str):
         units = {u.name: u for u in extract(source, path) if not u.is_template}
@@ -379,7 +379,7 @@ class Engine:
     # Input: source (str), path (str)
     # Output: dict[str, Any]
     # Processing: Mark each function in a file as in the library or new.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-18
     def check_file(self, source: str, path: str) -> dict[str, Any]:
         """For each function in the file: is it already in the library?"""
@@ -418,7 +418,7 @@ class Engine:
     # Input: source (str), path (str), k (int)
     # Output: dict[str, Any]
     # Processing: Library helpers that fit what a file does.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-18
     def recommend_for_file(self, source: str, path: str, *, k: int = 5) -> dict[str, Any]:
         """Search the library with a query built from the file itself, and
@@ -445,7 +445,7 @@ class Engine:
     # Input: query (str), language (str | None), k (int)
     # Output: dict[str, Any]
     # Processing: Per-stage scores for the top results.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-18
     def explain(self, query: str, *, language: str | None = None, k: int = 5) -> dict[str, Any]:
         """Why each result ranks where it does: every stage's score and rank."""
@@ -483,7 +483,7 @@ class Engine:
     # Input: queries (list[str]), language (str | None), k (int)
     # Output: dict[str, Any]
     # Processing: Several searches in one call.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-18
     def batch(self, queries: list[str], *, language: str | None = None, k: int = 3) -> dict[str, Any]:
         return {
@@ -501,7 +501,7 @@ _engine_lock = threading.Lock()
 # Input: none
 # Output: Engine
 # Processing: The shared engine, loaded on first use.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-18
 def get_engine() -> Engine:
     global _engine
@@ -514,7 +514,7 @@ def get_engine() -> Engine:
 # Input: engine (Engine | None)
 # Output: None
 # Processing: Replace the shared engine (tests).
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-18
 def set_engine(engine: Engine | None) -> None:
     global _engine

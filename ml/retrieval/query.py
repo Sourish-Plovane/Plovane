@@ -20,7 +20,7 @@ class RetrievalQuery:
     # Input: none
     # Output: str
     # Processing: Lexical surface. Identifiers in the request text matter most here --
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def keyword_text(self) -> str:
@@ -52,7 +52,7 @@ class RetrievalQuery:
     # Input: none
     # Output: str
     # Processing: Semantic surface: the full context, written out, so the embedding
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def vector_text(self) -> str:
@@ -88,7 +88,7 @@ class RetrievalQuery:
     # Input: none
     # Output: str
     # Processing: The query half of the cross-encoder's input pair.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def cross_encoder_text(self) -> str:
@@ -99,7 +99,7 @@ class RetrievalQuery:
 # Input: request (Request)
 # Output: RetrievalQuery
 # Processing: Build query
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def build_query(request: Request) -> RetrievalQuery:
     return RetrievalQuery(request=request)

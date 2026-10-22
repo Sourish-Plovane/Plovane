@@ -54,7 +54,7 @@ class GoldQuery:
     # Input: none
     # Output: None
     # Processing: Post init
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def __post_init__(self) -> None:
         if self.source and "synthetic" in self.source.lower():
@@ -76,7 +76,7 @@ class GoldQuery:
     # Input: none
     # Output: set[str]
     # Processing: Relevant ids
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def relevant_ids(self) -> set[str]:
@@ -86,7 +86,7 @@ class GoldQuery:
 # Input: query_id (str), holdout_fraction (float), validation_fraction (float)
 # Output: Split
 # Processing: Deterministic split by hash of the query id.
-# Changed by: Claude Code
+# Changed by: Sourish
 # Date: 2026-10-12
 def assign_split(query_id: str, *, holdout_fraction: float = 0.3, validation_fraction: float = 0.2) -> Split:
     """Deterministic split by hash of the query id.
@@ -119,7 +119,7 @@ class GoldSet:
     # Input: none
     # Output: int
     # Processing: Len
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def __len__(self) -> int:
         return len(self.queries)
@@ -127,7 +127,7 @@ class GoldSet:
     # Input: query (GoldQuery)
     # Output: None
     # Processing: Add
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def add(self, query: GoldQuery) -> None:
         if any(q.query_id == query.query_id for q in self.queries):
@@ -137,7 +137,7 @@ class GoldSet:
     # Input: split (Split)
     # Output: list[GoldQuery]
     # Processing: Split
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def split(self, split: Split) -> list[GoldQuery]:
         return [q for q in self.queries if q.split == split]
@@ -145,7 +145,7 @@ class GoldSet:
     # Input: none
     # Output: list[GoldQuery]
     # Processing: The frozen portion. Read it to measure; never to decide.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @property
     def holdout(self) -> list[GoldQuery]:
@@ -155,7 +155,7 @@ class GoldSet:
     # Input: none
     # Output: dict[str, int]
     # Processing: Languages
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def languages(self) -> dict[str, int]:
         counts: dict[str, int] = {}
@@ -166,7 +166,7 @@ class GoldSet:
     # Input: mvp_languages (Sequence[str])
     # Output: tuple[str, ...]
     # Processing: MVP languages with no labelled queries at all.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def missing_languages(self, *, mvp_languages: Sequence[str] = MVP_LANGUAGES) -> tuple[str, ...]:
         """MVP languages with no labelled queries at all."""
@@ -176,7 +176,7 @@ class GoldSet:
     # Input: mvp_languages (Sequence[str]), minimum_per_language (int)
     # Output: dict[str, object]
     # Processing: What the set can and cannot measure.
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def coverage_report(
         self, *, mvp_languages: Sequence[str] = MVP_LANGUAGES, minimum_per_language: int = 20
@@ -207,7 +207,7 @@ class GoldSet:
     # Input: path (str | Path)
     # Output: None
     # Processing: To jsonl
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     def to_jsonl(self, path: str | Path) -> None:
         with Path(path).open("w", encoding="utf-8") as handle:
@@ -237,7 +237,7 @@ class GoldSet:
     # Input: path (str | Path)
     # Output: GoldSet
     # Processing: From jsonl
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @classmethod
     def from_jsonl(cls, path: str | Path) -> GoldSet:
@@ -265,7 +265,7 @@ class GoldSet:
     # Input: queries (Iterable[GoldQuery]), assign_splits (bool)
     # Output: GoldSet
     # Processing: From queries
-    # Changed by: Claude Code
+    # Changed by: Sourish
     # Date: 2026-10-12
     @classmethod
     def from_queries(cls, queries: Iterable[GoldQuery], *, assign_splits: bool = False) -> GoldSet:
