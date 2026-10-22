@@ -3,16 +3,25 @@
 For the backend that calls B06. Every example below is real output from the
 `Sourish` branch with the trained Stage 2 cross-encoder loaded.
 
-B06 has no HTTP server of its own yet. The backend imports it as a Python
-library, builds one `RecommendationPipeline` at startup and calls
-`recommend()` per request. The JSON shapes below are what goes in and comes
-out, so wrapping it in an HTTP endpoint later doesn't change them.
+There are two ways to call B06:
+
+- **Over HTTP:** `ml_models/service/app.py` is a Flask service.
+  `POST /v1/recommend` takes the handbook's §8.1 body and returns §8.2, and
+  `POST /v1/feedback` records accept and reject. The full route list and the
+  §8.1 to B06 field mapping (gap G2) are in `ml_models/service/contract.py`.
+  Start it with `python -m ml_models.service.app`.
+- **As a Python library:** build one `RecommendationPipeline` at startup and
+  call `recommend()` per request, as shown below.
+
+The JSON shapes below are the library's. The HTTP service returns the same
+blocks inside §8.2.
 
 ## Setup (once per server)
 
 ```sh
-pip install torch transformers numpy huggingface_hub
-GITHUB_TOKEN=<read access to Sourish-Plovane/Plovane> python scripts/setup_cross_encoder.py
+pip install torch transformers numpy huggingface_hub flask
+read -s "GITHUB_TOKEN?Paste GitHub token: "; export GITHUB_TOKEN; echo
+python -m ml_models.setup
 ```
 
 The script downloads the base encoder and the trained weights (about 1 GB

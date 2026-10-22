@@ -43,3 +43,5 @@ weights/*
 
 # Library embeddings the model engine caches (regenerated on demand).
 ml_models/.cache/
+# Recommendation and feedback logs the model service writes (training data; keep out of git).
+ml_models/.logs/

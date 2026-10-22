@@ -140,6 +140,11 @@ def check(weights: Path) -> bool:
     from ml.ranking.cross_encoder import load_cross_encoder
     from ml.schemas import Candidate, Entry, EntryType
 
+    # Input: name (str), signature (str), docstring (str), code (str)
+    # Output: Entry
+    # Processing: A JavaScript library entry for the self-check.
+    # Changed by: Claude Code
+    # Date: 2026-10-22
     def entry(name: str, signature: str, docstring: str, code: str) -> Entry:
         return Entry(
             id=f"check:{name}", type=EntryType.HELPER, name=name, description=docstring,

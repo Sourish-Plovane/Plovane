@@ -166,7 +166,7 @@ class Engine:
     # Output: Engine
     # Processing: Load the library, encoder and cross-encoder from disk.
     # Changed by: Claude Code
-    # Date: 2026-10-18
+    # Date: 2026-10-22
     @classmethod
     def load(cls) -> Engine:
         """Load the real models. Raises with the fix when a file is missing."""
@@ -224,7 +224,7 @@ class Engine:
     # Output: dict[str, Any]
     # Processing: Search the library with the full B06 pipeline.
     # Changed by: Claude Code
-    # Date: 2026-10-18
+    # Date: 2026-10-22
     def search(
         self, query: str, *, language: str | None = None, k: int = 5,
         dependencies: list[str] | None = None, drop_in_only: bool = False,
@@ -239,9 +239,19 @@ class Engine:
             k=k,
             drop_in_only=drop_in_only,
         )
-        with self.lock:
-            response, _ = self.pipeline.recommend(request)
+        response, _ = self.recommend(request)
         return response.to_handbook_response()
+
+    # Input: request (Request)
+    # Output: tuple[Response, RecommendationLog]
+    # Processing: Run the full pipeline once, serialised by the engine lock.
+    # Changed by: Claude Code
+    # Date: 2026-10-22
+    def recommend(self, request: Request):
+        """The pipeline's response and its server-side log, for callers that
+        store the log (the HTTP service) rather than discard it."""
+        with self.lock:
+            return self.pipeline.recommend(request)
 
     # Input: block_id (str)
     # Output: dict[str, Any]
@@ -288,6 +298,37 @@ class Engine:
             "certified": False,
             "notes": self.notes,
         }
+
+    # Input: none
+    # Output: tuple[bool, str]
+    # Processing: Prove the loaded models rank a known right answer first.
+    # Changed by: Claude Code
+    # Date: 2026-10-22
+    def self_check(self) -> tuple[bool, str]:
+        """The readiness test: a URL-joining query must rank a URL-joining
+        helper above a debounce. With no cross-encoder, the library search
+        must at least return something. Run once and remembered."""
+        if getattr(self, "_self_check", None) is None:
+            if self.cross_encoder is not None:
+                ranked = self.rerank(
+                    "join a base url and a relative path into one url",
+                    [
+                        {"name": "debounce", "code": "let t; return (...a) => { clearTimeout(t); "
+                                                     "t = setTimeout(() => f(...a), wait); };"},
+                        {"name": "combineURLs", "code": "return relativeURL ? baseURL.replace(/\\/+$/, '')"
+                                                        " + '/' + relativeURL.replace(/^\\/+/, '') : baseURL;"},
+                    ],
+                    language="javascript",
+                )["ranked"]
+                ok = ranked[0]["name"] == "combineURLs"
+                detail = f"cross-encoder ranked {ranked[0]['name']} first"
+            else:
+                found = self.search("join two paths", k=1)["data"]["recommendations"]
+                ok = bool(found)
+                detail = "retrieval only (no cross-encoder); search returned results" if ok else \
+                    "retrieval only; search returned nothing"
+            self._self_check = (ok, detail)
+        return self._self_check
 
     # -- Complex ----------------------------------------------------------------
 

@@ -108,6 +108,11 @@ def secret(name: str) -> str | None:
 class ApiError(RuntimeError):
     """A vast.ai API call that came back with an HTTP error status."""
 
+    # Input: status (int), message (str)
+    # Output: None
+    # Processing: Keep the HTTP status next to the error message.
+    # Changed by: Claude Code
+    # Date: 2026-10-22
     def __init__(self, status: int, message: str):
         super().__init__(message)
         self.status = status
@@ -341,6 +346,11 @@ def run(args: argparse.Namespace) -> int:
     # the instance billing. Turning them into an exception routes them
     # through the destroy below. SIGKILL cannot be caught; the box's own
     # self-destroy is the backstop for that.
+    # Input: signum, _frame
+    # Output: None (raises SystemExit)
+    # Processing: Turn a termination signal into an exit so the instance is destroyed.
+    # Changed by: Claude Code
+    # Date: 2026-10-22
     def _stop(signum, _frame):
         raise SystemExit(f"received signal {signum}; destroying instance before exit")
 

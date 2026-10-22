@@ -45,6 +45,11 @@ class Verdict(str, Enum):
     SKIP_SATURATED = "skip_saturated"
     SKIP_NOT_WORTH = "skip_not_worth"
 
+    # Input: none
+    # Output: bool
+    # Processing: Whether this verdict says anything to the user.
+    # Changed by: Claude Code
+    # Date: 2026-10-22
     @property
     def is_suggestion(self) -> bool:
         """Whether this verdict says anything to the user at all."""
@@ -61,10 +66,20 @@ class Suggestion:
     existing: Match | None = None
     saturation: int = 0
 
+    # Input: none
+    # Output: bool
+    # Processing: Whether the user should be prompted about this candidate.
+    # Changed by: Claude Code
+    # Date: 2026-10-22
     @property
     def should_prompt(self) -> bool:
         return self.verdict.is_suggestion
 
+    # Input: none
+    # Output: dict[str, object]
+    # Processing: The suggestion as a JSON-ready dict.
+    # Changed by: Claude Code
+    # Date: 2026-10-22
     def as_dict(self) -> dict[str, object]:
         return {
             "verdict": self.verdict.value,
@@ -85,6 +100,11 @@ class ReusabilitySuggester:
     saturation_limit: int = SATURATION_LIMIT
     improvement_margin: float = IMPROVEMENT_MARGIN
 
+    # Input: unit, embedding (np.ndarray | None), tokens_spent (int | None), exclude_ids (tuple[str, ...]), existing_score (float | None)
+    # Output: Suggestion
+    # Processing: Decide whether a candidate is new, a duplicate, saturated or not worth saving.
+    # Changed by: Claude Code
+    # Date: 2026-10-22
     def judge(
         self,
         unit,
@@ -164,6 +184,11 @@ class ReusabilitySuggester:
             saturation=report.saturation,
         )
 
+    # Input: score (ReusabilityScore)
+    # Output: str
+    # Processing: Name the weakest reusability signal for a 'not worth it' verdict.
+    # Changed by: Claude Code
+    # Date: 2026-10-22
     @staticmethod
     def _why_not_worth(score: ReusabilityScore) -> str:
         """Name the weakest signal, so the user is not told merely "no".

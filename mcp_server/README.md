@@ -11,7 +11,8 @@ From the repository root:
 
 ```sh
 pip install "mcp>=1.2" torch transformers numpy huggingface_hub
-GITHUB_TOKEN=<read access to Sourish-Plovane/Plovane> python -m ml_models.setup
+read -s "GITHUB_TOKEN?Paste GitHub token: "; export GITHUB_TOKEN; echo
+python -m ml_models.setup
 ```
 
 Setup downloads the base encoder and the trained weights (about 1 GB) and

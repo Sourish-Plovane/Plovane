@@ -42,6 +42,11 @@ def _source(path: str | None, code: str | None, filename: str | None) -> tuple[s
 # -- Basic ---------------------------------------------------------------------
 
 
+# Input: query (str), language (str | None), k (int), dependencies (list[str] | None), drop_in_only (bool)
+# Output: dict[str, Any]
+# Processing: MCP tool: search the library with the full B06 pipeline.
+# Changed by: Claude Code
+# Date: 2026-10-22
 @mcp.tool()
 def search_helpers(
     query: str, language: str | None = None, k: int = 5,
@@ -57,6 +62,11 @@ def search_helpers(
                                dependencies=dependencies, drop_in_only=drop_in_only)
 
 
+# Input: path (str | None), code (str | None), filename (str | None), helpers_only (bool)
+# Output: dict[str, Any]
+# Processing: MCP tool: list the standalone helpers in one file.
+# Changed by: Claude Code
+# Date: 2026-10-22
 @mcp.tool()
 def find_helpers_in_file(
     path: str | None = None, code: str | None = None, filename: str | None = None,
@@ -77,6 +87,11 @@ def find_helpers_in_file(
     return report
 
 
+# Input: block_id (str)
+# Output: dict[str, Any]
+# Processing: MCP tool: one library entry in full.
+# Changed by: Claude Code
+# Date: 2026-10-22
 @mcp.tool()
 def get_helper(block_id: str) -> dict[str, Any]:
     """Fetch one library entry in full, code included, by its block_id
@@ -84,12 +99,22 @@ def get_helper(block_id: str) -> dict[str, Any]:
     return get_engine().get(block_id)
 
 
+# Input: language (str | None)
+# Output: dict[str, Any]
+# Processing: MCP tool: library entry counts by category and language.
+# Changed by: Claude Code
+# Date: 2026-10-22
 @mcp.tool()
 def list_categories(language: str | None = None) -> dict[str, Any]:
     """What the library holds: entry counts by category and language."""
     return get_engine().categories(language)
 
 
+# Input: none
+# Output: dict[str, Any]
+# Processing: MCP tool: loaded models, device, accuracy and LLM keys set.
+# Changed by: Claude Code
+# Date: 2026-10-22
 @mcp.tool()
 def model_status() -> dict[str, Any]:
     """Which models are loaded, on what device, and their measured accuracy.
@@ -104,6 +129,11 @@ def model_status() -> dict[str, Any]:
 # -- Complex -------------------------------------------------------------------
 
 
+# Input: query (str), candidates (list[dict]), language (str | None)
+# Output: dict[str, Any]
+# Processing: MCP tool: cross-encoder scores for the caller's snippets.
+# Changed by: Claude Code
+# Date: 2026-10-22
 @mcp.tool()
 def rerank_candidates(query: str, candidates: list[dict], language: str | None = None) -> dict[str, Any]:
     """Score your own code snippets against a query with the trained
@@ -115,6 +145,11 @@ def rerank_candidates(query: str, candidates: list[dict], language: str | None =
     return get_engine().rerank(query, candidates, language=language)
 
 
+# Input: path (str | None), code (str | None), filename (str | None)
+# Output: dict[str, Any]
+# Processing: MCP tool: mark each function in a file in_library, similar_exists or new.
+# Changed by: Claude Code
+# Date: 2026-10-22
 @mcp.tool()
 def check_file_against_library(
     path: str | None = None, code: str | None = None, filename: str | None = None,
@@ -128,6 +163,11 @@ def check_file_against_library(
     return get_engine().check_file(source, name)
 
 
+# Input: path (str | None), code (str | None), filename (str | None), k (int)
+# Output: dict[str, Any]
+# Processing: MCP tool: library helpers that fit what a file does.
+# Changed by: Claude Code
+# Date: 2026-10-22
 @mcp.tool()
 def recommend_for_file(
     path: str | None = None, code: str | None = None, filename: str | None = None, k: int = 5,
@@ -138,6 +178,11 @@ def recommend_for_file(
     return get_engine().recommend_for_file(source, name, k=k)
 
 
+# Input: query (str), language (str | None), k (int)
+# Output: dict[str, Any]
+# Processing: MCP tool: every stage's rank and score for the top results.
+# Changed by: Claude Code
+# Date: 2026-10-22
 @mcp.tool()
 def explain_ranking(query: str, language: str | None = None, k: int = 5) -> dict[str, Any]:
     """Show why the top results rank where they do: keyword rank, vector rank,
@@ -145,6 +190,11 @@ def explain_ranking(query: str, language: str | None = None, k: int = 5) -> dict
     return get_engine().explain(query, language=language, k=k)
 
 
+# Input: queries (list[str]), language (str | None), k (int)
+# Output: dict[str, Any]
+# Processing: MCP tool: several library searches in one call.
+# Changed by: Claude Code
+# Date: 2026-10-22
 @mcp.tool()
 def batch_search(queries: list[str], language: str | None = None, k: int = 3) -> dict[str, Any]:
     """Run several library searches in one call, e.g. one per step of a plan."""
@@ -154,6 +204,11 @@ def batch_search(queries: list[str], language: str | None = None, k: int = 3) ->
 # -- External models -----------------------------------------------------------
 
 
+# Input: prompt (str), provider (str), model (str | None), system (str | None), max_tokens (int)
+# Output: dict[str, Any]
+# Processing: MCP tool: send a prompt to Claude or OpenAI.
+# Changed by: Claude Code
+# Date: 2026-10-22
 @mcp.tool()
 def ask_llm(
     prompt: str, provider: str = "anthropic", model: str | None = None,

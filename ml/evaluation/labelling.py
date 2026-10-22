@@ -101,6 +101,11 @@ class Labeller(Protocol):
 
     name: str
 
+    # Input: shortlist (Shortlist)
+    # Output: Label
+    # Processing: Protocol method: pick the relevant entries from a shortlist.
+    # Changed by: Claude Code
+    # Date: 2026-10-22
     def label(self, shortlist: Shortlist) -> Label: ...
 
 
@@ -113,6 +118,11 @@ class LLMLabeller:
     nothing in the record saying which.
     """
 
+    # Input: client, name (str)
+    # Output: None
+    # Processing: Keep the model client and the labeller's name.
+    # Changed by: Claude Code
+    # Date: 2026-10-22
     def __init__(self, client=None, *, name: str = "llm") -> None:
         self.client = client
         self.name = name

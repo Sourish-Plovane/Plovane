@@ -38,6 +38,11 @@ def rebuild_library() -> None:
         if not (root / ".git").exists():
             root.mkdir(parents=True, exist_ok=True)
 
+            # Input: *args (str)
+            # Output: None
+            # Processing: Run one git command in the source clone.
+            # Changed by: Claude Code
+            # Date: 2026-10-22
             def git(*args: str) -> None:
                 subprocess.run(["git", "-C", str(root), *args], check=True)
 

@@ -24,7 +24,8 @@ ml_models/
 │   ├── README.md
 │   ├── stage1_retrieval_fusion.txt
 │   └── stage3_final.txt
-└── .cache/            library embeddings, regenerated on demand (gitignored)
+├── .cache/            library embeddings, regenerated on demand (gitignored)
+└── .logs/             served recommendations and feedback, JSONL (gitignored)
 ```
 
 ## The models

@@ -245,6 +245,11 @@ def main(args: argparse.Namespace) -> int:
         )
         retrieved[query.query] = list(retrieval.retrieve(request).candidates)
 
+    # Input: train_queries, held_out
+    # Output: list[CrossEncoderGroup]
+    # Processing: Training groups (query, positive, negatives) excluding held-out entries.
+    # Changed by: Claude Code
+    # Date: 2026-10-22
     def build_groups(train_queries, held_out):
         groups = [
             CrossEncoderGroup(

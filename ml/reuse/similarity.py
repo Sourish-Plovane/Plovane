@@ -53,14 +53,29 @@ class SimilarityReport:
     best: Match | None
     near: tuple[Match, ...]
 
+    # Input: none
+    # Output: bool
+    # Processing: Whether the best match is close enough to be a duplicate.
+    # Changed by: Claude Code
+    # Date: 2026-10-22
     @property
     def has_duplicate(self) -> bool:
         return self.best is not None and self.best.similarity >= DUPLICATE_THRESHOLD
 
+    # Input: none
+    # Output: int
+    # Processing: Number of near matches in the candidate's neighbourhood.
+    # Changed by: Claude Code
+    # Date: 2026-10-22
     @property
     def saturation(self) -> int:
         return len(self.near)
 
+    # Input: limit (int)
+    # Output: bool
+    # Processing: Whether the neighbourhood already has enough near matches.
+    # Changed by: Claude Code
+    # Date: 2026-10-22
     def is_saturated(self, limit: int = SATURATION_LIMIT) -> bool:
         return self.saturation >= limit
 
@@ -74,15 +89,30 @@ class LibraryIndex:
     matter are not the same ones.
     """
 
+    # Input: entries (Sequence[Entry])
+    # Output: None
+    # Processing: Build the index from the entries' embeddings.
+    # Changed by: Claude Code
+    # Date: 2026-10-22
     def __init__(self, entries: Sequence[Entry] = ()) -> None:
         self._entries: list[Entry] = []
         self._matrix: np.ndarray | None = None
         if entries:
             self.rebuild(entries)
 
+    # Input: none
+    # Output: int
+    # Processing: Number of indexed entries.
+    # Changed by: Claude Code
+    # Date: 2026-10-22
     def __len__(self) -> int:
         return len(self._entries)
 
+    # Input: entries (Sequence[Entry])
+    # Output: None
+    # Processing: Replace the index, skipping entries without an embedding.
+    # Changed by: Claude Code
+    # Date: 2026-10-22
     def rebuild(self, entries: Sequence[Entry]) -> None:
         """Replace the index. Entries without an embedding are skipped.
 
@@ -99,6 +129,11 @@ class LibraryIndex:
             np.stack([np.asarray(e.embedding, dtype=np.float32) for e in usable])
         )
 
+    # Input: embedding (np.ndarray), exclude_ids (Sequence[str]), near_threshold (float), language (str | None)
+    # Output: SimilarityReport
+    # Processing: Compare one embedding against the library: best match and near matches.
+    # Changed by: Claude Code
+    # Date: 2026-10-22
     def compare(
         self,
         embedding: np.ndarray,

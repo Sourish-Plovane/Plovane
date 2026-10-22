@@ -48,6 +48,11 @@ class ReusabilityScore:
     MIN_GENERALITY = 0.5
     BLOCKED_CEILING = 0.4
 
+    # Input: none
+    # Output: tuple[str, ...]
+    # Processing: List the unmet requirements that block a library entry.
+    # Changed by: Claude Code
+    # Date: 2026-10-22
     @property
     def blockers(self) -> tuple[str, ...]:
         """Requirements a library entry must meet, not preferences to weigh.
@@ -69,6 +74,11 @@ class ReusabilityScore:
             reasons.append("no description")
         return tuple(reasons)
 
+    # Input: none
+    # Output: float
+    # Processing: Weighted total in 0-1, capped when a requirement is unmet.
+    # Changed by: Claude Code
+    # Date: 2026-10-22
     @property
     def score(self) -> float:
         """Weighted total in 0 to 1, capped when a requirement is unmet.
@@ -86,6 +96,11 @@ class ReusabilityScore:
             total = min(total, self.BLOCKED_CEILING)
         return round(total, 3)
 
+    # Input: none
+    # Output: dict[str, object]
+    # Processing: The score and its parts as a JSON-ready dict.
+    # Changed by: Claude Code
+    # Date: 2026-10-22
     def as_dict(self) -> dict[str, object]:
         return {
             "self_contained": self.self_contained,
@@ -99,6 +114,11 @@ class ReusabilityScore:
         }
 
 
+# Input: code (str), param_count (int), annotated (int)
+# Output: float
+# Processing: Score how much code looks like a general utility rather than glue.
+# Changed by: Claude Code
+# Date: 2026-10-22
 def generality(code: str, *, param_count: int, annotated: int) -> float:
     """How much the code looks like a utility rather than one project's glue.
 
@@ -120,6 +140,11 @@ def generality(code: str, *, param_count: int, annotated: int) -> float:
     return max(0.0, min(1.0, 0.7 + reward - penalty))
 
 
+# Input: docstring (str)
+# Output: float
+# Processing: Credit a docstring, more for one that says something.
+# Changed by: Claude Code
+# Date: 2026-10-22
 def documentation(docstring: str) -> float:
     """Credit for a description, with more for one that says something.
 
@@ -137,6 +162,11 @@ def documentation(docstring: str) -> float:
     return 1.0
 
 
+# Input: tokens_spent (int | None), saturation (int)
+# Output: float
+# Processing: Normalise token spend to 0-1, or 0.5 when unknown.
+# Changed by: Claude Code
+# Date: 2026-10-22
 def token_value(tokens_spent: int | None, *, saturation: int = TOKEN_SATURATION) -> float:
     """Normalised token spend, or a neutral 0.5 when it is unknown.
 
@@ -151,6 +181,11 @@ def token_value(tokens_spent: int | None, *, saturation: int = TOKEN_SATURATION)
     return min(1.0, tokens_spent / saturation)
 
 
+# Input: unit, tokens_spent (int | None)
+# Output: ReusabilityScore
+# Processing: Score an extracted unit's reusability.
+# Changed by: Claude Code
+# Date: 2026-10-22
 def score_unit(unit, *, tokens_spent: int | None = None) -> ReusabilityScore:
     """Score an :class:`~ml.ingest.extract.ExtractedUnit`."""
     from ml.ingest.metrics import measure

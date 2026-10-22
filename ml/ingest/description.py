@@ -38,6 +38,11 @@ class DescriptionSource(str, Enum):
     NAME_AND_SIGNATURE = "name_and_signature"
     GENERATED = "generated"
 
+    # Input: none
+    # Output: bool
+    # Processing: Whether a person wrote the description.
+    # Changed by: Claude Code
+    # Date: 2026-10-22
     @property
     def is_authored(self) -> bool:
         """Whether a person wrote it."""
@@ -50,6 +55,11 @@ class DescriptionGenerator(Protocol):
 
     source: DescriptionSource
 
+    # Input: name (str), signature (str | None), language (str), code (str)
+    # Output: str
+    # Processing: Protocol method: produce a description for one entry.
+    # Changed by: Claude Code
+    # Date: 2026-10-22
     def describe(self, *, name: str, signature: str | None, language: str, code: str) -> str: ...
 
 
@@ -169,6 +179,11 @@ class LLMDescriber:
 
     source = DescriptionSource.GENERATED
 
+    # Input: client, max_words (int)
+    # Output: None
+    # Processing: Keep the model client and the description word limit.
+    # Changed by: Claude Code
+    # Date: 2026-10-22
     def __init__(self, client=None, *, max_words: int = 20) -> None:
         self.client = client
         self.max_words = max_words
