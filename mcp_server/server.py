@@ -19,8 +19,8 @@ try:  # mcp 2.x renamed FastMCP to MCPServer; same decorator API
 except ImportError:  # mcp 1.x
     from mcp.server.fastmcp import FastMCP as MCPServer
 
-from mcp_server import llm
-from mcp_server.engine import get_engine
+from ml_models import llm
+from ml_models.engine import get_engine
 
 mcp = MCPServer("plovane")
 

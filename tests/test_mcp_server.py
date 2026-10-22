@@ -9,8 +9,8 @@ import pytest
 
 pytest.importorskip("mcp")
 
-from mcp_server import llm
-from mcp_server.engine import Engine, set_engine
+from ml_models import llm
+from ml_models.engine import Engine, set_engine
 from ml.retrieval.embedding import HashingEmbeddingModel
 from ml.schemas import Entry, EntryType
 

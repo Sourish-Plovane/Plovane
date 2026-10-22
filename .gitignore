@@ -41,5 +41,5 @@ weights/*
 !weights/README.md
 !weights/manifest.json
 
-# Library embeddings the MCP server caches (regenerated on demand).
-mcp_server/.cache/
+# Library embeddings the model engine caches (regenerated on demand).
+ml_models/.cache/

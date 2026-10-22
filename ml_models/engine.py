@@ -1,8 +1,8 @@
-"""The models behind the MCP tools, loaded once and shared by every call.
+"""The models behind the MCP tools and the HTTP service, loaded once and shared.
 
 Loading is lazy: the server answers ``initialize`` at once and pays for the
 encoder, the library embeddings and the cross-encoder on the first tool call
-that needs them. Library embeddings are cached in ``mcp_server/.cache`` keyed
+that needs them. Library embeddings are cached in ``ml_models/.cache`` keyed
 by the library file's hash, so only the first start after a library change
 re-encodes it (about a minute on a laptop CPU for ~400 entries).
 """
@@ -173,10 +173,10 @@ class Engine:
         started = time.time()
         if not LIBRARY.exists():
             raise RuntimeError(
-                f"{LIBRARY.relative_to(ROOT)} is missing. Run: python -m mcp_server.setup"
+                f"{LIBRARY.relative_to(ROOT)} is missing. Run: python -m ml_models.setup"
             )
         if not BASE_ENCODER.exists():
-            raise RuntimeError("weights/unixcoder-base is missing. Run: python -m mcp_server.setup")
+            raise RuntimeError("weights/unixcoder-base is missing. Run: python -m ml_models.setup")
 
         import torch
 
@@ -211,7 +211,7 @@ class Engine:
         else:
             notes.append(
                 "trained cross-encoder not found: results use retrieval order (@1 52% instead "
-                "of 70%). Run: python -m mcp_server.setup"
+                "of 70%). Run: python -m ml_models.setup"
             )
         return cls(
             entries=entries, embedding_model=encoder, cross_encoder=cross_encoder,

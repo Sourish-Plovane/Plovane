@@ -11,7 +11,7 @@ From the repository root:
 
 ```sh
 pip install "mcp>=1.2" torch transformers numpy huggingface_hub
-GITHUB_TOKEN=<read access to Sourish-Plovane/Plovane> python -m mcp_server.setup
+GITHUB_TOKEN=<read access to Sourish-Plovane/Plovane> python -m ml_models.setup
 ```
 
 Setup downloads the base encoder and the trained weights (about 1 GB) and
@@ -76,7 +76,7 @@ language).
 
 The first tool call loads the models in about 10 s. On the very first start it
 also embeds the library, which takes about 80 s; the result is cached in
-`mcp_server/.cache/`. After that, a search takes about 2-3 s and a file check
+`ml_models/.cache/`. After that, a search takes about 2-3 s and a file check
 takes under 1 s. The server needs about 4 GB of RAM.
 
 ## Known limits

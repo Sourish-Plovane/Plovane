@@ -1,6 +1,6 @@
 """Get this machine ready to run the MCP server, then load it once.
 
-    GITHUB_TOKEN=... python -m mcp_server.setup
+    GITHUB_TOKEN=... python -m ml_models.setup
 
 1. Base encoder and trained cross-encoder (scripts/setup_cross_encoder.py,
    which verifies both hashes and checks the model ranks correctly).
@@ -64,7 +64,7 @@ def main() -> int:
     else:
         rebuild_library()
 
-    from mcp_server.engine import Engine
+    from ml_models.engine import Engine
 
     engine = Engine.load()
     status = engine.status()

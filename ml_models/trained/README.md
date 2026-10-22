@@ -52,7 +52,7 @@ default, and truncating it is a certification blocker.
 
 ```sh
 # Stage 1
-python -m ml.ranking.training --out models/stage1_retrieval_fusion.txt
+python -m ml.ranking.training --out ml_models/trained/stage1_retrieval_fusion.txt
 ```
 
 The library is rebuilt from `seed/sources.json`: clone each repository at the
