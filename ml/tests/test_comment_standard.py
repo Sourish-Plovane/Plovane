@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from check_comments import check_file  # noqa: E402
 
-SOURCE_FOLDERS = ("ml", "whiteboard")
+SOURCE_FOLDERS = ("ml", "backend")
 
 
 # Input: none

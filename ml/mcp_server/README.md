@@ -83,7 +83,7 @@ same as typing `/block add service auth`.
 | `plovane_library`, `plovane_code`, `plovane_history`, `plovane_agent` | library, code, scans, health, undo, Git, agent logs |
 | `plovane_command` | any slash command as text |
 
-The full command list is in `whiteboard/README.md`. Commands that grant or
+The full command list is in `backend/whiteboard/README.md`. Commands that grant or
 revoke access are not available here: a person runs them in the whiteboard.
 
 ## Settings (environment variables)

@@ -17,7 +17,7 @@ neural = ["torch>=2.2", "transformers>=4.40"]
 dev = ["pytest>=8.0"]
 
 [tool.setuptools.packages.find]
-include = ["ml*", "whiteboard*"]
+include = ["ml*", "backend*"]
 
 [tool.pytest.ini_options]
-testpaths = ["ml/tests", "whiteboard/tests"]
+testpaths = ["ml/tests", "backend/whiteboard/tests"]

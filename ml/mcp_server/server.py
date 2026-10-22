@@ -220,10 +220,10 @@ def ask_llm(
     return llm.ask(prompt, provider=provider, model=model, system=system, max_tokens=max_tokens)
 
 
-from whiteboard.mcp_tools import register as register_whiteboard  # noqa: E402
+from backend.whiteboard.mcp_tools import register as register_whiteboard  # noqa: E402
 
 WHITEBOARD_TOOLS = register_whiteboard(mcp)
-"""The whiteboard's grouped tools (whiteboard/mcp_tools.py). They edit the
+"""The whiteboard's grouped tools (backend/whiteboard/mcp_tools.py). They edit the
 project in PLOVANE_PROJECT, or the folder the server starts in."""
 
 
