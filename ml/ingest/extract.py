@@ -350,16 +350,19 @@ def analyse_dependencies(
     return tuple(sorted(required)), tuple(sorted(unresolved)), tuple(sorted(annotation_only))
 
 
-# Input: source (str)
+# Input: source (str), library_rules (bool)
 # Output: list[ExtractedUnit]
 # Processing: Exact extraction of module-level functions via the AST.
 # Changed by: Claude Code
-# Date: 2026-10-12
-def extract_python(source: str) -> list[ExtractedUnit]:
+# Date: 2026-10-22
+def extract_python(source: str, *, library_rules: bool = True) -> list[ExtractedUnit]:
     """Exact extraction of module-level functions via the AST.
 
     Module level only: a method pulled out of a class is not independently
     usable, and recommending one produces code that does not run.
+    ``library_rules=False`` keeps private and very short or long functions
+    too, for callers that map a whole file (the whiteboard) rather than pick
+    library candidates.
     """
     try:
         tree = ast.parse(source)
@@ -371,10 +374,10 @@ def extract_python(source: str) -> list[ExtractedUnit]:
     for node in tree.body:
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
-        if node.name.startswith("_"):
+        if library_rules and node.name.startswith("_"):
             continue  # private by convention
         start, end = node.lineno, (node.end_lineno or node.lineno)
-        if not MIN_FUNCTION_LINES <= (end - start + 1) <= MAX_FUNCTION_LINES:
+        if library_rules and not MIN_FUNCTION_LINES <= (end - start + 1) <= MAX_FUNCTION_LINES:
             continue
         required, unresolved, annotation_only = analyse_dependencies(node, tree)
         units.append(
@@ -786,12 +789,12 @@ def analyse_brace_dependencies(
     return tuple(sorted(required)), tuple(sorted(unresolved))
 
 
-# Input: source (str), language (str)
+# Input: source (str), language (str), library_rules (bool)
 # Output: list[ExtractedUnit]
 # Processing: Heuristic extraction for brace languages. Marked ``needs_review``.
 # Changed by: Claude Code
-# Date: 2026-10-12
-def extract_braced(source: str, language: str) -> list[ExtractedUnit]:
+# Date: 2026-10-22
+def extract_braced(source: str, language: str, *, library_rules: bool = True) -> list[ExtractedUnit]:
     """Heuristic extraction for brace languages. Marked ``needs_review``.
 
     Walks from a plausible declaration to its matching closing brace, skipping
@@ -836,7 +839,7 @@ def extract_braced(source: str, language: str) -> list[ExtractedUnit]:
 
         start_line = source[: match.start()].count("\n") + 1
         end_line = source[:index].count("\n") + 1
-        if not MIN_FUNCTION_LINES <= (end_line - start_line + 1) <= MAX_FUNCTION_LINES:
+        if library_rules and not MIN_FUNCTION_LINES <= (end_line - start_line + 1) <= MAX_FUNCTION_LINES:
             continue
         body = "\n".join(lines[start_line - 1 : end_line])
         required, unresolved = analyse_brace_dependencies(source, body, name, language)
@@ -1095,13 +1098,16 @@ def dependency_names(
     return tuple(names)
 
 
-# Input: source (str), path (str), want_template (bool)
+# Input: source (str), path (str), want_template (bool), library_rules (bool)
 # Output: list[ExtractedUnit]
 # Processing: Extract candidates from one file, dispatching on its language.
 # Changed by: Claude Code
-# Date: 2026-10-12
-def extract(source: str, path: str, *, want_template: bool = False) -> list[ExtractedUnit]:
-    """Extract candidates from one file, dispatching on its language."""
+# Date: 2026-10-22
+def extract(source: str, path: str, *, want_template: bool = False, library_rules: bool = True) -> list[ExtractedUnit]:
+    """Extract candidates from one file, dispatching on its language.
+
+    ``library_rules=False`` returns every top-level function, not only those
+    the library would accept (see :func:`extract_python`)."""
     language = language_for_path(path)
     if language is None:
         return []
@@ -1109,7 +1115,7 @@ def extract(source: str, path: str, *, want_template: bool = False) -> list[Extr
         unit = extract_file_as_template(source, path, language)
         return [unit] if unit else []
     if language == "python":
-        return extract_python(source)
+        return extract_python(source, library_rules=library_rules)
     if language in BRACE_LANGUAGES:
-        return extract_braced(source, language)
+        return extract_braced(source, language, library_rules=library_rules)
     return []

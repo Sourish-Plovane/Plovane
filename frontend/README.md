@@ -22,6 +22,8 @@ handbook's §4.1 envelope (`{"ok": ..., "data": ..., "error": ...}`).
 | Run a structured operation | `POST /api/v1/whiteboard/op` with `{"op": "block.add", "args": {...}}` | `whiteboard/README.md` |
 | Draw the board | `GET /api/v1/whiteboard/board` | `whiteboard/README.md` |
 | Undo / redo | `POST /api/v1/whiteboard/undo`, `/redo` | `whiteboard/README.md` |
+| Autocomplete and help | `GET /api/v1/whiteboard/commands` | every command with an example |
+| Activity feed | `GET /api/v1/whiteboard/log?actor=NAME&last=N` | who did what |
 | Search the helper library | `POST /v1/recommend` (model service) | `docs/b06_recommendation_api.md` |
 
 Start the whiteboard API with `python -m whiteboard.server --project <path>`.

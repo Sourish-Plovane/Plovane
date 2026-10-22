@@ -6,6 +6,9 @@ Basic tools: search_helpers, find_helpers_in_file, get_helper,
 list_categories, model_status. Complex tools: rerank_candidates,
 check_file_against_library, recommend_for_file, explain_ranking,
 batch_search. Plus ask_llm, which forwards a prompt to Claude or OpenAI.
+Whiteboard tools: one per noun (plovane_block, plovane_endpoint, ...) plus
+plovane_command, registered from whiteboard/mcp_tools.py. They edit the
+project in PLOVANE_PROJECT (default: the current directory).
 See mcp_server/README.md.
 """
 
@@ -218,6 +221,11 @@ def ask_llm(
     "openai". Needs ANTHROPIC_API_KEY or OPENAI_API_KEY in the server's
     environment. model defaults to claude-sonnet-5-5 / gpt-5."""
     return llm.ask(prompt, provider=provider, model=model, system=system, max_tokens=max_tokens)
+
+
+from whiteboard.mcp_tools import register as register_whiteboard  # noqa: E402
+
+WHITEBOARD_TOOLS = register_whiteboard(mcp)
 
 
 # Input: none
