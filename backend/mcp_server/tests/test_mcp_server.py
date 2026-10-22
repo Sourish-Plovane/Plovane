@@ -171,3 +171,31 @@ def test_ask_llm_without_a_key_names_the_variable(monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     assert llm.ask("hi")["error"].startswith("ANTHROPIC_API_KEY is not set")
     assert "error" in llm.ask("hi", provider="other")
+
+
+# Input: monkeypatch
+# Output: None
+# Processing: Check that DeepSeek is called at its own address with the OpenAI-style body.
+# Changed by: Sourish
+# Date: 2026-10-22
+def test_ask_llm_reaches_deepseek(monkeypatch):
+    sent = {}
+
+    # Input: url (str), headers (dict), body (dict)
+    # Output: dict
+    # Processing: Record the request and answer like DeepSeek's API.
+    # Changed by: Sourish
+    # Date: 2026-10-22
+    def fake_post(url, headers, body):
+        sent.update(url=url, headers=headers, body=body)
+        return {"choices": [{"message": {"content": "hello"}}], "usage": {"total_tokens": 3}}
+
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    monkeypatch.setattr(llm, "_post", fake_post)
+    reply = llm.ask("hi", provider="deepseek", system="be brief", max_tokens=50)
+    assert reply == {"provider": "deepseek", "model": "deepseek-chat", "text": "hello", "usage": {"total_tokens": 3}}
+    assert sent["url"] == "https://api.deepseek.com/chat/completions"
+    assert sent["headers"] == {"authorization": "Bearer test-key"}
+    assert sent["body"] == {"model": "deepseek-chat", "max_tokens": 50, "messages": [
+        {"role": "system", "content": "be brief"}, {"role": "user", "content": "hi"}]}
+    assert llm.configured()["deepseek"] is True

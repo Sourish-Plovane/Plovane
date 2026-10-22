@@ -158,7 +158,8 @@ and undoing all of it restored every file.
 ## Limits
 
 - `/block edit`, `/compile blocks-to-code` and `/explain` with AI need an LLM
-  key: `ANTHROPIC_API_KEY`, or `OPENAI_API_KEY` with `PLOVANE_LLM_PROVIDER=openai`.
+  key: `ANTHROPIC_API_KEY`, or `OPENAI_API_KEY` / `DEEPSEEK_API_KEY` with
+  `PLOVANE_LLM_PROVIDER=openai` / `deepseek`.
   Without a key, the edit is kept and `/explain` gives a structural summary.
   Compiling English back to code hasn't been tried with a real LLM yet.
 - JavaScript and TypeScript are read with the library's heuristic extractor:

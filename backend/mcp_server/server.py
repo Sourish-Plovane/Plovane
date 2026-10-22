@@ -206,7 +206,7 @@ def batch_search(queries: list[str], language: str | None = None, k: int = 3) ->
 
 # Input: prompt (str), provider (str), model (str | None), system (str | None), max_tokens (int)
 # Output: dict[str, Any]
-# Processing: MCP tool: send a prompt to Claude or OpenAI.
+# Processing: MCP tool: send a prompt to Claude, OpenAI or DeepSeek.
 # Changed by: Sourish
 # Date: 2026-10-22
 @mcp.tool()
@@ -214,9 +214,10 @@ def ask_llm(
     prompt: str, provider: str = "anthropic", model: str | None = None,
     system: str | None = None, max_tokens: int = 1024,
 ) -> dict[str, Any]:
-    """Send a prompt to a hosted model: provider "anthropic" (Claude) or
-    "openai". Needs ANTHROPIC_API_KEY or OPENAI_API_KEY in the server's
-    environment. model defaults to claude-sonnet-5-5 / gpt-5."""
+    """Send a prompt to a hosted model: provider "anthropic" (Claude), "openai"
+    or "deepseek". Needs ANTHROPIC_API_KEY, OPENAI_API_KEY or DEEPSEEK_API_KEY
+    in the server's environment. model defaults to claude-sonnet-5-5, gpt-5 or
+    deepseek-chat (deepseek-reasoner for step-by-step reasoning)."""
     return llm.ask(prompt, provider=provider, model=model, system=system, max_tokens=max_tokens)
 
 

@@ -1,8 +1,9 @@
-"""Calls to hosted LLMs (Claude, OpenAI), for the ``ask_llm`` tool.
+"""Calls to hosted LLMs (Claude, OpenAI, DeepSeek), for the ``ask_llm`` tool.
 
-Plain HTTPS through ``urllib`` so neither vendor SDK is a dependency. Keys are
-read from the environment by name and never echoed: ``ANTHROPIC_API_KEY`` and
-``OPENAI_API_KEY``.
+Plain HTTPS through ``urllib`` so no vendor SDK is a dependency. Keys are read
+from the environment by name and never echoed: ``ANTHROPIC_API_KEY``,
+``OPENAI_API_KEY`` and ``DEEPSEEK_API_KEY``. DeepSeek's API takes the same
+chat-completions request as OpenAI's, at its own address.
 """
 
 from __future__ import annotations
@@ -13,8 +14,14 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-DEFAULT_MODELS = {"anthropic": "claude-sonnet-5-5", "openai": "gpt-5"}
-KEY_NAMES = {"anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY"}
+DEFAULT_MODELS = {"anthropic": "claude-sonnet-5-5", "openai": "gpt-5", "deepseek": "deepseek-chat"}
+KEY_NAMES = {"anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY", "deepseek": "DEEPSEEK_API_KEY"}
+CHAT_COMPLETIONS = {
+    "openai": "https://api.openai.com/v1/chat/completions",
+    "deepseek": "https://api.deepseek.com/chat/completions",
+}
+"""OpenAI-style endpoints. OpenAI's newer models want ``max_completion_tokens``;
+DeepSeek takes the classic ``max_tokens``."""
 
 
 # Input: none
@@ -42,9 +49,9 @@ def _post(url: str, headers: dict[str, str], body: dict[str, Any]) -> dict[str, 
 
 # Input: prompt (str), provider (str), model (str | None), system (str | None), max_tokens (int)
 # Output: dict[str, Any]
-# Processing: Send one prompt to a hosted model and return its text.
+# Processing: Send one prompt to Claude, OpenAI or DeepSeek and return its text.
 # Changed by: Sourish
-# Date: 2026-10-18
+# Date: 2026-10-22
 def ask(
     prompt: str, *, provider: str = "anthropic", model: str | None = None,
     system: str | None = None, max_tokens: int = 1024,
@@ -71,9 +78,9 @@ def ask(
         else:
             messages = ([{"role": "system", "content": system}] if system else []) + [
                 {"role": "user", "content": prompt}]
-            raw = _post("https://api.openai.com/v1/chat/completions",
-                        {"authorization": f"Bearer {key}"},
-                        {"model": model, "max_completion_tokens": max_tokens, "messages": messages})
+            limit = "max_completion_tokens" if provider == "openai" else "max_tokens"
+            raw = _post(CHAT_COMPLETIONS[provider], {"authorization": f"Bearer {key}"},
+                        {"model": model, limit: max_tokens, "messages": messages})
             text = raw["choices"][0]["message"].get("content") or ""
             usage = raw.get("usage", {})
     except urllib.error.HTTPError as exc:

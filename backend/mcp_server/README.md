@@ -58,7 +58,7 @@ using your own clone path and python:
 | `recommend_for_file` | complex | Suggests library helpers that fit what a file does, leaving out the ones the file already has. |
 | `explain_ranking` | complex | Shows each stage's rank and score for the top results. |
 | `batch_search` | complex | Runs several searches in one call. |
-| `ask_llm` | external | Sends a prompt to Claude (`anthropic`) or `openai`. |
+| `ask_llm` | external | Sends a prompt to Claude (`anthropic`), `openai` or `deepseek`. |
 
 `find_helpers_in_file`, `check_file_against_library` and `recommend_for_file`
 take either `path`, or pasted `code` plus a `filename` (the filename sets the
@@ -92,11 +92,11 @@ revoke access are not available here: a person runs them in the whiteboard.
 |---|---|
 | `PLOVANE_RERANK_DEPTH` | How many candidates the cross-encoder rereads. The default is 20 on CPU (a few seconds; @1 67%) and 100 on GPU (@1 70%). |
 | `PLOVANE_NO_CROSS_ENCODER` | Skips the cross-encoder. Faster and needs less RAM, but @1 drops to 52%. |
-| `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` | Enable `ask_llm`. |
-| `PLOVANE_ANTHROPIC_MODEL`, `PLOVANE_OPENAI_MODEL` | Change the default model (`claude-sonnet-5-5`, `gpt-5`). |
+| `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY` | Enable `ask_llm` for that provider. |
+| `PLOVANE_ANTHROPIC_MODEL`, `PLOVANE_OPENAI_MODEL`, `PLOVANE_DEEPSEEK_MODEL` | Change the default model (`claude-sonnet-5-5`, `gpt-5`, `deepseek-chat`). |
 | `PLOVANE_PROJECT` | The project the whiteboard tools edit. The default is the folder the server starts in. |
 | `PLOVANE_AGENT` | The agent name the whiteboard tools act as, checked against its grants. Unset means a person. |
-| `PLOVANE_LLM_PROVIDER` | `anthropic` (the default) or `openai`, for the whiteboard's English blocks and `/explain`. |
+| `PLOVANE_LLM_PROVIDER` | `anthropic` (the default), `openai` or `deepseek`, for the whiteboard's English blocks and `/explain`. |
 
 ## Speed (laptop CPU, measured)
 
