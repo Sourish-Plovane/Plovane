@@ -20,4 +20,4 @@ dev = ["pytest>=8.0"]
 include = ["ml*"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["ml/tests"]

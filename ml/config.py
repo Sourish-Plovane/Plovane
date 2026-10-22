@@ -7,8 +7,16 @@ be tuned on the validation set, not treated as settled.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 
 # --- Retrieval -------------------------------------------------------------
+
+ML_ROOT = Path(__file__).resolve().parent
+"""The ml/ folder. Data, weights and artifacts hang off it, so every script
+and default path works from any working directory."""
+DATA_DIR = ML_ROOT / "data"
+WEIGHTS_DIR = ML_ROOT / "weights"
+ARTIFACTS_DIR = ML_ROOT / "artifacts"
 
 RETRIEVAL_TOP_K = 1000
 """Candidates handed to ranking. Retrieval's only job is recall@1000."""

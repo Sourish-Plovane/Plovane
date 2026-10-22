@@ -40,10 +40,11 @@ from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from ml.config import DATA_DIR
 from ml.schemas import Entry, EntryType, Visibility
 
-DEFAULT_DATASET = Path("seed/entries.jsonl")
-DEFAULT_QUERIES = Path("seed/queries.jsonl")
+DEFAULT_DATASET = DATA_DIR / "entries.jsonl"
+DEFAULT_QUERIES = DATA_DIR / "queries.jsonl"
 
 DESCRIPTION_AUTHORED = "docstring"
 """``description_source`` value meaning the description is the author's own."""

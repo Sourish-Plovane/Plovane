@@ -37,6 +37,7 @@ import torch
 from torch import Tensor, nn
 
 from ml.config import (
+    WEIGHTS_DIR,
     CROSS_ENCODER_MAX_TOKENS,
     HARD_NEGATIVES_PER_GROUP,
     MVP_LANGUAGES,
@@ -354,7 +355,7 @@ class CrossEncoder(nn.Module):
 def load_cross_encoder(
     weights,
     *,
-    encoder_name: str = "weights/unixcoder-base",
+    encoder_name: str = str(WEIGHTS_DIR / "unixcoder-base"),
     max_tokens: int = CROSS_ENCODER_MAX_TOKENS,
     device: str | None = None,
 ) -> "CrossEncoder":

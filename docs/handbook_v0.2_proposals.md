@@ -331,8 +331,8 @@ for the others). Flagged, not drafted.
 
 ## Verification
 
-21 new tests in `tests/test_handbook_contract.py` pin every shape above.
-Running `python -m pytest tests/test_handbook_contract.py -q` executes
+21 new tests in `ml/tests/test_handbook_contract.py` pin every shape above.
+Running `python -m pytest ml/tests/test_handbook_contract.py -q` executes
 them in under 50 ms.
 
 The schemas live in `ml/schemas.py` (SlimCard, Response) and

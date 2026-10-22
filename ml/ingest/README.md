@@ -17,7 +17,7 @@ the source, not the database.
 
 ```bash
 python -m ml.ingest --target 1200 --plan-only          # no API calls
-GITHUB_TOKEN=... python -m ml.ingest --target 1200 --out seed/
+GITHUB_TOKEN=... python -m ml.ingest --target 1200 --out ml/data/
 
 # Choose the template/helper split. One or neither, never both.
 python -m ml.ingest --target 1200 --templates 900 --plan-only
@@ -28,7 +28,7 @@ Without either flag a quarter of the target is harvested as templates. The
 count is approximate: the split is applied per (category, language) cell and
 the rounding accumulates, so `--templates 900` yields about 902.
 
-Output is `seed/entries.jsonl`, written and flushed per entry so a run that
+Output is `ml/data/entries.jsonl`, written and flushed per entry so a run that
 dies at 900 leaves 900 usable entries, plus a report counting what was
 rejected and why.
 

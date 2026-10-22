@@ -7,7 +7,7 @@ runs first and a rejected repository costs one request instead of fifty.
 
 Run it as a CLI:
 
-    GITHUB_TOKEN=... python -m ml.ingest --target 1200 --out seed/
+    GITHUB_TOKEN=... python -m ml.ingest --target 1200 --out ml/data/
     python -m ml.ingest --target 1200 --plan-only   # no API calls
 
 Output is JSONL -- one entry per line with its provenance -- plus a report
@@ -25,6 +25,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ml.config import DATA_DIR
 from ml.ingest.extract import extract, language_for_path
 from ml.ingest.github_client import GitHubClient, GitHubError, RateLimited
 from ml.ingest.licensing import (
@@ -404,7 +405,7 @@ def harvest(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Harvest licence-cleared seed entries from GitHub.")
     parser.add_argument("--target", type=int, default=1200)
-    parser.add_argument("--out", type=Path, default=Path("seed"))
+    parser.add_argument("--out", type=Path, default=DATA_DIR)
     parser.add_argument("--plan-only", action="store_true", help="print the plan, make no API calls")
     parser.add_argument("--min-per-language", type=int, default=60)
     split = parser.add_mutually_exclusive_group()

@@ -361,7 +361,7 @@ def extract_python(source: str, *, library_rules: bool = True) -> list[Extracted
     Module level only: a method pulled out of a class is not independently
     usable, and recommending one produces code that does not run.
     ``library_rules=False`` keeps private and very short or long functions
-    too, for callers that map a whole file (the whiteboard) rather than pick
+    too, for callers that map a whole file rather than pick
     library candidates.
     """
     try:

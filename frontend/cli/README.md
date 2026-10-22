@@ -1,5 +1,4 @@
 # Command-line interface (B02)
 
-Terminal access to the same commands as the desktop app. Each line typed is
-sent to `POST /api/v1/whiteboard/command` unchanged. See `../README.md` for
-the endpoints and handbook §6 for the CLI contract.
+Terminal access to the same operations as the desktop app, through the local
+backend (B03). See `../README.md` and handbook §6 for the CLI contract.

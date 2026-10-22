@@ -22,27 +22,34 @@ skills-lock.json
 # large. Keep them out of git and in a data store.
 # Ignored per-file rather than as a directory, so the negation below can
 # take effect -- git does not descend into an ignored directory.
-seed/*
+ml/data/*
 # ...but the hand-written training queries are not harvested code: they are
 # small, authored here, and the training set is not reproducible without
 # them, so they are tracked while entries.jsonl stays out.
-!seed/queries.jsonl
+!ml/data/queries.jsonl
 # ...and the manifest of what the library was harvested from. entries.jsonl
 # stays out as regenerable output; this is what makes it regenerable, so
 # without it the committed model artefact could not be reproduced.
-!seed/sources.json
-!seed/README.md
+!ml/data/sources.json
+!ml/data/README.md
 
 
-# Encoder weights. Fetched via `scripts/fetch_weights.py`; see weights/README.md
+# Encoder weights. Fetched via `ml/training/fetch_weights.py`; see ml/weights/README.md
 # for the configured artefacts and their SHA-256 pins. Large and reproducible
 # from the manifest, so they stay out of git -- the fetcher downloads what the
 # manifest names.
-weights/*
-!weights/README.md
-!weights/manifest.json
+ml/weights/*
+!ml/weights/README.md
+!ml/weights/manifest.json
 
 # Library embeddings the model engine caches (regenerated on demand).
-ml_models/.cache/
+ml/serving/.cache/
 # Recommendation and feedback logs the model service writes (training data; keep out of git).
-ml_models/.logs/
+ml/serving/.logs/
+
+# Training outputs. Metrics JSON is committed; weights, logs and per-query
+# scores are large or noisy and go to a GitHub release instead.
+ml/artifacts/*.pt
+ml/artifacts/*.log
+ml/artifacts/*.jsonl
+ml/artifacts/smoke/
