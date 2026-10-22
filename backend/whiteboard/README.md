@@ -20,7 +20,7 @@ whiteboard/
 ├── refactor.py      safe code changes: symbols, real references, imports that follow a move
 ├── sandbox.py       runs the affected tests on a temporary copy of the project before code is written
 ├── server.py        local HTTP API for the desktop app and CLI (127.0.0.1:8700)
-├── mcp_tools.py     grouped MCP tools for AI agents (registered by ml/mcp_server/)
+├── mcp_tools.py     grouped MCP tools for AI agents (registered by backend/mcp_server/)
 └── ops/             one module per command category
     ├── layers.py      layers and zoom
     ├── project.py     real folders and files, /project import
@@ -45,7 +45,7 @@ whiteboard/
 
 ```sh
 python -m backend.whiteboard.server --project /path/to/project     # HTTP API for the frontend
-python -m ml.mcp_server                                    # MCP tools; set PLOVANE_PROJECT to the project
+python -m backend.mcp_server                                    # MCP tools; set PLOVANE_PROJECT to the project
 ```
 
 The board is saved in the project as `.plovane/board.json` and committed with

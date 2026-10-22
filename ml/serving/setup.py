@@ -80,7 +80,7 @@ def main() -> int:
     for note in status["notes"]:
         print(f"    {note}")
     print("Ready. Register it with:  claude mcp add plovane -- "
-          f"{sys.executable} -m ml.mcp_server  (run from {ROOT})")
+          f"{sys.executable} -m backend.mcp_server  (run from {ROOT})")
     return 0
 
 

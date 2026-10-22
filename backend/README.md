@@ -6,6 +6,7 @@ backend, and Nirmal's handbook blocks. The ML models themselves are in `ml/`.
 ```
 backend/
 ├── README.md          this file
+├── mcp_server/        B04 MCP interface: models and whiteboard as tools for AI agents      BUILT
 ├── whiteboard/        whiteboard backend: board, slash commands, local API, agent tools   BUILT
 ├── local_backend/     B03 local Python backend: the app's API on 127.0.0.1              skeleton
 ├── cloud_server/      B05 rate limiter + auth, B07 verified-library access (Flask)       skeleton
@@ -24,7 +25,10 @@ blocks (handbook §2.2).
 frontend (B01 desktop, B02 CLI)
       │ HTTP 127.0.0.1 /api/v1, §4.1 envelope
       ▼
-local_backend (B03) ──── whiteboard (board + project files) ──MCP── AI agents (B04)
+local_backend (B03) ──── whiteboard (board + project files)
+      │                         │
+      │                  mcp_server (B04) ──── AI agents (Claude Code, Claude Desktop)
+      │                         │ also serves the models (ml/serving)
       │ HTTPS, §8
       ▼
 cloud_server (B05 rate limiter + auth) ──► ml/serving/service (B06 recommender)
@@ -37,4 +41,5 @@ cloud_server (B05 rate limiter + auth) ──► ml/serving/service (B06 recomme
 ```sh
 python -m backend.whiteboard.server --project /path/to/project   # whiteboard API, 127.0.0.1:8700
 python -m ml.serving.service.app                                 # recommender API, 127.0.0.1:8600
+claude mcp add plovane -- python -m backend.mcp_server           # tools for Claude Code
 ```

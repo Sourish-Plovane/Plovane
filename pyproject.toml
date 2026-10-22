@@ -20,4 +20,4 @@ dev = ["pytest>=8.0"]
 include = ["ml*", "backend*"]
 
 [tool.pytest.ini_options]
-testpaths = ["ml/tests", "backend/whiteboard/tests"]
+testpaths = ["ml/tests", "backend/mcp_server/tests", "backend/whiteboard/tests"]

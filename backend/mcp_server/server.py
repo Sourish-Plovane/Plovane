@@ -1,12 +1,12 @@
 """Plovane's models as an MCP server (stdio).
 
-    python -m ml.mcp_server
+    python -m backend.mcp_server
 
 Basic tools: search_helpers, find_helpers_in_file, get_helper,
 list_categories, model_status. Complex tools: rerank_candidates,
 check_file_against_library, recommend_for_file, explain_ranking,
 batch_search. Plus ask_llm, which forwards a prompt to Claude or OpenAI.
-See ml/mcp_server/README.md.
+See backend/mcp_server/README.md.
 """
 
 from __future__ import annotations

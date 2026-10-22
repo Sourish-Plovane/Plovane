@@ -23,9 +23,8 @@ ml/
 ├── templates/         whole-file templates and their recommender
 │
 │   ── Running the models ──
-├── serving/           loads the models once and serves them (see serving/README.md)
+├── serving/           loads the models once and serves them; the MCP server is in backend/mcp_server
 │   └── service/       the Flask HTTP API: /v1/recommend, /v1/feedback, ...
-├── mcp_server/        the same models as MCP tools for Claude Code / Claude Desktop
 │
 │   ── Making the models ──
 ├── training/          training, GPU rental and weight-download scripts
@@ -56,7 +55,7 @@ read -s "GITHUB_TOKEN?Paste GitHub token: "; export GITHUB_TOKEN; echo
 python -m ml.serving.setup            # once: weights, library, embedding cache
 python -m pytest                      # tests (no weights or network needed)
 python -m ml.serving.service.app      # HTTP API on 127.0.0.1:8600
-claude mcp add plovane -- python -m ml.mcp_server   # MCP tools for Claude Code
+claude mcp add plovane -- python -m backend.mcp_server   # MCP tools for Claude Code
 ```
 
 Measured on 350 held-out queries, the right helper comes first 69.7% of the

@@ -12,7 +12,7 @@ Plovane/
 ├── Plovane_Handbook.md     architecture, block ownership and JSON contracts
 ├── pyproject.toml
 ├── ml/                     all ML work: model code, data, weights, training, serving, tests
-├── backend/                whiteboard backend (built) and the handbook's backend blocks (skeletons)
+├── backend/                MCP server, whiteboard (built) and the handbook's backend blocks (skeletons)
 ├── frontend/               desktop app (B01) and CLI (B02)
 └── docs/                   proposals for the handbook
 ```
@@ -23,7 +23,8 @@ Plovane/
 |---|---|
 | ML models, training, the recommendation API | `ml/README.md` |
 | Calling the recommender from the backend | `ml/serving/API.md` |
-| Backend: whiteboard, local backend, cloud server, library, credits | `backend/README.md` |
+| Backend: MCP server, whiteboard, local backend, cloud server, library, credits | `backend/README.md` |
+| Connecting AI agents (Claude Code, Claude Desktop) | `backend/mcp_server/README.md` |
 | Frontend (desktop app, CLI) | `frontend/README.md` |
 
 Every folder has a README saying what belongs in it.
@@ -45,4 +46,6 @@ python -m backend.whiteboard.server --project .   # whiteboard API on 127.0.0.1:
   Processing, Changed by, Date). See `.claude/agents/README.md`.
 - Each folder has one README.
 - Adding or removing a top-level folder needs Sourish and Nirmal to approve it.
-- Work happens on branches and merges into `dev`.
+- Work happens on personal branches and merges into `dev`. A personal branch
+  (such as `Sourish`) holds only work in progress: once it's merged into `dev`,
+  it's reset to `dev`, so it never carries finished work.

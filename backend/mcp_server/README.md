@@ -25,7 +25,7 @@ printing the exact command to register the server.
 **Claude Code**, run from the repository root:
 
 ```sh
-claude mcp add plovane -- python -m ml.mcp_server
+claude mcp add plovane -- python -m backend.mcp_server
 ```
 
 **Claude Desktop**: add this to `~/Library/Application Support/Claude/claude_desktop_config.json`,
@@ -36,7 +36,7 @@ using your own clone path and python:
   "mcpServers": {
     "plovane": {
       "command": "/usr/bin/python3",
-      "args": ["-m", "ml.mcp_server"],
+      "args": ["-m", "backend.mcp_server"],
       "cwd": "/Users/you/Plovane",
       "env": {"PYTHONPATH": "/Users/you/Plovane", "ANTHROPIC_API_KEY": "..."}
     }

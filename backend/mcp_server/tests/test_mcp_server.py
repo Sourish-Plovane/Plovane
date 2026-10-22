@@ -151,7 +151,7 @@ def test_explain_reports_every_stage(engine):
 # Changed by: Sourish
 # Date: 2026-10-22
 def test_server_registers_the_tools(engine):
-    from ml.mcp_server.server import WHITEBOARD_TOOLS, mcp
+    from backend.mcp_server.server import WHITEBOARD_TOOLS, mcp
 
     names = {t.name for t in asyncio.run(mcp.list_tools())}
     assert names == {

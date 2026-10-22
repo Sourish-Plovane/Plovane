@@ -92,7 +92,7 @@ def test_mcp_groups_hide_people_only_commands():
 # Changed by: Sourish
 # Date: 2026-10-22
 def test_mcp_tools_run_operations(tmp_path, monkeypatch):
-    from ml.mcp_server.server import mcp
+    from backend.mcp_server.server import mcp
 
     mcp_tools.set_workspace(project(tmp_path))
     monkeypatch.delenv("PLOVANE_AGENT", raising=False)
