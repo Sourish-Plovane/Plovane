@@ -567,6 +567,12 @@ def test_board_read_gives_the_picture(tmp_path):
     assert whole["endpoints"] == [{"id": "payments:POST /charge", "status": "built", "callers": ["checkout.py"]}]
     assert {"from": "checkout.py", "to": "payments", "type": "api", "status": "built",
             "endpoint": "payments:POST /charge"} in whole["arrows"]
+    by_id = {b["id"]: b for b in whole["blocks"]}
+    assert "parent" not in by_id["checkout-py"] and "parent" not in by_id["payments"]  # implied, or top level
+    ok(ws, "/block move checkout.py --into payments")
+    moved = {b["id"]: b for b in ok(ws, "/board")["blocks"]}["checkout-py"]
+    assert moved["parent"] == "payments" and moved["path"] == "services/payments/checkout.py"
+    ok(ws, "/undo")
     assert [b["id"] for b in ok(ws, "/board --layer 1")["blocks"]] == ["payments"]
     assert {b["id"] for b in ok(ws, "/board --block web")["blocks"]} == {"web", "checkout-py"}
     ok(ws, "/agent add bot")

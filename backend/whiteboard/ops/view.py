@@ -147,6 +147,20 @@ def filter_(ctx: Context, blocks: Any = None, arrows: Any = None, clear: Any = F
     return {"filter": ctx.board.view["filter"]}
 
 
+# Input: board (Board), block (Block)
+# Output: bool
+# Processing: Whether a block's parent is just the folder its own path already names.
+# Changed by: Sourish
+# Date: 2026-10-22
+def parent_in_path(board, block: Block) -> bool:
+    """True for a file or folder whose parent is the folder block for its
+    directory, so ``/board`` can leave the repeated parent out."""
+    parent = board.blocks.get(block.parent or "")
+    if parent is None or block.kind not in ("file", "folder") or not block.path or parent.kind != "folder":
+        return False
+    return (parent.path or "").strip("/") == block.path.strip("/").rpartition("/")[0]
+
+
 # Input: ctx (Context), layer (Any), block (str | None), limit (Any)
 # Output: dict[str, Any]
 # Processing: Read the board: an overview, one layer, or one block with everything inside it.
@@ -154,7 +168,10 @@ def filter_(ctx: Context, blocks: Any = None, arrows: Any = None, clear: Any = F
 # Date: 2026-10-22
 @operation("board.read", command="/board", tool="plovane_board_read", group="plovane_view", mutates=False)
 def read(ctx: Context, layer: Any = None, block: str | None = None, limit: Any = 200) -> dict[str, Any]:
-    """Reads the whiteboard: blocks, arrows, endpoints and status, for an AI to get the picture first."""
+    """Reads the whiteboard: blocks, arrows, endpoints and status, for an AI to get the picture first.
+
+    ``parent`` is left out when it adds nothing: top-level blocks, and files
+    or folders whose parent is the folder already named in their path."""
     cap = integer(limit, "limit")
     board = ctx.board
     if block is not None:
@@ -176,7 +193,8 @@ def read(ctx: Context, layer: Any = None, block: str | None = None, limit: Any =
         "layers": [{"number": l.number, "name": l.name, "zoom": [l.zoom_min, l.zoom_max],
                     "blocks": sum(b.layer == l.number for b in chosen)}
                    for l in sorted(board.layers.values(), key=lambda l: l.number)],
-        "blocks": [{"id": b.id, "kind": b.kind, "name": b.name, "layer": b.layer, "parent": b.parent,
+        "blocks": [{"id": b.id, "kind": b.kind, "name": b.name, "layer": b.layer,
+                    **({"parent": b.parent} if b.parent and not parent_in_path(board, b) else {}),
                     "path": b.path or b.meta.get("file"), "status": b.status,
                     **({"health": b.meta["health"]} if b.meta.get("health") else {}),
                     **({"library": b.meta["library"]} if b.meta.get("library") else {})} for b in shown],
