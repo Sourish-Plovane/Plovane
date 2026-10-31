@@ -63,6 +63,11 @@ def _block_from_row(row: Any) -> dict[str, Any]:
 # Changed by: Nirmal
 # Date: 2026-10-31
 class Repo:
+    # Input: engine (Engine)
+    # Output: None
+    # Processing: Store the engine; writes and reads reuse its connection.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
     def __init__(self, engine: Engine) -> None:
         self.engine = engine
 

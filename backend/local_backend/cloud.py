@@ -24,6 +24,11 @@ from backend.local_backend.contracts import code_for_status
 class CloudError(RuntimeError):
     """The cloud call failed. ``code`` is a §16.2 code."""
 
+    # Input: code (str), message (str), status (int)
+    # Output: None
+    # Processing: Carry the §16.2 code and the HTTP status alongside the message.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
     def __init__(self, code: str, message: str, status: int = 502) -> None:
         super().__init__(message)
         self.code = code
@@ -36,6 +41,11 @@ class CloudError(RuntimeError):
 # Changed by: Nirmal
 # Date: 2026-10-31
 class HttpCloudClient:
+    # Input: base_url (str), timeout (float)
+    # Output: None
+    # Processing: Normalise the base URL and remember the HTTP timeout.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
     def __init__(self, base_url: str, timeout: float = 30.0) -> None:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout

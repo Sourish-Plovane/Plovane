@@ -49,6 +49,11 @@ def error(code: str, message: str) -> dict[str, Any]:
 class ContractError(ValueError):
     """A request that breaks a contract. ``code`` is a §16.2 error code."""
 
+    # Input: message (str), code (str)
+    # Output: None
+    # Processing: Carry the §16.2 code alongside the human message.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
     def __init__(self, message: str, code: str = "INVALID_REQUEST") -> None:
         super().__init__(message)
         self.code = code

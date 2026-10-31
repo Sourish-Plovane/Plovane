@@ -24,6 +24,11 @@ from typing import Any, Protocol
 # Changed by: Nirmal
 # Date: 2026-10-31
 class DiagramClient(Protocol):
+    # Input: body (dict)
+    # Output: dict
+    # Processing: Protocol stub: implementations return a §5.4 diagram.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
     def generate(self, body: dict[str, Any]) -> dict[str, Any]:
         ...
 
@@ -34,6 +39,11 @@ class DiagramClient(Protocol):
 # Changed by: Nirmal
 # Date: 2026-10-31
 class StubDiagramClient:
+    # Input: body (dict)
+    # Output: dict
+    # Processing: One §5.4 file-node per §9.1 file; no edges.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
     def generate(self, body: dict[str, Any]) -> dict[str, Any]:
         project_id = body.get("project_id") or ""
         nodes = []
@@ -54,6 +64,11 @@ class StubDiagramClient:
 # Changed by: Nirmal
 # Date: 2026-10-31
 class HttpDiagramClient:
+    # Input: base_url (str), timeout (float)
+    # Output: None
+    # Processing: Normalise the base URL and remember the HTTP timeout.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
     def __init__(self, base_url: str, timeout: float = 60.0) -> None:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout

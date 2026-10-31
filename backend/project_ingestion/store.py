@@ -19,8 +19,25 @@ from typing import Any, Protocol
 # Changed by: Nirmal
 # Date: 2026-10-31
 class ProjectStore(Protocol):
+    # Input: project_id (str), record (dict)
+    # Output: None
+    # Processing: Protocol stub: replace the record for a project id.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
     def put(self, project_id: str, record: dict[str, Any]) -> None: ...
+
+    # Input: project_id (str), patch (dict)
+    # Output: None
+    # Processing: Protocol stub: merge a patch into the record for a project id.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
     def update(self, project_id: str, patch: dict[str, Any]) -> None: ...
+
+    # Input: project_id (str)
+    # Output: dict | None
+    # Processing: Protocol stub: return the stored record, or None.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
     def get(self, project_id: str) -> dict[str, Any] | None: ...
 
 
@@ -30,6 +47,11 @@ class ProjectStore(Protocol):
 # Changed by: Nirmal
 # Date: 2026-10-31
 class InMemoryStore:
+    # Input: none
+    # Output: None
+    # Processing: Start the store empty with a lock to serialise writes.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._rows: dict[str, dict[str, Any]] = {}

@@ -21,6 +21,11 @@ from typing import Any, Protocol
 class UpstreamError(RuntimeError):
     """The recommender call failed. ``code`` is a §16.2 code."""
 
+    # Input: code (str), message (str), status (int)
+    # Output: None
+    # Processing: Carry the §16.2 code and the HTTP status alongside the message.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
     def __init__(self, code: str, message: str, status: int = 502) -> None:
         super().__init__(message)
         self.code = code
@@ -33,6 +38,11 @@ class UpstreamError(RuntimeError):
 # Changed by: Nirmal
 # Date: 2026-10-31
 class Recommender(Protocol):
+    # Input: body (dict[str, Any])
+    # Output: dict[str, Any]
+    # Processing: Protocol stub: implementations POST to B06 and return its JSON.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
     def recommend(self, body: dict[str, Any]) -> dict[str, Any]:
         ...
 
@@ -43,6 +53,11 @@ class Recommender(Protocol):
 # Changed by: Nirmal
 # Date: 2026-10-31
 class HttpRecommender:
+    # Input: base_url (str), timeout (float)
+    # Output: None
+    # Processing: Normalise the base URL and remember the HTTP timeout.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
     def __init__(self, base_url: str, timeout: float = 60.0) -> None:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout

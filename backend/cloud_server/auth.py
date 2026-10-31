@@ -65,6 +65,11 @@ def bearer_token(header: str | None) -> str | None:
 # Changed by: Nirmal
 # Date: 2026-10-31
 class Guard:
+    # Input: identity (IdentityStore), require (bool | None)
+    # Output: None
+    # Processing: Store the identity backend and decide whether auth is required.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
     def __init__(self, identity: IdentityStore, require: bool | None = None) -> None:
         self.identity = identity
         self.require = _flag(os.environ.get("PLOVANE_REQUIRE_AUTH")) if require is None else require

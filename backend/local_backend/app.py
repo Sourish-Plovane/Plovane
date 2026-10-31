@@ -54,11 +54,46 @@ from backend.local_backend.contracts import (
 class CloudClient(Protocol):
     session_token: str | None
 
+    # Input: token (str | None)
+    # Output: None
+    # Processing: Protocol stub: remember the §8.3 bearer token for later calls.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
     def set_session(self, token: str | None) -> None: ...
+
+    # Input: body (dict[str, Any])
+    # Output: dict[str, Any]
+    # Processing: Protocol stub: POST §8.1 and return the §8.2 JSON.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
     def post_recommendation(self, body: dict[str, Any]) -> dict[str, Any]: ...
+
+    # Input: body (dict[str, Any])
+    # Output: dict[str, Any]
+    # Processing: Protocol stub: POST a §5.5 project submission.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
     def post_project(self, body: dict[str, Any]) -> dict[str, Any]: ...
+
+    # Input: project_id (str)
+    # Output: dict[str, Any]
+    # Processing: Protocol stub: GET the stored §5.4 diagram.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
     def get_diagram(self, project_id: str) -> dict[str, Any]: ...
+
+    # Input: body (dict[str, Any])
+    # Output: dict[str, Any]
+    # Processing: Protocol stub: POST §8.3 login.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
     def login(self, body: dict[str, Any]) -> dict[str, Any]: ...
+
+    # Input: body (dict[str, Any])
+    # Output: dict[str, Any]
+    # Processing: Protocol stub: POST §8.3 registration.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
     def register(self, body: dict[str, Any]) -> dict[str, Any]: ...
 
 

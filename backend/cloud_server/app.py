@@ -49,9 +49,7 @@ def error_body(request_id: Any, code: str, message: str) -> dict[str, Any]:
             "error": {"code": code, "message": message}}
 
 
-# Input: upstream (Recommender | None), limiter (RateLimiter | None),
-#        identity (IdentityStore | None), ingestion (IngestionService | None),
-#        credits (CreditsRepo | None), require_auth (bool | None)
+# Input: upstream, limiter, identity, ingestion, credits, require_auth (all optional)
 # Output: Flask
 # Processing: Build the cloud app with its collaborators injected for tests.
 # Changed by: Nirmal

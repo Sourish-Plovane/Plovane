@@ -19,6 +19,11 @@ from collections.abc import Callable
 # Changed by: Nirmal
 # Date: 2026-10-31
 class TokenBucket:
+    # Input: capacity (float), refill_per_second (float), clock (Callable[[], float])
+    # Output: None
+    # Processing: Validate the inputs and start the bucket full.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
     def __init__(self, capacity: float = 60.0, refill_per_second: float = 1.0,
                  clock: Callable[[], float] = time.monotonic) -> None:
         if capacity <= 0 or refill_per_second <= 0:
@@ -50,6 +55,11 @@ class TokenBucket:
 # Changed by: Nirmal
 # Date: 2026-10-31
 class RateLimiter:
+    # Input: capacity (float), refill_per_second (float), clock (Callable[[], float])
+    # Output: None
+    # Processing: Hold the bucket parameters and the per-key bucket map.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
     def __init__(self, capacity: float = 60.0, refill_per_second: float = 1.0,
                  clock: Callable[[], float] = time.monotonic) -> None:
         self.capacity = float(capacity)

@@ -20,6 +20,11 @@ from contextlib import contextmanager
 # Changed by: Nirmal
 # Date: 2026-10-31
 class Engine:
+    # Input: path (str)
+    # Output: None
+    # Processing: Remember the DB path; defer connecting until first use.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
     def __init__(self, path: str = ":memory:") -> None:
         self.path = path
         self._lock = threading.Lock()

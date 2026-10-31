@@ -35,6 +35,11 @@ class AdmissionError(ValueError):
 # Changed by: Nirmal
 # Date: 2026-10-31
 class LibraryAccess:
+    # Input: engine (LibraryEngine | None)
+    # Output: None
+    # Processing: Default the engine to a fresh in-memory B08 engine.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
     def __init__(self, engine: LibraryEngine | None = None) -> None:
         self.engine = engine or LibraryEngine()
         self.repo = LibraryRepo(self.engine)

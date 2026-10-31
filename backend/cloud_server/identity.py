@@ -94,6 +94,11 @@ CREATE INDEX IF NOT EXISTS plovane_session_user ON plovane_session(user_id);
 # Changed by: Nirmal
 # Date: 2026-10-31
 class IdentityStore:
+    # Input: path (str | None), ttl (timedelta), clock (Callable | None)
+    # Output: None
+    # Processing: Remember the DB path, TTL and clock; defer opening the DB.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
     def __init__(self, path: str | None = None,
                  ttl: timedelta = timedelta(hours=24),
                  clock: Callable[[], datetime] | None = None) -> None:

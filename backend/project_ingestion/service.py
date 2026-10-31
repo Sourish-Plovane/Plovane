@@ -27,6 +27,11 @@ from backend.validator.diagram import validate_diagram
 class IngestionError(ValueError):
     """A §5.5 payload that breaks the ingestion contract."""
 
+    # Input: message (str), code (str)
+    # Output: None
+    # Processing: Carry the §16.2 code alongside the human message.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
     def __init__(self, message: str, code: str = "INVALID_REQUEST") -> None:
         super().__init__(message)
         self.code = code
@@ -92,6 +97,11 @@ def new_submission_id() -> str:
 # Changed by: Nirmal
 # Date: 2026-10-31
 class IngestionService:
+    # Input: diagram_client (DiagramClient | None), store (ProjectStore | None)
+    # Output: None
+    # Processing: Default the diagram client to the stub and the store to in-memory.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
     def __init__(self, diagram_client: DiagramClient | None = None,
                  store: ProjectStore | None = None) -> None:
         self.diagram_client = diagram_client or StubDiagramClient()
