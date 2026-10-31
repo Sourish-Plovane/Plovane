@@ -36,6 +36,7 @@ from ml.serving.service.contract import (
     request_from_handbook,
     response_to_handbook,
 )
+from ml.serving.service.diagram import generate as generate_diagram
 from ml.serving.service.store import FeedbackStore
 
 MAX_BODY_BYTES = 2 * 1024 * 1024
@@ -206,6 +207,19 @@ def create_app(
     @app.get("/healthz")
     def healthz():
         return jsonify({"ok": True})
+
+    # Input: none
+    # Output: Response
+    # Processing: §9.1 project in, §5.4 diagram out. B10 for connection 8.
+    # Changed by: Sourish
+    # Date: 2026-10-31
+    @app.post("/v1/diagram/generate")
+    def diagram_generate():
+        raw = body()
+        try:
+            return jsonify(generate_diagram(raw))
+        except ValueError as exc:
+            raise ContractError(str(exc)) from None
 
     # Input: none
     # Output: Response
