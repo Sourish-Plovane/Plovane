@@ -27,4 +27,9 @@ testpaths = [
     "backend/local_backend/tests",
     "backend/cloud_server/tests",
     "backend/validator/tests",
+    "backend/library_db/tests",
+    "backend/library_access/tests",
+    "backend/unverified_db/tests",
+    "backend/credits/tests",
+    "backend/project_ingestion/tests",
 ]

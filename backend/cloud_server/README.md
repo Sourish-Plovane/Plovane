@@ -1,58 +1,70 @@
-# cloud_server (B05, B07): B05 partly built
+# cloud_server (B05): built
 
-**Owner:** Nirmal. **Status:** B05 rate limiting and §8.1 forwarding are
-built; auth (§8.3) and B07 are not started.
+**Owner:** Nirmal. **Status:** rate limiter, §8.1 forwarding, §8.3 auth,
+§5.5 project submission and §15 contributions all built.
 
-The Flask server in the cloud. It has two jobs:
+The Flask server in the cloud. Three jobs:
 
-- **B05 rate limiter and auth.** It authenticates the local backend's
-  requests and limits each user, then forwards them. Login and registration
-  payloads are in §8.3.
-- **B07 verified-library access.** It reads and writes library blocks in
-  B08 for the recommender and for verification.
+- **B05 rate limiter and auth.** Authenticates the local backend's requests
+  (§8.3 bearer token on `/v1/*` endpoints when `PLOVANE_REQUIRE_AUTH=1`),
+  rate-limits each user, forwards to the right upstream.
+- **Project route.** `POST /v1/project` runs the B09 ingestion in-process and
+  stores the §5.4 diagram.
+- **Credits route.** `POST /v1/contributions` and `GET /v1/credits/<user_id>`
+  back the handbook §15 payloads.
 
-## Contracts it must follow
+B07 verified-library access lives in `backend/library_access/`; this process
+holds the façade and reads from B08 (sqlite in dev, Postgres+pgvector in prod).
+
+## Contracts it follows
 
 | Connection | Handbook | Status |
 |---|---|---|
-| B03 → B05 recommendation | §8.1 request, §8.2 response | proposed |
-| B03 → B05 login, registration | §8.3 | proposed; the session mechanism needs review |
-| B05 → B06 recommender | none in the handbook (**gap G2**) | `ml/serving/service/contract.py` proposes the mapping |
-| B06 ↔ B07, B07 ↔ B08 | §5.2 code-block shape only (**gap G3**: no lookup payloads) | open |
-| B05 → B09 project ingestion | route not specified (**gap G8**) | open |
+| B03 → B05 recommendation | §8.1 / §8.2 | built; forwarded unchanged to B06 |
+| B03 → B05 login/register | §8.3 | built (OD-4 still open) |
+| B05 → B06 recommender | gap G2 | `ml/serving/service/contract.py` is the mapping |
+| B05 ↔ B09 project ingestion | §5.5 → §9.1 → §5.4 | built in-process (closes gap G8 for this path) |
+| B16 ↔ B08 contribution/credits | §15 | built via `backend/credits` |
 
-## What is built
+## Routes
 
 `app.py` runs on `127.0.0.1:8500`:
 
 | Route | Handbook |
 |---|---|
-| `POST /v1/recommend` | §8.1 in, §8.2 out; forwarded unchanged to B06 |
 | `GET /healthz` | liveness |
+| `POST /v1/recommend` | §8.1 in, §8.2 out; forwarded to B06 |
+| `POST /v1/project` | §5.5 in, `{submission_id, project_id, status: accepted}` out |
+| `GET /v1/project/<id>/diagram` | §5.4 read |
+| `POST /v1/contributions` | §15.1 in, §15.2 out |
+| `GET /v1/credits/<user_id>` | balances per credit type |
+| `POST /v1/auth/register` | §8.3 register |
+| `POST /v1/auth/login` | §8.3 login |
 
 Errors use `{"request_id", "error": {"code", "message"}}` with the §16.2
-vocabulary (gap G9). `rate_limit.py` is a token bucket per `user_id`
-(`RATE_LIMITED`, 429). It is in memory, so run one B05 process or move the
-counters to Redis before scaling out. `upstream.py` is the B06 client.
+vocabulary (gap G9). `rate_limit.py` is a token bucket per authenticated
+`user_id`, falling back to the peer address when the server runs with
+`PLOVANE_REQUIRE_AUTH=0` for development.
 
 ```sh
 python -m backend.cloud_server.app                               # 127.0.0.1:8500
 python -m ml.serving.service.app                                 # B06 on 127.0.0.1:8600
+PLOVANE_REQUIRE_AUTH=1 python -m backend.cloud_server.app        # require §8.3 token
 ```
 
-Auth is deliberately absent: the §8.3 session mechanism is an open decision
-(OD-4), so do not expose this server publicly until it exists.
+## Identity + sessions
 
-## What already exists to build on
+`identity.py` is a sqlite-backed store (env `PLOVANE_IDENTITY_DB`). Passwords
+are PBKDF2-HMAC-SHA256; Argon2id is the recommended prod swap. Session tokens
+are random 32-byte URL-safe strings with a 24-hour TTL by default.
 
-- **B06 is built.** `POST /v1/recommend` takes §8.1 and returns §8.2, and
-  `POST /v1/feedback` records accept and reject (`ml/serving/service/app.py`).
-  B05 forwards to it after its rate check.
-- `ml/serving/service/contract.py` is the accepted G2 mapping, so B05 passes
-  the §8.1 body through unchanged instead of reshaping it.
+`auth.py` is the request-time guard: `/healthz` and `/v1/auth/*` stay public;
+everything else needs an `Authorization: Bearer <token>` header when
+`PLOVANE_REQUIRE_AUTH=1`.
 
-## Suggested shape (still open)
+## Open items
 
-Login and registration (§8.3): hash passwords with argon2 and issue session
-tokens. Use one gunicorn worker per CPU for B05, and run B06 as its own
-service, because each B06 worker holds about 2 GB of models.
+- **OD-4:** §8.3 schemas and TTL policy still need engineering sign-off before
+  the auth endpoints are frozen for production.
+- Multi-worker deploys need a shared rate-limit store (Redis). Documented in
+  `rate_limit.py` already; swap in before scaling out.

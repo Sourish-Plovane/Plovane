@@ -39,6 +39,44 @@ class HttpCloudClient:
     def __init__(self, base_url: str, timeout: float = 30.0) -> None:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
+        self.session_token: str | None = None
+
+    # Input: token (str | None)
+    # Output: None
+    # Processing: Remember the §8.3 bearer token for later cloud calls.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
+    def set_session(self, token: str | None) -> None:
+        self.session_token = token or None
+
+    # Input: path (str), body (dict[str, Any] | None), method (str)
+    # Output: dict[str, Any]
+    # Processing: Send JSON to the cloud; return the parsed response.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
+    def _call(self, path: str, body: dict[str, Any] | None,
+              method: str = "POST") -> dict[str, Any]:
+        headers = {"Accept": "application/json"}
+        data: bytes | None = None
+        if body is not None:
+            data = json.dumps(body).encode("utf-8")
+            headers["Content-Type"] = "application/json"
+        if self.session_token:
+            headers["Authorization"] = f"Bearer {self.session_token}"
+        request = urllib.request.Request(self.base_url + path, data=data,
+                                         headers=headers, method=method)
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout) as reply:
+                return _json_body(reply.read())
+        except urllib.error.HTTPError as exc:
+            payload = _json_body(exc.read()) if exc.fp is not None else {}
+            code, message = _error_fields(payload, exc.code)
+            raise CloudError(code, message, exc.code) from None
+        except urllib.error.URLError as exc:
+            raise CloudError("INTERNAL_ERROR",
+                             f"cannot reach the cloud server: {exc.reason}", 503) from None
+        except TimeoutError:
+            raise CloudError("INTERNAL_ERROR", "the cloud server timed out", 504) from None
 
     # Input: body (dict[str, Any])
     # Output: dict[str, Any]
@@ -46,23 +84,39 @@ class HttpCloudClient:
     # Changed by: Nirmal
     # Date: 2026-10-31
     def post_recommendation(self, body: dict[str, Any]) -> dict[str, Any]:
-        request = urllib.request.Request(
-            self.base_url + "/v1/recommend",
-            data=json.dumps(body).encode("utf-8"),
-            headers={"Content-Type": "application/json", "Accept": "application/json"},
-            method="POST",
-        )
-        try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as reply:
-                return _json_body(reply.read())
-        except urllib.error.HTTPError as exc:
-            payload = _json_body(exc.read())
-            code, message = _error_fields(payload, exc.code)
-            raise CloudError(code, message, exc.code) from None
-        except urllib.error.URLError as exc:
-            raise CloudError("INTERNAL_ERROR", f"cannot reach the cloud server: {exc.reason}", 503) from None
-        except TimeoutError:
-            raise CloudError("INTERNAL_ERROR", "the cloud server timed out", 504) from None
+        return self._call("/v1/recommend", body)
+
+    # Input: body (dict[str, Any])
+    # Output: dict[str, Any]
+    # Processing: POST the §5.5 project submission.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
+    def post_project(self, body: dict[str, Any]) -> dict[str, Any]:
+        return self._call("/v1/project", body)
+
+    # Input: project_id (str)
+    # Output: dict[str, Any]
+    # Processing: GET the stored §5.4 diagram for a project.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
+    def get_diagram(self, project_id: str) -> dict[str, Any]:
+        return self._call(f"/v1/project/{project_id}/diagram", None, method="GET")
+
+    # Input: body (dict[str, Any])
+    # Output: dict[str, Any]
+    # Processing: POST §8.3 login; the response carries session_token.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
+    def login(self, body: dict[str, Any]) -> dict[str, Any]:
+        return self._call("/v1/auth/login", body)
+
+    # Input: body (dict[str, Any])
+    # Output: dict[str, Any]
+    # Processing: POST §8.3 registration; returns the new user_id.
+    # Changed by: Nirmal
+    # Date: 2026-10-31
+    def register(self, body: dict[str, Any]) -> dict[str, Any]:
+        return self._call("/v1/auth/register", body)
 
 
 # Input: raw (bytes)
