@@ -22,9 +22,10 @@ from __future__ import annotations
 
 import argparse
 import threading
+from pathlib import Path
 from typing import Any
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 
 from backend.whiteboard.engine import USER, Workspace
 
@@ -41,6 +42,25 @@ STATUS = {"INVALID_ARGS": 400, "INVALID_COMMAND": 400, "UNKNOWN_COMMAND": 400, "
 def create_app(workspace: Workspace) -> Flask:
     app = Flask("plovane-whiteboard")
     lock = threading.Lock()  # one operation at a time: the board is shared state
+    frontend = Path(__file__).resolve().parents[2] / "frontend" / "whiteboard"
+
+    # Input: none
+    # Output: HTML response
+    # Processing: Serve the standalone whiteboard from the existing local API origin.
+    # Changed by: Codex
+    # Date: 2026-11-07
+    @app.get("/whiteboard")
+    def whiteboard_page():
+        return send_from_directory(frontend, "index.html")
+
+    # Input: asset (str)
+    # Output: CSS or JavaScript response
+    # Processing: Serve only files inside the standalone whiteboard directory.
+    # Changed by: Codex
+    # Date: 2026-11-07
+    @app.get("/whiteboard/<path:asset>")
+    def whiteboard_asset(asset: str):
+        return send_from_directory(frontend, asset)
 
     # Input: reply (dict[str, Any])
     # Output: tuple
