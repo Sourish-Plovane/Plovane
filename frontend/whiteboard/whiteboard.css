@@ -1,6 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
 
 :root {
+    --sidebar-width:240px;
+    --prompt-height:190px;
+    --corner-overlap:0px;
     font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
     color:#20242c;
     background:#f8f9fb;
@@ -53,16 +56,11 @@ button {
     font-size:18px;
     letter-spacing:-.7px;
 }
-.brand-mark {
-    display:grid;
-    place-items:center;
-    width:27px;
-    height:27px;
-    border-radius:9px;
-    background:#7357e8;
-    color:white;
-    font-size:19px;
-    font-weight:700;
+.brand-logo {
+    width:30px;
+    height:30px;
+    border-radius:8px;
+    object-fit:cover;
 }
 .menu-bar {
     display:flex;
@@ -101,6 +99,10 @@ button {
     border-radius:9px;
 }
 .menu-wrap.open .menu-pop {
+    display:block;
+}
+.menu-wrap:hover .menu-pop,
+.menu-wrap:focus-within .menu-pop {
     display:block;
 }
 .menu-pop button {
@@ -170,25 +172,30 @@ button {
     font-weight:700;
 }
 .workspace {
-    height:calc(100vh - 58px - 190px);
+    height:calc(100vh - 58px - var(--prompt-height));
     min-height:390px;
     display:flex;
     position:relative;
 }
 .sidebar {
-    width:240px;
+    width:var(--sidebar-width);
+    margin-bottom:calc(-1 * var(--corner-overlap));
     background:#fff;
     border-right:1px solid #eceef2;
     display:flex;
     flex-direction:column;
     flex-shrink:0;
-    transition:width .2s,margin .2s;
-    z-index:3;
+    z-index:10;
+    position:relative;
+    flex-shrink:0;
 }
 .sidebar.collapsed {
     width:0;
     overflow:hidden;
     border:0;
+}
+.prompt-dock.closed {
+    display:none;
 }
 .sidebar-heading {
     height:70px;
@@ -822,13 +829,90 @@ button {
     background:#ffffff22;
 }
 .prompt-dock {
-    height:190px;
+    height:var(--prompt-height);
+    width:calc(100% + var(--corner-overlap));
+    margin-left:calc(-1 * var(--corner-overlap));
     position:relative;
     z-index:8;
     background:#fff;
     border-top:1px solid #e9eaf0;
     box-shadow:0 -7px 24px #20242c07;
     padding:13px max(24px,calc((100vw - 1120px)/2)) 9px;
+    flex-shrink:0;
+}
+.side-resize {
+    position:absolute;
+    z-index:8;
+    top:0;
+    right:-4px;
+    bottom:0;
+    width:8px;
+    cursor:col-resize;
+    touch-action:none;
+}
+.side-resize::after {
+    content:"";
+    position:absolute;
+    top:50%;
+    left:3px;
+    width:2px;
+    height:34px;
+    border-radius:2px;
+    background:#d8d9e0;
+    opacity:0;
+    transform:translateY(-50%);
+}
+.side-resize:hover::after,
+.side-resize:active::after {
+    opacity:1;
+}
+.bottom-resize {
+    position:absolute;
+    z-index:12;
+    top:-5px;
+    left:0;
+    right:0;
+    height:10px;
+    cursor:row-resize;
+    touch-action:none;
+}
+.bottom-resize span {
+    position:absolute;
+    top:3px;
+    left:50%;
+    width:42px;
+    height:3px;
+    border-radius:3px;
+    background:#d7d8df;
+    transform:translateX(-50%);
+    opacity:0;
+}
+.bottom-resize:hover span,
+.bottom-resize:active span {
+    opacity:1;
+}
+.corner-resize {
+    position:absolute;
+    z-index:14;
+    top:-7px;
+    left:calc(var(--sidebar-width) + var(--corner-overlap) / 2);
+    width:16px;
+    height:16px;
+    cursor:ew-resize;
+    touch-action:none;
+}
+.corner-resize span {
+    display:block;
+    width:100%;
+    height:100%;
+    border:1px solid #dedee6;
+    border-radius:4px;
+    background:#fff;
+    opacity:0;
+}
+.corner-resize:hover span,
+.corner-resize:active span {
+    opacity:1;
 }
 .prompt-top {
     display:flex;
@@ -1104,8 +1188,8 @@ button {
     font-size:9px;
 }
 @media(max-width:850px) {
-    .sidebar {
-        width:195px;
+    :root {
+        --sidebar-width:195px;
     }
     .project-name {
         display:none;
@@ -1132,9 +1216,6 @@ button {
     .brand {
         font-size:0;
     }
-    .brand-mark {
-        font-size:19px;
-    }
     .menu-trigger {
         padding:7px 6px;
         font-size:11px;
@@ -1143,13 +1224,13 @@ button {
         gap:5px;
     }
     .workspace {
-        height:calc(100vh - 58px - 174px);
+        height:calc(100vh - 58px - var(--prompt-height));
     }
     .sidebar {
         position:absolute;
         top:48px;
         bottom:0;
-        width:184px;
+        width:var(--sidebar-width);
         box-shadow:3px 0 14px #25294013;
     }
     .sidebar.collapsed {
@@ -1162,7 +1243,6 @@ button {
         display:none;
     }
     .prompt-dock {
-        height:174px;
         padding:10px;
     }
     .prompt-box {

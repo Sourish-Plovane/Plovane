@@ -7,18 +7,19 @@
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="#" aria-label="Plovane"><span class="brand-mark">p</span><span>plovane</span></a>
+    <a class="brand" href="#" aria-label="Plovane"><img class="brand-logo" src="../1770049027667.jpeg" alt=""><span>Plovane</span></a>
     <div class="menu-bar" role="menubar">
       <div class="menu-wrap"><button class="menu-trigger" aria-expanded="false">File</button><div class="menu-pop"><button data-action="import">Import project…</button><button data-action="new-file">New file…</button><button data-action="save">Save snapshot</button><hr><button data-action="github">GitHub connection</button></div></div>
       <div class="menu-wrap"><button class="menu-trigger" aria-expanded="false">Edit</button><div class="menu-pop"><button data-action="undo">Undo <kbd>⌘ Z</kbd></button><button data-action="redo">Redo <kbd>⇧ ⌘ Z</kbd></button><hr><button data-action="human-edit">Record human edit</button></div></div>
       <div class="menu-wrap"><button class="menu-trigger" aria-expanded="false">Tools</button><div class="menu-pop"><button data-command="/scan">Security scan</button><button data-command="/endpoint check all">Check API connections</button><button data-command="/health">Project health</button><button data-command="/palette ui-components">Verified block palette</button><button data-command="/rank \"reusable code for this project\" --k 10">Rank library entries</button></div></div>
-      <div class="menu-wrap"><button class="menu-trigger" aria-expanded="false">Window</button><div class="menu-pop"><button data-action="fit">Fit project</button><button data-action="zoom-in">Zoom in</button><button data-action="zoom-out">Zoom out</button><button data-action="toggle-sidebar">Toggle side panel</button></div></div>
+      <div class="menu-wrap"><button class="menu-trigger" aria-expanded="false">Window</button><div class="menu-pop"><button data-action="fit">Fit project</button><button data-action="zoom-in">Zoom in</button><button data-action="zoom-out">Zoom out</button><hr><button data-action="toggle-sidebar">Show / hide side bar</button><button data-action="toggle-bottom-bar">Show / hide bottom bar</button></div></div>
       <div class="menu-wrap"><button class="menu-trigger" aria-expanded="false">Help</button><div class="menu-pop"><button data-action="commands">Command reference</button><button data-action="shortcuts">Keyboard shortcuts</button><button data-action="about">About Plovane</button></div></div>
     </div>
     <div class="top-right"><span class="project-name"><i></i> plovane / payments-api</span><button class="square-btn" aria-label="Home" title="Home (not available yet)">⌂</button><button class="square-btn" aria-label="Settings" title="Settings (not available yet)">⚙</button><button class="avatar" title="Account">A</button></div>
   </header>
   <main class="workspace">
     <aside class="sidebar" id="sidebar">
+      <div class="side-resize" id="side-resize" role="separator" aria-orientation="vertical" aria-label="Resize side bar" title="Drag to resize or close"></div>
       <div class="sidebar-heading"><div><span class="eyebrow">WORKSPACE</span><strong>Payments API</strong></div><button class="icon-btn" data-action="sidebar-menu" aria-label="Workspace options">···</button></div>
       <div class="sidebar-tabs" role="tablist"><button class="side-tab active" data-tab="files">▤<span>Files</span></button><button class="side-tab" data-tab="agents">◉<span>Agents</span></button><button class="side-tab" data-tab="services">⬡<span>Services</span></button><button class="side-tab" data-tab="code">⌘<span>Code</span></button></div>
       <section class="sidebar-content" id="sidebar-content"></section>
@@ -36,6 +37,8 @@
     </section>
   </main>
   <section class="prompt-dock" aria-label="Prompt panel">
+    <div class="bottom-resize" id="bottom-resize" role="separator" aria-orientation="horizontal" aria-label="Resize bottom bar" title="Drag to resize or close"><span></span></div>
+    <div class="corner-resize" id="corner-resize" role="separator" aria-orientation="vertical" aria-label="Adjust side and bottom bar overlap" title="Drag to adjust corner overlap"><span></span></div>
     <div class="prompt-top"><div class="prompt-title"><span class="sparkle">✳</span><b>Build with Plovane</b><span class="prompt-subtitle">Describe what you want to change</span></div><div class="prompt-meta"><span id="token-count">0 tokens</span><span class="meta-dot">·</span><span id="change-count">No changes yet</span><button class="icon-btn history-toggle" data-action="history" title="Prompt history">◷</button></div></div>
     <div class="prompt-box"><div class="prompt-prefix">✳</div><textarea id="prompt-input" rows="1" placeholder="Add a rate limiter to the payments API…  (type / for commands)" aria-label="Describe a project change"></textarea><button class="attach-btn" data-action="attach" title="Attach context">＋</button><button class="send-btn" id="send-prompt" aria-label="Run prompt">↑</button></div>
     <div class="prompt-footer"><div class="prompt-tools"><button data-action="command-list">⌘ <span>Commands</span></button><button data-command="/rank \"payment retry helper\" --k 5">✧ <span>Find verified code</span></button><button data-command="/template list">▦ <span>Templates</span></button></div><div class="prompt-footer-right"><span class="approval-note"><span>●</span> Generated code needs your approval</span><span class="shortcut">↵ to run</span></div></div>
