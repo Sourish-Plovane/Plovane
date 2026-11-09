@@ -6,6 +6,7 @@
   <link rel="stylesheet" href="/whiteboard/whiteboard.css">
 </head>
 <body>
+  <!--Workspace controls -->
   <header class="topbar">
     <a class="brand" href="#" aria-label="Plovane"><img class="brand-logo" src="/whiteboard/logo.jpeg" alt=""><span>Plovane</span></a>
     <div class="menu-bar" role="menubar">
@@ -17,6 +18,7 @@
     </div>
     <div class="top-right"><span class="project-name">plovane / payments-api</span><button class="square-btn" aria-label="Home" title="Home" data-action="home">⌂</button><button class="square-btn" aria-label="Settings" title="Settings" data-action="settings">⚙</button><button class="avatar" title="Account">A</button></div>
   </header>
+  <!-- Project files and diagram (tree) -->
   <main class="workspace">
     <aside class="sidebar" id="sidebar">
       <div class="side-resize" id="side-resize" role="separator" aria-orientation="vertical" aria-label="Resize side bar" title="Drag to resize or close"></div>
@@ -26,6 +28,7 @@
       <div class="sidebar-bottom"><div class="github-card"><span class="github-icon">◉</span><div><b>GitHub connected</b><small>plovane/payments-api</small></div></div><button class="library-link" data-command="/palette ui-components">Verified library <span class="link-arrow">↗</span></button></div>
     </aside>
     <section class="canvas-area">
+      <!-- Server project graph -->
       <div class="canvas-toolbar"><div class="breadcrumbs"><span>Project</span><span class="crumb-sep">/</span><b>Architecture</b></div><div class="canvas-actions"><button class="tool-button" data-action="fit" title="Fit project">⊡ <span>Fit</span></button><span class="tool-divider"></span><div class="history-control"><button class="tool-button straight-arrow" data-action="undo" title="Undo" aria-label="Undo">←</button><small>undo</small></div><div class="history-control"><button class="tool-button straight-arrow" data-action="redo" title="Redo" aria-label="Redo">→</button><small>redo</small></div><span class="tool-divider"></span><button class="share-button" data-action="snapshot">↥ <span>Share</span></button></div></div>
       <div id="canvas-viewport" class="canvas-viewport" tabindex="0" aria-label="Infinite project whiteboard">
         <div id="canvas-world" class="canvas-world"><svg id="connections" class="connections"></svg><div id="blocks"></div></div>
@@ -36,15 +39,18 @@
       </div>
     </section>
   </main>
+  <!-- Prompt builder/CLI (same backend)-->
   <section class="prompt-dock" aria-label="Prompt panel">
     <div class="bottom-resize" id="bottom-resize" role="separator" aria-orientation="horizontal" aria-label="Resize bottom bar" title="Drag to resize or close"><span></span></div>
     <div class="corner-resize" id="corner-resize" role="separator" aria-orientation="vertical" aria-label="Adjust side and bottom bar overlap" title="Drag to adjust corner overlap"><span></span></div>
     <div class="prompt-top"><div class="prompt-title"><b>Build with Plovane</b><span class="prompt-subtitle">Describe what you want to build/change</span></div><div class="prompt-meta"><span id="token-count">0 tokens</span><span class="meta-dot">·</span><span id="change-count">No changes yet</span><button class="icon-btn history-toggle" data-action="history" title="Prompt history">◷</button></div></div>
     <div class="prompt-box"><textarea id="prompt-input" rows="1" placeholder="Add a rate limiter to the payments API…  (type / for commands)" aria-label="Describe a project change"></textarea><button class="attach-btn" data-action="attach" title="Attach context">＋</button><button class="send-btn" id="send-prompt" aria-label="Run prompt">↑</button></div>
     <div class="prompt-footer"><div class="prompt-tools"><button data-action="command-list">⌘ <span>Commands</span></button><button data-command="/rank \"payment retry helper\" --k 5">✧ <span>Find verified code</span></button><button data-command="/template list">▦ <span>Templates</span></button><button data-action="toggle-cli" aria-expanded="false">›_ <span>CLI</span></button></div><div class="prompt-footer-right"><span class="approval-note"><span>●</span> Generated code needs your approval</span><span class="shortcut">↵ to run</span></div></div>
+    <!-- CLI frontend loader -->
     <section class="cli-panel" id="cli-panel" aria-label="Plovane command line"><iframe src="/cli/" title="Plovane CLI" loading="lazy"></iframe></section>
     <div id="autocomplete" class="autocomplete" hidden></div>
   </section>
+  <!-- Action feedback and review -->
   <div id="toast" class="toast" role="status"></div>
   <dialog id="modal" class="modal"><div class="modal-head"><div><span class="eyebrow" id="modal-eyebrow">PLOVANE</span><h2 id="modal-title">Details</h2></div><button class="icon-btn" data-action="close-modal" aria-label="Close">×</button></div><div id="modal-body" class="modal-body"></div></dialog>
   <script src="/whiteboard/whiteboard.js"></script>
