@@ -390,6 +390,21 @@ body.cli-open .workspace {
     gap:8px;
     padding:0 9px;
 }
+.github-connect {
+    margin-left:auto;
+    width:25px;
+    height:25px;
+    flex:none;
+    border:1px solid #eff0f3;
+    border-radius:6px;
+    background:transparent;
+    color:#656b76;
+    cursor:pointer;
+}
+.github-connect:hover {
+    color:var(--accent);
+    border-color:var(--accent);
+}
 .github-icon {
     font-size:16px;
 }
@@ -591,7 +606,10 @@ body.cli-open .workspace {
     overflow:hidden;
     user-select:none;
     transition:box-shadow .15s,border-color .15s;
-    cursor:pointer;
+    cursor:grab;
+}
+.block-node:active {
+    cursor:grabbing;
 }
 .block-node:hover {
     box-shadow:0 5px 16px #27324716;
@@ -830,6 +848,11 @@ body.cli-open .workspace {
     inset:19px 8px 8px;
     background:radial-gradient(circle,#ececf1 .7px,transparent .8px);
     background-size:7px 7px;
+    cursor:grab;
+    touch-action:none;
+}
+.mini-inner:active {
+    cursor:grabbing;
 }
 .mini-connections {
     position:absolute;
