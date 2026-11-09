@@ -20,6 +20,7 @@ features:
 from __future__ import annotations
 
 import base64
+import difflib
 import inspect
 import os
 import subprocess
@@ -302,6 +303,7 @@ class Workspace:
         self.board = self.store.load_board()
         self._library = library
         self._llm = llm
+        self.prompt_context: dict[str, Any] | None = None
         self.processes: dict[str, subprocess.Popen] = {}
 
     # Input: none
@@ -325,15 +327,26 @@ class Workspace:
     # Changed by: Sourish
     # Date: 2026-10-22
     def llm(self, prompt: str, system: str | None = None) -> str:
-        if self._llm is not None:
-            return self._llm(prompt, system)
-        from ml.serving import llm
-
-        reply = llm.ask(prompt, provider=os.environ.get("PLOVANE_LLM_PROVIDER", "anthropic"),
-                        system=system, max_tokens=4096)
+        reply = self.llm_result(prompt, system)
         if "error" in reply:
             raise OpError("LLM_UNAVAILABLE", reply["error"])
         return reply["text"]
+
+    # Input: prompt (str), system (str | None)
+    # Output: dict[str, Any]
+    # Processing: Ask the configured provider and retain its token usage.
+    # Changed by: Codex
+    # Date: 2026-11-07
+    def llm_result(self, prompt: str, system: str | None = None, *, provider: str | None = None) -> dict[str, Any]:
+        if self._llm is not None:
+            return {"text": self._llm(prompt, system), "usage": {}}
+        from ml.serving import llm
+
+        reply = llm.ask(prompt, provider=provider or os.environ.get("PLOVANE_LLM_PROVIDER", "anthropic"),
+                        system=system, max_tokens=4096)
+        if "error" in reply:
+            raise OpError("LLM_UNAVAILABLE", reply["error"])
+        return reply
 
     # Input: op (str)
     # Output: OpSpec
@@ -420,6 +433,37 @@ class Workspace:
             self.board = Board.from_dict(before)
             raise OpError("INTERNAL", f"{spec.command} failed: {type(exc).__name__}: {exc}") from exc
         changes = fs.changes()
+        prompt_context = self.prompt_context
+        if prompt_context:
+            changed_paths = set(changes.get("files", {}))
+            usage = prompt_context.get("tokens", {})
+            token_total = sum(int(value or 0) for value in usage.values())
+            for block in self.board.blocks.values():
+                block_path = (block.path or block.meta.get("file") or "").strip("/")
+                if block.id not in before.get("blocks", {}) or block_path in changed_paths:
+                    if not block.meta.get("library"):
+                        block.status = "generated"
+                    block.meta["prompt"] = prompt_context["prompt"]
+                    block.meta["tokens"] = token_total
+                    block.meta["token_usage"] = usage
+            provenance = self.board.view.setdefault("line_provenance", {})
+            for path, (encoded_before, encoded_after) in changes.get("files", {}).items():
+                old_lines = (base64.b64decode(encoded_before).decode(errors="replace").splitlines()
+                             if encoded_before else [])
+                new_lines = (base64.b64decode(encoded_after).decode(errors="replace").splitlines()
+                             if encoded_after else [])
+                generated_lines = []
+                for tag, _, _, new_start, new_end in difflib.SequenceMatcher(
+                        a=old_lines, b=new_lines, autojunk=False).get_opcodes():
+                    if tag in ("insert", "replace"):
+                        generated_lines.extend(range(new_start + 1, new_end + 1))
+                if generated_lines:
+                    line_map = provenance.setdefault(path, {})
+                    for line in generated_lines:
+                        line_map[str(line)] = {
+                            "prompt": prompt_context["prompt"], "tokens": token_total,
+                            "token_usage": usage,
+                        }
         after = self.board.to_dict()
         summary = summarise(before, after, changes)
         out: dict[str, Any] = {"result": result, "changes": summary}

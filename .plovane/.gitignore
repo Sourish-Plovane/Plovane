@@ -1,0 +1,6 @@
+# Local whiteboard state; board.json and snapshots/ are shared.
+history.json
+log.jsonl
+compile/
+monitor/
+submissions.jsonl

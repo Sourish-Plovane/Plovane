@@ -21,13 +21,16 @@ An AI agent acting through this API identifies itself with the
 from __future__ import annotations
 
 import argparse
+import json
 import threading
+import uuid
 from pathlib import Path
 from typing import Any
 
 from flask import Flask, jsonify, request, send_from_directory
 
 from backend.whiteboard.engine import USER, Workspace
+from backend.whiteboard.store import now
 
 STATUS = {"INVALID_ARGS": 400, "INVALID_COMMAND": 400, "UNKNOWN_COMMAND": 400, "UNKNOWN_OPERATION": 400,
           "INVALID_STYLE": 400, "INVALID_PATH": 400, "FORBIDDEN": 403, "NOT_FOUND": 404, "CONFLICT": 409,
@@ -43,6 +46,7 @@ def create_app(workspace: Workspace) -> Flask:
     app = Flask("plovane-whiteboard")
     lock = threading.Lock()  # one operation at a time: the board is shared state
     frontend = Path(__file__).resolve().parents[2] / "frontend" / "whiteboard"
+    prompt_plans: dict[str, dict[str, Any]] = {}
 
     # Input: none
     # Output: HTML response
@@ -52,6 +56,15 @@ def create_app(workspace: Workspace) -> Flask:
     @app.get("/whiteboard")
     def whiteboard_page():
         return send_from_directory(frontend, "index.html")
+
+    # Input: none
+    # Output: JPEG response
+    # Processing: Serve the Plovane logo stored at the frontend root.
+    # Changed by: Codex
+    # Date: 2026-11-07
+    @app.get("/whiteboard/logo.jpeg")
+    def whiteboard_logo():
+        return send_from_directory(frontend.parent, "1770049027667.jpeg")
 
     # Input: asset (str)
     # Output: CSS or JavaScript response
@@ -123,6 +136,115 @@ def create_app(workspace: Workspace) -> Flask:
                     "summary": OPERATIONS[c.op].summary, "confirms": OPERATIONS[c.op].confirm is True,
                     "people_only": not OPERATIONS[c.op].agents} for c in COMMANDS]
         return send({"ok": True, "data": {"commands": listing}, "error": None})
+
+    # Input: none
+    # Output: tuple
+    # Processing: Search verified code, ask Claude for slash commands, and preview their effects.
+    # Changed by: Codex
+    # Date: 2026-11-07
+    @app.post("/api/v1/whiteboard/prompt/plan")
+    def prompt_plan():
+        from backend.whiteboard.commands import parse
+        from backend.whiteboard.registry import OPERATIONS, OpError
+
+        raw = body()
+        prompt = raw.get("prompt")
+        if not isinstance(prompt, str) or not prompt.strip():
+            return send({"ok": False, "data": None, "error": {"code": "INVALID_ARGS", "message": "prompt is required"}})
+        try:
+            with lock:
+                ranked = workspace.execute("library.rank", {"query": prompt, "k": 5}, actor=actor())
+            if not ranked["ok"]:
+                return send(ranked)
+            ranking = ranked["data"]["result"]
+            recommendations = ranking.get("recommendations", []) if ranking.get("scores_calibrated") else []
+            with lock:
+                board = workspace.board.to_dict()
+            context = {
+                "request": prompt.strip(),
+                "project_root": str(workspace.root),
+                "existing_blocks": [
+                    {"id": b["id"], "kind": b["kind"], "name": b["name"],
+                     "layer": b["layer"], "path": b.get("path")}
+                    for b in board.get("blocks", {}).values()
+                ],
+                "library_candidates": recommendations,
+            }
+            llm_reply = workspace.llm_result(
+                json.dumps(context, ensure_ascii=False),
+                system=("You are Claude, Plovane's whiteboard planner. The verified library was searched first. "
+                        "Only use a listed library candidate when it fits; insert it with /insert <id> --into <path>. "
+                        "Otherwise create new code using supported whiteboard slash commands. Prefer templates, "
+                        "presets, and relative placement. Use one /batch command per independent multi-step change. "
+                        "Return JSON only: {\"summary\": string, \"commands\": [slash-command strings]}. "
+                        "Commands must be valid Plovane commands. Never claim a write happened; this is a preview."),
+                provider="anthropic",
+            )
+            try:
+                plan_data = json.loads(llm_reply["text"])
+                commands = plan_data.get("commands")
+                summary = str(plan_data.get("summary", ""))
+                if not isinstance(commands, list) or not commands or any(not isinstance(c, str) for c in commands):
+                    raise ValueError("commands must be a non-empty array of strings")
+                if len(commands) > 40:
+                    raise ValueError("plan exceeds 40 operations")
+                for command in commands:
+                    op, args = parse(command)
+                    if op not in OPERATIONS:
+                        raise ValueError(f"unknown operation in {command}")
+                    if op == "library.insert" and args.get("entry") not in {
+                            item.get("block_id") for item in recommendations}:
+                        raise ValueError("library inserts must use a verified candidate returned by /rank")
+                batch_preview = workspace.execute("batch", {"commands": commands}, actor=actor(), dry_run=True)
+                if not batch_preview["ok"]:
+                    return send(batch_preview)
+                plan_id = uuid.uuid4().hex
+                prompt_plans[plan_id] = {
+                    "prompt": prompt.strip(), "commands": commands, "tokens": llm_reply.get("usage", {}),
+                    "actor": actor(), "ranked": recommendations,
+                }
+                return send({"ok": True, "error": None, "data": {
+                    "plan_id": plan_id, "summary": summary, "commands": commands,
+                    "preview": batch_preview["data"], "library_candidates": recommendations,
+                    "tokens": llm_reply.get("usage", {}),
+                }})
+            except (ValueError, TypeError, KeyError) as exc:
+                return send({"ok": False, "data": None,
+                             "error": {"code": "INVALID_PLAN", "message": f"Claude returned an invalid command plan: {exc}"}})
+        except OpError as exc:
+            return send({"ok": False, "data": None, "error": {"code": exc.code, "message": exc.message}})
+
+    # Input: plan_id (str), confirm (bool)
+    # Output: tuple
+    # Processing: Apply an approved plan through the ordinary atomic batch and confirmation paths.
+    # Changed by: Codex
+    # Date: 2026-11-07
+    @app.post("/api/v1/whiteboard/prompt/apply")
+    def prompt_apply():
+        raw = body()
+        plan_id = raw.get("plan_id")
+        plan = prompt_plans.get(plan_id) if isinstance(plan_id, str) else None
+        if not plan:
+            return send({"ok": False, "data": None, "error": {"code": "NOT_FOUND", "message": "prompt plan expired or not found"}})
+        if plan["actor"] != actor():
+            return send({"ok": False, "data": None, "error": {"code": "FORBIDDEN", "message": "prompt plan belongs to another actor"}})
+        with lock:
+            workspace.prompt_context = {"prompt": plan["prompt"], "tokens": plan["tokens"]}
+            try:
+                reply = workspace.execute("batch", {"commands": plan["commands"]}, actor=actor(),
+                                          confirm=bool(raw.get("confirm")))
+            finally:
+                workspace.prompt_context = None
+            if reply["ok"] and reply["data"].get("status") != "needs_confirmation":
+                result = reply["data"]
+                files = result.get("changes", {}).get("files", [])
+                workspace.store.append_log({
+                    "at": now(), "actor": actor(), "op": "prompt.provenance",
+                    "args": {"prompt": plan["prompt"], "token_usage": plan["tokens"]},
+                    "ok": True, "detail": {"files": files, "commands": plan["commands"]},
+                })
+                prompt_plans.pop(plan_id, None)
+        return send(reply)
 
     # Input: none
     # Output: tuple
