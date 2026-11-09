@@ -123,6 +123,7 @@ ipcMain.handle('select-project', async () => {
 });
 ipcMain.handle('connect-project', (_event, project) => connectProject(project));
 ipcMain.handle('open-whiteboard', (_event, url) => windowRef.loadURL(url));
+ipcMain.handle('go-home', () => windowRef.loadFile(path.join(__dirname, 'index.html')));
 
 app.whenReady().then(() => {
   createWindow();

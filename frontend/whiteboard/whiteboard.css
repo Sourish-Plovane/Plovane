@@ -4,6 +4,7 @@
     --sidebar-width:240px;
     --sidebar-visible-width:240px;
     --prompt-height:190px;
+    --cli-height:280px;
     --corner-overlap:0px;
     font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
     color:#20242c;
@@ -178,6 +179,10 @@ button {
     min-height:390px;
     display:flex;
     position:relative;
+}
+body.cli-open .workspace {
+    height:calc(100vh - 58px - var(--prompt-height) - var(--cli-height));
+    min-height:0;
 }
 .sidebar {
     width:var(--sidebar-width);
@@ -936,6 +941,25 @@ button {
     padding:13px max(24px,calc((100vw - 1120px)/2)) 9px;
     flex-shrink:0;
 }
+.prompt-dock.cli-open {
+    height:calc(var(--prompt-height) + var(--cli-height));
+}
+.cli-panel {
+    display:none;
+    height:var(--cli-height);
+    margin-top:2px;
+}
+.cli-panel.open {
+    display:block;
+}
+.cli-panel iframe {
+    display:block;
+    width:100%;
+    height:100%;
+    border:1px solid #e7e9ef;
+    border-radius:8px;
+    background:#fbfbfd;
+}
 .side-resize {
     position:absolute;
     z-index:8;
@@ -1124,6 +1148,23 @@ button {
     padding:4px 0;
 }
 .prompt-tools button:hover {
+    color:var(--accent);
+}
+.prompt-tools button.active {
+    color:var(--accent);
+}
+.prompt-tools button[data-action="toggle-cli"] {
+    padding:5px 9px;
+    border:1px solid color-mix(in srgb,var(--accent) 28%,transparent);
+    border-radius:7px;
+    background:var(--accent-soft);
+    color:var(--accent);
+    font-weight:600;
+}
+.prompt-tools button[data-action="toggle-cli"]:hover,
+.prompt-tools button[data-action="toggle-cli"].active {
+    border-color:color-mix(in srgb,var(--accent) 48%,transparent);
+    background:color-mix(in srgb,var(--accent) 20%,var(--accent-soft));
     color:var(--accent);
 }
 .prompt-tools button span {
@@ -1377,6 +1418,10 @@ body[data-theme="dark"] .modal {
     background:#22252d;
     color:#e5e7ee;
     border-color:#383c47;
+}
+body[data-theme="dark"] .cli-panel iframe {
+    border-color:#393d48;
+    background:#1b1d24;
 }
 body[data-theme="dark"] .brand {
     color:#e5e7ee;

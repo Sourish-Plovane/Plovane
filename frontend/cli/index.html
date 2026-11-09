@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Plovane CLI</title>
+  <link rel="stylesheet" href="/cli/cli.css">
+</head>
+<body>
+  <main class="terminal" aria-label="Plovane command line">
+    <div class="terminal-head"><b>Plovane CLI</b><span id="connection-status">Connecting…</span><button id="clear-terminal" type="button">Clear</button></div>
+    <div id="terminal-output" class="terminal-output" role="log" aria-live="polite"></div>
+    <div class="completion-list" id="completion-list" hidden></div>
+    <form id="terminal-form" class="terminal-form">
+      <label for="terminal-input">plovane $</label>
+      <input id="terminal-input" name="command" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Enter Plovane command" placeholder="Type /help or a whiteboard command">
+      <button type="submit">Run</button>
+    </form>
+  </main>
+  <script src="/cli/cli.js"></script>
+</body>
+</html>

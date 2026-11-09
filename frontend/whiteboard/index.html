@@ -15,7 +15,7 @@
       <div class="menu-wrap"><button class="menu-trigger" aria-expanded="false">Window</button><div class="menu-pop"><button data-action="fit">Fit project</button><button data-action="zoom-in">Zoom in</button><button data-action="zoom-out">Zoom out</button><hr><button data-action="toggle-sidebar">Show / hide side bar</button><button data-action="toggle-bottom-bar">Show / hide bottom bar</button></div></div>
       <div class="menu-wrap"><button class="menu-trigger" aria-expanded="false">Help</button><div class="menu-pop"><button data-action="commands">Command reference</button><button data-action="shortcuts">Keyboard shortcuts</button><button data-action="about">About Plovane</button></div></div>
     </div>
-    <div class="top-right"><span class="project-name">plovane / payments-api</span><button class="square-btn" aria-label="Home" title="Home (not available yet)">⌂</button><button class="square-btn" aria-label="Settings" title="Settings" data-action="settings">⚙</button><button class="avatar" title="Account">A</button></div>
+    <div class="top-right"><span class="project-name">plovane / payments-api</span><button class="square-btn" aria-label="Home" title="Home" data-action="home">⌂</button><button class="square-btn" aria-label="Settings" title="Settings" data-action="settings">⚙</button><button class="avatar" title="Account">A</button></div>
   </header>
   <main class="workspace">
     <aside class="sidebar" id="sidebar">
@@ -41,7 +41,8 @@
     <div class="corner-resize" id="corner-resize" role="separator" aria-orientation="vertical" aria-label="Adjust side and bottom bar overlap" title="Drag to adjust corner overlap"><span></span></div>
     <div class="prompt-top"><div class="prompt-title"><b>Build with Plovane</b><span class="prompt-subtitle">Describe what you want to build/change</span></div><div class="prompt-meta"><span id="token-count">0 tokens</span><span class="meta-dot">·</span><span id="change-count">No changes yet</span><button class="icon-btn history-toggle" data-action="history" title="Prompt history">◷</button></div></div>
     <div class="prompt-box"><textarea id="prompt-input" rows="1" placeholder="Add a rate limiter to the payments API…  (type / for commands)" aria-label="Describe a project change"></textarea><button class="attach-btn" data-action="attach" title="Attach context">＋</button><button class="send-btn" id="send-prompt" aria-label="Run prompt">↑</button></div>
-    <div class="prompt-footer"><div class="prompt-tools"><button data-action="command-list">⌘ <span>Commands</span></button><button data-command="/rank \"payment retry helper\" --k 5">✧ <span>Find verified code</span></button><button data-command="/template list">▦ <span>Templates</span></button></div><div class="prompt-footer-right"><span class="approval-note"><span>●</span> Generated code needs your approval</span><span class="shortcut">↵ to run</span></div></div>
+    <div class="prompt-footer"><div class="prompt-tools"><button data-action="command-list">⌘ <span>Commands</span></button><button data-command="/rank \"payment retry helper\" --k 5">✧ <span>Find verified code</span></button><button data-command="/template list">▦ <span>Templates</span></button><button data-action="toggle-cli" aria-expanded="false">›_ <span>CLI</span></button></div><div class="prompt-footer-right"><span class="approval-note"><span>●</span> Generated code needs your approval</span><span class="shortcut">↵ to run</span></div></div>
+    <section class="cli-panel" id="cli-panel" aria-label="Plovane command line"><iframe src="/cli/" title="Plovane CLI" loading="lazy"></iframe></section>
     <div id="autocomplete" class="autocomplete" hidden></div>
   </section>
   <div id="toast" class="toast" role="status"></div>

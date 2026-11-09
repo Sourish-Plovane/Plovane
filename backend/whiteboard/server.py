@@ -46,6 +46,7 @@ def create_app(workspace: Workspace) -> Flask:
     app = Flask("plovane-whiteboard")
     lock = threading.Lock()  # one operation at a time: the board is shared state
     frontend = Path(__file__).resolve().parents[2] / "frontend" / "whiteboard"
+    cli_frontend = frontend.parent / "cli"
     prompt_plans: dict[str, dict[str, Any]] = {}
 
     # Input: none
@@ -74,6 +75,24 @@ def create_app(workspace: Workspace) -> Flask:
     @app.get("/whiteboard/<path:asset>")
     def whiteboard_asset(asset: str):
         return send_from_directory(frontend, asset)
+
+    # Input: none
+    # Output: HTML response
+    # Processing: Serve the embedded command-line frontend from the same local origin.
+    # Changed by: Codex
+    # Date: 2026-11-09
+    @app.get("/cli/")
+    def cli_page():
+        return send_from_directory(cli_frontend, "index.html")
+
+    # Input: asset (str)
+    # Output: CSS or JavaScript response
+    # Processing: Serve only files inside the CLI frontend directory.
+    # Changed by: Codex
+    # Date: 2026-11-09
+    @app.get("/cli/<path:asset>")
+    def cli_asset(asset: str):
+        return send_from_directory(cli_frontend, asset)
 
     # Input: reply (dict[str, Any])
     # Output: tuple
