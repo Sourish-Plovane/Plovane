@@ -1,0 +1,285 @@
+{
+ "agents": {},
+ "alerts": [],
+ "arrows": {},
+ "blocks": {},
+ "compiles": {},
+ "endpoints": {},
+ "layers": {
+  "0": {
+   "name": "Agents and access",
+   "number": 0,
+   "shows": [
+    "agent"
+   ],
+   "zoom_max": 10,
+   "zoom_min": 0
+  },
+  "1": {
+   "name": "Services",
+   "number": 1,
+   "shows": [
+    "service",
+    "server",
+    "external",
+    "database",
+    "queue",
+    "endpoint"
+   ],
+   "zoom_max": 20,
+   "zoom_min": 10
+  },
+  "2": {
+   "name": "Folders",
+   "number": 2,
+   "shows": [
+    "folder",
+    "group",
+    "slot"
+   ],
+   "zoom_max": 40,
+   "zoom_min": 20
+  },
+  "3": {
+   "name": "Files",
+   "number": 3,
+   "shows": [
+    "file"
+   ],
+   "zoom_max": 70,
+   "zoom_min": 40
+  },
+  "4": {
+   "name": "English steps",
+   "number": 4,
+   "shows": [
+    "function",
+    "step"
+   ],
+   "zoom_max": 90,
+   "zoom_min": 70
+  },
+  "5": {
+   "name": "Code",
+   "number": 5,
+   "shows": [
+    "code"
+   ],
+   "zoom_max": 100,
+   "zoom_min": 90
+  }
+ },
+ "presets": {
+  "agent": {
+   "border": "#D93025",
+   "fill": "#FCE8E6",
+   "icon": "robot",
+   "shape": "pill"
+  },
+  "database": {
+   "border": "#188038",
+   "fill": "#E6F4EA",
+   "icon": "database",
+   "shape": "cylinder"
+  },
+  "external": {
+   "border": "#9334E6",
+   "border_style": "dashed",
+   "fill": "#F3E8FD",
+   "icon": "cloud",
+   "radius": 12
+  },
+  "file": {
+   "border": "#5F6368",
+   "fill": "#FFFFFF",
+   "icon": "file",
+   "radius": 4
+  },
+  "folder": {
+   "border": "#F9AB00",
+   "fill": "#FEF7E0",
+   "icon": "folder",
+   "radius": 8
+  },
+  "scan": {
+   "border": "#D93025",
+   "border_style": "dashed",
+   "fill": "#FCE8E6",
+   "opacity": 0.3
+  },
+  "service": {
+   "border": "#1A73E8",
+   "fill": "#E8F0FE",
+   "icon": "server",
+   "radius": 12
+  },
+  "slot": {
+   "border": "#9AA0A6",
+   "border_style": "dashed",
+   "fill": "#FFFFFF",
+   "radius": 8
+  },
+  "step": {
+   "border": "#DADCE0",
+   "fill": "#F1F3F4",
+   "radius": 6
+  }
+ },
+ "templates": {
+  "rest-api-service": {
+   "arrows": [
+    {
+     "from": "api",
+     "to": "db",
+     "type": "database"
+    }
+   ],
+   "blocks": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "key": "api",
+     "kind": "service",
+     "name": "{name}"
+    },
+    {
+     "dx": 320,
+     "dy": 0,
+     "key": "db",
+     "kind": "database",
+     "name": "{name}-db"
+    },
+    {
+     "dx": 20,
+     "dy": 40,
+     "key": "validate",
+     "kind": "slot",
+     "meta": {
+      "query": "validate a request body against a schema"
+     },
+     "name": "validate-input",
+     "parent": "api"
+    },
+    {
+     "dx": 200,
+     "dy": 40,
+     "key": "auth",
+     "kind": "slot",
+     "meta": {
+      "query": "check a bearer token in a request header"
+     },
+     "name": "auth-check",
+     "parent": "api"
+    }
+   ],
+   "builtin": true,
+   "description": "A REST service with its database and slots for validation and auth",
+   "name": "rest-api-service"
+  },
+  "web-app": {
+   "arrows": [
+    {
+     "from": "web",
+     "to": "api",
+     "type": "api"
+    },
+    {
+     "from": "api",
+     "to": "db",
+     "type": "database"
+    }
+   ],
+   "blocks": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "key": "web",
+     "kind": "service",
+     "name": "{name}-web"
+    },
+    {
+     "dx": 320,
+     "dy": 0,
+     "key": "api",
+     "kind": "service",
+     "name": "{name}-api"
+    },
+    {
+     "dx": 640,
+     "dy": 0,
+     "key": "db",
+     "kind": "database",
+     "name": "{name}-db"
+    }
+   ],
+   "builtin": true,
+   "description": "Frontend, API and database",
+   "name": "web-app"
+  },
+  "worker-queue": {
+   "arrows": [
+    {
+     "from": "api",
+     "to": "queue",
+     "type": "event"
+    },
+    {
+     "from": "queue",
+     "to": "worker",
+     "type": "event"
+    }
+   ],
+   "blocks": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "key": "api",
+     "kind": "service",
+     "name": "{name}-api"
+    },
+    {
+     "dx": 320,
+     "dy": 0,
+     "key": "queue",
+     "kind": "queue",
+     "name": "{name}-queue"
+    },
+    {
+     "dx": 640,
+     "dy": 0,
+     "key": "worker",
+     "kind": "service",
+     "name": "{name}-worker"
+    },
+    {
+     "dx": 20,
+     "dy": 40,
+     "key": "retry",
+     "kind": "slot",
+     "meta": {
+      "query": "retry a failed operation with exponential backoff"
+     },
+     "name": "retry",
+     "parent": "worker"
+    }
+   ],
+   "builtin": true,
+   "description": "An API that queues jobs for a background worker",
+   "name": "worker-queue"
+  }
+ },
+ "version": 1,
+ "view": {
+  "counters": {},
+  "filter": {},
+  "focus": null,
+  "grid": {
+   "size": 20,
+   "snap": true
+  },
+  "highlight": [],
+  "layer": 1,
+  "theme": "light",
+  "zoom": 15
+ }
+}

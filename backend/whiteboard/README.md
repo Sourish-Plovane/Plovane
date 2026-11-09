@@ -212,12 +212,14 @@ command answers `needs_confirmation` first.
 | `/compile apply` | `compile.apply` | `plovane_compile` | yes | Applies a previewed compile after tests pass. | `/compile apply c_102` |
 | `/compile` | `compile` | `plovane_compile` | sometimes | Compiles changed blocks to code (or code to blocks), shows a diff, and runs affected tests. | `/compile blocks-to-code src/orders.py --preview` |
 | `/place` | `place` | `plovane_place` |  | Places a block at exact coordinates, or relative to another block. | `/place auth --at 200,120  or  /place billing --right-of auth --gap 80` |
+| `/place relative` | `place` | `plovane_place` |  | Places a block at exact coordinates, or relative to another block. | `/place relative billing --right-of auth --gap 80` |
 | `/align` | `align` | `plovane_place` |  | Aligns blocks along an edge or center. | `/align auth,users,billing --top` |
 | `/distribute` | `distribute` | `plovane_place` |  | Spaces blocks evenly. | `/distribute auth,users,billing --horizontal --gap 60` |
 | `/grid` | `grid` | `plovane_place` |  | Sets grid size and snapping. | `/grid 20 --snap on` |
 | `/coords` | `coords` | `plovane_place` |  | Shows a block's position and size. | `/coords auth` |
 | `/size` | `size` | `plovane_place` |  | Sets a block's width and height, or fits it to its contents. | `/size auth 240x120  or  /size auth --fit` |
 | `/style` | `style` | `plovane_style` |  | Sets visual properties on a block, or applies a saved preset. | `/style auth --preset service` |
+| `/style --preset` | `style` | `plovane_style` |  | Sets visual properties on a block, or applies a saved preset. | `/style --preset auth service` |
 | `/preset define` | `preset.define` | `plovane_style` |  | Saves a named style for reuse. | `/preset define service --fill #E8F0FE --border #1A73E8 --radius 12 --icon server` |
 | `/theme` | `theme` | `plovane_style` |  | Changes all colors at once. | `/theme dark` |
 | `/connect` | `connect` | `plovane_connect` |  | Draws a typed arrow; creates or links real code. Unbuilt endpoints show as dashed "planned". | `/connect checkout -> payments --type api --endpoint "POST /charge"` |
@@ -277,3 +279,4 @@ command answers `needs_confirmation` first.
 | `/layout` | `view.layout` | `plovane_view` |  | Rearranges the canvas automatically. | `/layout left-to-right` |
 | `/filter` | `view.filter` | `plovane_view` |  | Shows only certain block or arrow types. | `/filter --arrows api` |
 | `/board` | `board.read` | `plovane_view` |  | Reads the whiteboard: blocks, arrows, endpoints and status, for an AI to get the picture first. | `/board  or  /board --layer 3  or  /board --block payments` |
+

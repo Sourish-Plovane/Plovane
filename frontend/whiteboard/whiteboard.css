@@ -2,6 +2,7 @@
 
 :root {
     --sidebar-width:240px;
+    --sidebar-visible-width:240px;
     --prompt-height:190px;
     --corner-overlap:0px;
     font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
@@ -1048,11 +1049,11 @@ button {
     margin-left:5px;
 }
 .autocomplete {
-    position:absolute;
-    z-index:20;
-    left:max(24px,calc((100vw - 1120px)/2));
-    bottom:178px;
-    width:min(510px,calc(100vw - 50px));
+    position:fixed;
+    z-index:31;
+    left:calc(var(--sidebar-visible-width) + 16px);
+    bottom:calc(var(--prompt-height) - 8px);
+    width:min(510px,calc(100vw - var(--sidebar-visible-width) - 32px));
     background:white;
     border:1px solid #e9eaf0;
     border-radius:9px;
@@ -1416,6 +1417,10 @@ body[data-theme="dark"] .canvas-viewport {
     }
     .prompt-meta {
         gap:4px;
+    }
+    .autocomplete {
+        left:calc(var(--sidebar-visible-width) + 10px);
+        width:calc(100vw - var(--sidebar-visible-width) - 20px);
     }
     .canvas-hint {
         font-size:8px;

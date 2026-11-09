@@ -91,6 +91,7 @@ COMMANDS: tuple[Command, ...] = (
     Command("compile", "compile", ("direction", "target"), example="/compile blocks-to-code src/orders.py --preview"),
     # Placement and coordinates
     Command("place", "place", ("block",), example="/place auth --at 200,120  or  /place billing --right-of auth --gap 80"),
+    Command("place relative", "place", ("block",), example="/place relative billing --right-of auth --gap 80"),
     Command("align", "align", ("blocks",), choices=_edges("top", "bottom", "left", "right", "center"),
             example="/align auth,users,billing --top"),
     Command("distribute", "distribute", ("blocks",),
@@ -101,6 +102,7 @@ COMMANDS: tuple[Command, ...] = (
     Command("size", "size", ("block", "size"), example="/size auth 240x120  or  /size auth --fit"),
     # Style
     Command("style", "style", ("block",), example="/style auth --preset service"),
+    Command("style --preset", "style", ("block", "preset"), example="/style --preset auth service"),
     Command("preset define", "preset.define", ("name",),
             example="/preset define service --fill #E8F0FE --border #1A73E8 --radius 12 --icon server"),
     Command("theme", "theme", ("name",), example="/theme dark"),
