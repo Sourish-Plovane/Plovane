@@ -327,6 +327,17 @@ def create_app(workspace: Workspace) -> Flask:
         entries = workspace.store.read_log(actor=request.args.get("actor"), last=last or 100)
         return send({"ok": True, "data": {"entries": entries}, "error": None})
 
+    @app.post("/api/v1/whiteboard/log")
+    def record_log_entry():
+        raw = body()
+        if raw.get("kind") != "human-edit":
+            return send({"ok": False, "data": None, "error": {
+                "code": "INVALID_ARGS", "message": "kind must be human-edit",
+            }})
+        with lock:
+            workspace._log("human.edit", {}, actor(), ok=True, detail={"source": "whiteboard"})
+        return send({"ok": True, "data": {"recorded": True}, "error": None})
+
     # Input: none
     # Output: tuple
     # Processing: Liveness.

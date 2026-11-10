@@ -63,6 +63,22 @@ def test_http_errors_use_the_envelope_and_status(client):
 
 # Input: client
 # Output: None
+# Processing: Check that the whiteboard can record a manual edit in project history.
+# Changed by: Codex
+# Date: 2026-11-09
+def test_http_records_manual_edits_in_project_history(client):
+    reply = client.post("/api/v1/whiteboard/log", json={"kind": "human-edit"})
+    assert reply.status_code == 200
+    assert reply.get_json() == {"ok": True, "data": {"recorded": True}, "error": None}
+    entries = client.get("/api/v1/whiteboard/log").get_json()["data"]["entries"]
+    assert entries[-1]["op"] == "human.edit"
+
+    invalid = client.post("/api/v1/whiteboard/log", json={"kind": "other"})
+    assert invalid.status_code == 400
+
+
+# Input: client
+# Output: None
 # Processing: Check that http lists every command for the frontend.
 # Changed by: Sourish
 # Date: 2026-10-22
