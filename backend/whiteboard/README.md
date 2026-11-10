@@ -19,8 +19,11 @@ whiteboard/
 ├── codegen.py       the code the whiteboard writes (handlers, client calls, imports, file templates)
 ├── refactor.py      safe code changes: symbols, real references, imports that follow a move
 ├── sandbox.py       runs the affected tests on a temporary copy of the project before code is written
-├── server.py        local HTTP API for the desktop app and CLI (127.0.0.1:8700)
-├── mcp_tools.py     grouped MCP tools for AI agents (registered by backend/mcp_server/)
+├── server.py        local HTTP API for the desktop app and CLI (127.0.0.1:8700), live events, AI runs
+├── auth.py          person and agent tokens: who is calling the server
+├── events.py        live change events, streamed to the whiteboard as Server-Sent Events
+├── llm_agent.py     drives the whiteboard with Claude, DeepSeek or OpenAI over the API (tool-use loop)
+├── mcp_tools.py     grouped MCP tools for AI agents (registered by backend/mcp_server/); forward to the running server
 └── ops/             one module per command category
     ├── layers.py      layers and zoom
     ├── project.py     real folders and files, /project import
@@ -43,10 +46,29 @@ whiteboard/
 
 ## Running it
 
+The easy way is the CLI (`pip install -e .` once, from the repository root):
+
+```sh
+plovane open                       # open the whiteboard for this folder; launches the desktop app if needed
+plovane wb "/block add service payments"   # run one command; it shows up live in the open window
+plovane serve --headless           # server only, no window (CI, SSH)
+```
+
+`plovane open`, `wb`, `mcp` and `agent` start the desktop app first when
+nothing is running for the folder, the way `docker` starts Docker Desktop.
+Without Electron they fall back to a headless server and the browser.
+
+Directly:
+
 ```sh
 python -m backend.whiteboard.server --project /path/to/project     # HTTP API for the frontend
-python -m backend.mcp_server                                    # MCP tools; set PLOVANE_PROJECT to the project
 ```
+
+On start the server writes `.plovane/server.json` (URL, pid and the person's
+token, mode 600). It is the only owner of the board: before each operation it
+reloads `board.json` if another process changed it, a background watcher
+does the same while idle, and every operation takes `.plovane/lock`, so two
+processes never interleave or overwrite each other.
 
 The board is saved in the project as `.plovane/board.json` and committed with
 the code. The code in Git is the source of truth: the board stores only what
@@ -101,6 +123,29 @@ arrows with the style that matches their type and status:
 `GET /api/v1/whiteboard/commands` lists every command with an example, which
 you can use for autocomplete.
 
+**Tokens.** Every `/api/v1/` request needs `Authorization: Bearer <token>`,
+or it gets 401 `UNAUTHENTICATED`. The person's token is new each time the
+server starts: it is in `.plovane/server.json` and in a
+`<meta name="plovane-token">` tag on the page the server serves. Agent tokens
+are described below. The API also refuses any `Host` other than 127.0.0.1 or
+localhost, so a web page cannot reach it through DNS rebinding.
+
+**Live updates.** `GET /api/v1/whiteboard/events` is a Server-Sent Events
+stream (`?token=` works there, because `EventSource` cannot send headers).
+Each change is one event naming who made it and the command typed:
+
+```
+id: 12
+event: change
+data: {"seq": 12, "kind": "change", "actor": "claude", "op": "block.add",
+       "command": "/block add service payments", "changes": {"blocks": {"added": ["payments"], ...}}}
+```
+
+`kind` is `change`, `external` (board.json changed under the server),
+`agent` (an AI run's steps: `started`, `thought`, `command`, `finished`) or
+`hello`. Reconnecting with `Last-Event-ID` resumes where it left off.
+`GET /events/recent?after=SEQ` returns the same events as JSON.
+
 ## AI agents
 
 Agents use the same operations through MCP, grouped into 15 tools by noun
@@ -117,9 +162,56 @@ Agents are held to their grants:
 - `/agent grant NAME PATH --mode read|read-write` gives access by path, and the most specific grant wins.
 - `/agent region` gives access to the blocks inside a canvas rectangle.
 
-An MCP agent is named by `PLOVANE_AGENT`; an HTTP caller sends the
-`X-Plovane-Agent` header. Only a person can add agents or change access:
-those commands are left out of MCP and refused when an agent sends them.
+Only a person can add agents or change access: those commands are left out
+of MCP and refused when an agent sends them. **Agents are added in the
+Plovane CLI**: `plovane agent add NAME [--access read-write]` in a terminal,
+or `/agent add NAME` in the whiteboard's CLI panel. The whiteboard's buttons
+open the CLI panel for it, and `POST agent/run` refuses an agent that was not
+added first.
+
+### Connecting an AI
+
+| Way | For | How |
+|---|---|---|
+| MCP | Claude Code, Claude Desktop, Cursor | `claude mcp add plovane -- plovane mcp --dir /path/to/project --agent claude` |
+| API run | Claude, DeepSeek, OpenAI (or any compatible endpoint) | `plovane agent run "add a payments service" --provider deepseek`, or ✦ AI agent in the whiteboard |
+| HTTP | your own scripts and agents | an agent token, sent as `Authorization: Bearer plv_…` |
+
+Each of these acts as a named **agent**, never as the person, and every
+change it makes shows up live in the open whiteboard.
+
+- **MCP.** `plovane mcp` opens the whiteboard if needed, gets a token for the
+  agent, and serves the MCP tools over stdio. Each tool call is forwarded to
+  the server with that token (`PLOVANE_URL`, `PLOVANE_AGENT_TOKEN`). Add
+  `--access read-write` to grant the agent the whole project on connect;
+  otherwise grant access in the Agents tab. Without a running server
+  (`--no-launch`), the tools edit the project in-process as `PLOVANE_AGENT`
+  (default `claude`). An agent nobody added can do nothing.
+- **API runs.** `llm_agent.py` gives the model three tools: `run_command`,
+  `get_board` and `list_commands`. It loops until the model answers in text.
+  `anthropic` uses Messages API tool use; `deepseek` and `openai` use
+  chat-completions function calling. Keys come from `ANTHROPIC_API_KEY` /
+  `DEEPSEEK_API_KEY` / `OPENAI_API_KEY`, or from `~/.plovane/keys.json`
+  (mode 600), which `plovane connect <provider>` and the whiteboard's AI
+  providers dialog write. `PLOVANE_<PROVIDER>_BASE_URL` and
+  `PLOVANE_<PROVIDER>_MODEL` point a provider at another endpoint or model.
+  Plain-English prompts in the whiteboard (`/prompt/plan`) take the same
+  `provider`.
+- **Agent tokens.** A person runs `plovane agent token NAME [--access read-write]`
+  or presses Connect on the agent in the Agents tab. Only the token's SHA-256
+  is stored, in `.plovane/agent_tokens.json`.
+
+Endpoints, all under `/api/v1/whiteboard/`:
+
+| Endpoint | Who | What |
+|---|---|---|
+| `POST agents/<name>/token` `{"access"?, "path"?}` | person | add the agent if new, optionally grant access, return a new token (shown once) |
+| `DELETE agents/<name>/token` | person | revoke it |
+| `GET providers` | anyone | Claude / DeepSeek / OpenAI, whether each has a key, and the model |
+| `POST providers/<name>/key` `{"key"}` | person | save a key |
+| `POST agent/run` `{"prompt", "provider", "model"?, "agent"?, "access"?, "max_steps"?}` | person | start a run in the background |
+| `GET agent/runs`, `GET agent/runs/<id>` | anyone | run status, steps and result |
+| `POST agent/runs/<id>/stop` | person | stop after the current step |
 
 ## What it writes into a project
 
@@ -212,12 +304,14 @@ command answers `needs_confirmation` first.
 | `/compile apply` | `compile.apply` | `plovane_compile` | yes | Applies a previewed compile after tests pass. | `/compile apply c_102` |
 | `/compile` | `compile` | `plovane_compile` | sometimes | Compiles changed blocks to code (or code to blocks), shows a diff, and runs affected tests. | `/compile blocks-to-code src/orders.py --preview` |
 | `/place` | `place` | `plovane_place` |  | Places a block at exact coordinates, or relative to another block. | `/place auth --at 200,120  or  /place billing --right-of auth --gap 80` |
+| `/place relative` | `place` | `plovane_place` |  | Places a block at exact coordinates, or relative to another block. | `/place relative billing --right-of auth --gap 80` |
 | `/align` | `align` | `plovane_place` |  | Aligns blocks along an edge or center. | `/align auth,users,billing --top` |
 | `/distribute` | `distribute` | `plovane_place` |  | Spaces blocks evenly. | `/distribute auth,users,billing --horizontal --gap 60` |
 | `/grid` | `grid` | `plovane_place` |  | Sets grid size and snapping. | `/grid 20 --snap on` |
 | `/coords` | `coords` | `plovane_place` |  | Shows a block's position and size. | `/coords auth` |
 | `/size` | `size` | `plovane_place` |  | Sets a block's width and height, or fits it to its contents. | `/size auth 240x120  or  /size auth --fit` |
 | `/style` | `style` | `plovane_style` |  | Sets visual properties on a block, or applies a saved preset. | `/style auth --preset service` |
+| `/style --preset` | `style` | `plovane_style` |  | Sets visual properties on a block, or applies a saved preset. | `/style --preset auth service` |
 | `/preset define` | `preset.define` | `plovane_style` |  | Saves a named style for reuse. | `/preset define service --fill #E8F0FE --border #1A73E8 --radius 12 --icon server` |
 | `/theme` | `theme` | `plovane_style` |  | Changes all colors at once. | `/theme dark` |
 | `/connect` | `connect` | `plovane_connect` |  | Draws a typed arrow; creates or links real code. Unbuilt endpoints show as dashed "planned". | `/connect checkout -> payments --type api --endpoint "POST /charge"` |
@@ -277,3 +371,4 @@ command answers `needs_confirmation` first.
 | `/layout` | `view.layout` | `plovane_view` |  | Rearranges the canvas automatically. | `/layout left-to-right` |
 | `/filter` | `view.filter` | `plovane_view` |  | Shows only certain block or arrow types. | `/filter --arrows api` |
 | `/board` | `board.read` | `plovane_view` |  | Reads the whiteboard: blocks, arrows, endpoints and status, for an AI to get the picture first. | `/board  or  /board --layer 3  or  /board --block payments` |
+

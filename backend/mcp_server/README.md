@@ -22,6 +22,18 @@ printing the exact command to register the server.
 
 ## Register it
 
+**Recommended:** `plovane mcp` opens the project's whiteboard and forwards every
+whiteboard tool call to it as a named agent, so what the AI does shows up live:
+
+```sh
+claude mcp add plovane -- plovane mcp --dir /path/to/project --agent claude
+```
+
+The commands below run the server directly. The whiteboard tools then edit
+the project in-process as `PLOVANE_AGENT` (default `claude`), which a person
+must add and grant access first. See `backend/whiteboard/README.md`,
+*Connecting an AI*.
+
 **Claude Code**, run from the repository root:
 
 ```sh

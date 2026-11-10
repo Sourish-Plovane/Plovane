@@ -68,7 +68,7 @@ def test_http_errors_use_the_envelope_and_status(client):
 # Date: 2026-10-22
 def test_http_lists_every_command_for_the_frontend(client):
     listing = client.get("/api/v1/whiteboard/commands").get_json()["data"]["commands"]
-    assert len(listing) == 91
+    assert len(listing) == 93
     grant = next(c for c in listing if c["command"] == "/agent grant")
     assert grant["confirms"] and grant["people_only"]
 
@@ -88,15 +88,21 @@ def test_mcp_groups_hide_people_only_commands():
 
 # Input: tmp_path, monkeypatch
 # Output: None
-# Processing: Check that mcp tools run operations.
-# Changed by: Sourish
-# Date: 2026-10-22
+# Processing: Check that mcp tools run operations as the "claude" agent, within its grants.
+# Changed by: Claude Code
+# Date: 2026-11-09
 def test_mcp_tools_run_operations(tmp_path, monkeypatch):
     from backend.mcp_server.server import mcp
 
-    mcp_tools.set_workspace(project(tmp_path))
+    ws = project(tmp_path)
+    mcp_tools.set_workspace(ws)
     monkeypatch.delenv("PLOVANE_AGENT", raising=False)
+    monkeypatch.delenv("PLOVANE_URL", raising=False)
     try:
+        denied = asyncio.run(mcp.call_tool("plovane_project", {"action": "file_create", "args": {"path": "y.py"}}))
+        assert "unknown agent" in json.dumps(str(denied)) and not (tmp_path / "y.py").exists()
+        ws.execute("agent.add", {"name": "claude"})
+        ws.execute("agent.grant", {"agent": "claude", "path": ".", "mode": "read-write"}, confirm=True)
         result = asyncio.run(mcp.call_tool("plovane_project", {"action": "file_create", "args": {"path": "x.py"}}))
         assert (tmp_path / "x.py").exists()
         text = asyncio.run(mcp.call_tool("plovane_command", {"command": "/agent grant me . --mode read"}))

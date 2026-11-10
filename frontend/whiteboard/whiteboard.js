@@ -1,0 +1,390 @@
+(() => {
+  const API_ORIGIN = window.PLOVANE_API_ORIGIN || (window.location.pathname.startsWith('/whiteboard') ? window.location.origin : 'http://127.0.0.1:8700');
+  const API = `${API_ORIGIN}/api/v1/whiteboard`;
+  // The server writes the person's token into this page; every API call sends it.
+  const TOKEN = document.querySelector('meta[name="plovane-token"]')?.content || window.PLOVANE_TOKEN || '';
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  document.body.append($('#autocomplete'));
+  const state = { data:null, commands:[], scale:.86, x:170, y:105, selected:null, tab:'files', online:false, lastPrompt:'', log:[], viewLevel:1, demo:false, drag:null, history:JSON.parse(localStorage.getItem('plovane-prompt-history')||'[]') };
+  const layout = { sideWidth:240, bottomHeight:190, overlap:0, sideOpen:true, bottomOpen:true, ...JSON.parse(localStorage.getItem('plovane-whiteboard-layout')||'{}') };
+  const preferences = { gridVisible:true, gridSpacing:20, gridContrast:1, zoomSensitivity:1, panMode:'drag', codeFontSize:12, codeTheme:'auto', ...JSON.parse(localStorage.getItem('plovane-whiteboard-preferences')||'{}') };
+  let spacePressed=false;
+  // Live activity feed, AI runs by id, blocks to highlight after the next redraw, providers with keys.
+  const activity=[];const runs={};let flashIds=new Set(),refreshTimer=null,providerList=[];
+  const kinds = {agent:'◉',service:'⬡',server:'⬡',external:'↗',database:'▤',queue:'⇢',endpoint:'↗',folder:'▰',group:'▦',file:'▧',function:'ƒ',class:'C',step:'·',code:'⌘',scan:'⌕',note:'✎',slot:'□'};
+  const sample = {
+    project:'plovane/payments-api', board:{layers:{0:{number:0,name:'Agents and access',zoom_min:0,zoom_max:10,shows:['agent']},1:{number:1,name:'Services and endpoints',zoom_min:10,zoom_max:20,shows:['service','database']},2:{number:2,name:'Folders',zoom_min:20,zoom_max:40,shows:['folder']},3:{number:3,name:'Files',zoom_min:40,zoom_max:70,shows:['file']},4:{number:4,name:'English steps',zoom_min:70,zoom_max:90,shows:['function','step']},5:{number:5,name:'Code',zoom_min:90,zoom_max:100,shows:['code']}},blocks:{},arrows:{},endpoints:{},templates:{},agents:{},alerts:[],view:{}},block_styles:{},absolute:{},arrows:[]
+  };
+  function demoBoard(){
+    const B=(id,kind,name,layer,x,y,w,h,more={})=>sample.board.blocks[id]={id,kind,name,layer,x,y,w,h,...more};
+    B('test-writer','agent','Test writer',0,300,90,145,68,{meta:{mode:'read-write',path:'tests/',regions:[{x:250,y:70,w:330,h:240}]}});B('reviewer','agent','Code reviewer',0,760,110,145,68,{meta:{mode:'read',path:'src/',regions:[{x:690,y:80,w:360,h:280}]}});
+    B('payments','service','Payments API',1,390,310,260,166,{status:'verified',meta:{language:'python',description:'Flask service · 4 endpoints'}});B('web-app','service','Web application',1,70,340,230,135,{status:'verified',meta:{language:'typescript'}});B('postgres','database','PostgreSQL',1,780,350,180,105,{status:'verified'});
+    B('api-folder','folder','payments',2,415,620,220,154,{path:'src/payments'});B('client-folder','folder','client',2,70,640,220,140,{path:'src/client'});
+    B('routes-file','file','routes.py',3,420,900,205,82,{path:'src/payments/routes.py',status:'verified'});B('billing-file','file','billing.py',3,680,900,205,82,{path:'src/payments/billing.py',status:'generated'});B('client-file','file','payments.ts',3,75,920,205,82,{path:'src/client/payments.ts'});
+    B('charge','function','charge_card()',4,405,1150,220,90,{symbol:'charge_card',status:'verified'});B('retry','function','retry_payment()',4,690,1150,220,90,{symbol:'retry_payment',status:'generated'});
+    B('charge-code','code','charge_card · Python',5,395,1400,340,185,{path:'src/payments/billing.py',status:'verified'});B('scan-payments','scan','Security scan',1,355,280,330,250,{status:'verified',meta:{alerts:1}});
+    sample.board.arrows={'a1':{id:'a1',source:'web-app',target:'payments',type:'api',endpoint:'POST /charge',status:'built'},'a2':{id:'a2',source:'payments',target:'postgres',type:'database',status:'built'},'a3':{id:'a3',source:'client-file',target:'routes-file',type:'api',endpoint:'POST /charge',status:'built'},'a4':{id:'a4',source:'routes-file',target:'billing-file',type:'import',status:'built'},'a5':{id:'a5',source:'charge',target:'retry',type:'calls',status:'planned'}};
+    sample.absolute={}; Object.values(sample.board.blocks).forEach(b=>sample.absolute[b.id]={x:b.x,y:b.y,w:b.w,h:b.h});sample.board.alerts=[{severity:'medium',message:'Payment amount is not validated before charge',block_id:'billing-file'}]; sample.board.templates={rest_api:{name:'REST API service',builtin:true}};sample.board.agents={};state.demo=true;return sample;
+  }
+  async function request(path, options={}){
+    let response;try{response=await fetch(`${API}/${path}`,{...options,headers:{'Content-Type':'application/json',...(TOKEN?{Authorization:`Bearer ${TOKEN}`}:{}),...(options.headers||{})}})}catch(_){throw new Error('Whiteboard backend unavailable. Run: plovane open')}
+    const envelope=await response.json();if(!response.ok||!envelope.ok)throw new Error(envelope.error?.message||`Request failed (${response.status})`);return envelope.data;
+  }
+  function toast(text,error=false){const t=$('#toast');t.textContent=text;t.classList.toggle('error',error);t.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>t.classList.remove('show'),3200)}
+  function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+  function styleFor(b){return state.data?.block_styles?.[b.id]||{}}
+  function position(b){const a=state.data?.absolute?.[b.id];if(Array.isArray(a))return {x:a[0],y:a[1],w:b.w,h:b.h};return a||b}
+  function layerForZoom(z){if(z<.28)return 0;if(z<.48)return 1;if(z<.73)return 2;if(z<1.03)return 3;if(z<1.35)return 4;return 5}
+  function levelVisible(b,l){if(state.demo){if(l===0)return b.kind==='agent';if(l===1)return ['service','server','external','database','queue','scan'].includes(b.kind);if(l===2)return ['folder','group','slot'].includes(b.kind);if(l===3)return b.kind==='file';if(l===4)return ['function','class','step'].includes(b.kind);return b.kind==='code'}const ranges=state.data?.board?.layers||{};const layer=ranges[String(b.layer)]||ranges[b.layer];if(!layer)return b.layer===l;const n=Number(layer.number??b.layer);return n===l}
+  function levelName(l){return ['Agents & access','Services & endpoints','Folders','Files','English steps','Code'][l]}
+  function savePreferences(){localStorage.setItem('plovane-whiteboard-preferences',JSON.stringify(preferences))}
+  function applyCodePreferences(){document.documentElement.style.setProperty('--code-font-size',`${preferences.codeFontSize}px`);document.body.dataset.codeTheme=preferences.codeTheme}
+  function updateGrid(){const z=state.scale;const base=Math.max(8,Math.min(48,preferences.gridSpacing*z));const major=base*5;const v=$('#canvas-viewport'),dark=document.body.dataset.theme==='dark',fade=Math.max(.25,Math.min(1,preferences.gridContrast)),minorColor=dark?`rgba(120,128,145,${.34*fade})`:`rgba(140,148,162,${.28*fade})`,majorColor=dark?`rgba(95,103,120,${.34*fade})`:`rgba(160,168,182,${.28*fade})`;v.style.backgroundImage=preferences.gridVisible?`radial-gradient(circle, ${minorColor} ${Math.max(.55,z*.8)}px, transparent ${Math.max(.8,z*.95)}px),linear-gradient(to right, transparent ${major-1}px,${majorColor} ${major-1}px,${majorColor} ${major}px,transparent ${major}px),linear-gradient(to bottom, transparent ${major-1}px,${majorColor} ${major-1}px,${majorColor} ${major}px,transparent ${major}px)`:'none';v.style.backgroundSize=`${base}px ${base}px,${major}px ${major}px,${major}px ${major}px`;v.style.backgroundPosition=`${state.x}px ${state.y}px,${state.x}px ${state.y}px,${state.x}px ${state.y}px`;$('#zoom-label').textContent=`${Math.round(z*100)}%`}
+  function applyTransform(){const world=$('#canvas-world');world.style.transform=`translate(${state.x}px,${state.y}px) scale(${state.scale})`;updateGrid();render()}
+  function blockHTML(b){const s=styleFor(b),p=position(b),kind=b.kind||'block',status=b.status||b.meta?.status||'verified',generated=['generated','new','unverified'].includes(status);let cls=`block-node ${kind}-node ${generated?'generated':''}`;if(kind==='database')cls+=' db-node';let style=`left:${p.x||0}px;top:${p.y||0}px;width:${p.w||b.w||180}px;min-height:${p.h||b.h||70}px;`;if(s.fill)style+=`background:${esc(s.fill)};`;if(s.border)style+=`border-color:${esc(s.border)};`;if(s.radius)style+=`border-radius:${Number(s.radius)}px;`;if(s.opacity!=null)style+=`opacity:${Number(s.opacity)};`;const verified=generated?'<span class="block-status status-generated">Generated</span>':'<span class="block-status status-verified">✓ Verified</span>';
+    let body='';if(kind==='service'||kind==='server'){const endpoints=Object.values(state.data.board.endpoints||{}).filter(e=>e.service===b.id);body=(endpoints.length?endpoints.slice(0,3).map(e=>`<div class="endpoint-row"><span class="method">${esc(e.method)}</span> ${esc(e.path)} <span style="margin-left:auto;color:#aaa">↗</span></div>`).join(''):`<div class="block-body">${esc(b.meta?.description||b.meta?.language||'API · REST')}</div>`)}else if(kind==='file'){body=`<div class="block-body"><span class="mono">${esc(b.path||'src/'+b.name)}</span></div>`}else if(kind==='function'||kind==='step'){body=`<div class="block-body">${esc(b.meta?.description||'Plain-English code steps')}</div>`}else if(kind==='code'){body=`<div class="code-preview"><span class="kw">def</span> ${esc(b.symbol||b.name.split(' ')[0])}():\n    <span class="kw">if</span> payment.valid:\n        <span class="kw">return</span> charge(payment)</div>`}else if(kind==='agent'){body=`<div class="block-body">${esc(b.meta?.mode||'read')} access · ${esc(b.meta?.path||'project region')}</div>`}else if(kind==='scan'){body=`<div class="block-body"><span class="alert-chip">1 issue found</span><br>Input validation needs review.</div>`}else if(kind==='folder'||kind==='group'){const count=Object.values(state.data.board.blocks).filter(x=>x.parent===b.id).length;body=`<div class="block-body">${esc(b.path||'Project group')} <span style="float:right">${count||'—'} items</span></div>`}else if(kind==='database')body='<div class="block-body">PostgreSQL · connected</div>';
+    const footer=['service','server'].includes(kind)?'<div class="block-footer"><span>API layer</span><span>•••</span></div>':kind==='agent'?'<div class="block-footer"><span>Region access</span><span>◉</span></div>':`<div class="block-footer"><span>${esc(b.path||kind)}</span><span>•••</span></div>`;
+    return `<article class="${cls}" data-block="${esc(b.id)}" data-kind="${esc(kind)}" style="${style}" title="${esc(b.path||b.id)}"><div class="block-head"><span class="block-icon">${kinds[kind]||'□'}</span><div style="min-width:0"><div class="block-name">${esc(b.name||b.id)}</div><div class="block-kind">${esc(kind[0].toUpperCase()+kind.slice(1))}</div></div>${verified}</div>${body}${footer}</article>`;
+  }
+  function render(){if(!state.data)return;const board=state.data.board||state.data,l=layerForZoom(state.scale);state.viewLevel=l;const blocks=Object.values(board.blocks||{});const visible=blocks.filter(b=>levelVisible(b,l));$('#blocks').innerHTML=visible.map(blockHTML).join('');
+    $$('#blocks .block-node').forEach(n=>{n.classList.toggle('selected',n.dataset.block===state.selected);n.addEventListener('click',e=>{e.stopPropagation();state.selected=n.dataset.block;render();showSelection(n)});n.addEventListener('dblclick',e=>{e.stopPropagation();openBlock(n.dataset.block)})});
+    const map=new Map(visible.map(b=>[b.id,{b,p:position(b)}])),byId=new Map(blocks.map(b=>[b.id,b]));
+    const collapse=id=>{let b=byId.get(id),guard=0;while(b&&guard++<12){if(map.has(b.id))return b.id;b=byId.get(b.parent)}return null};
+    const arrows=state.data.arrows?.length?state.data.arrows:Object.values(board.arrows||{});$('#connections').innerHTML=arrows.map(a=>{const source=collapse(a.source||a.source_node_id),target=collapse(a.target||a.target_node_id);if(!source||!target||source===target)return '';const A=map.get(source),B=map.get(target),x1=A.p.x+A.p.w/2,y1=A.p.y+A.p.h/2,x2=B.p.x+B.p.w/2,y2=B.p.y+B.p.h/2,cx=(x1+x2)/2,cy=(y1+y2)/2-30,label=a.endpoint||a.label||a.relationship||(a.type==='api'?'API':'');return `<path class="${esc(a.type||a.relationship||'calls')} ${esc(a.status||'')}" d="M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}" marker-end="url(#arrowhead)"/><text x="${cx}" y="${cy-5}" text-anchor="middle">${esc(label)}</text>`}).join('')+`<defs><marker id="arrowhead" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="#aaa3ca"/></marker></defs>`;
+    renderRegions(board);renderMinimap(blocks);renderSidebar();$('#breadcrumbs b').textContent=levelName(l);$('#change-count').textContent=state.log.length?`${state.log.length} recent ${state.log.length===1?'change':'changes'}`:'No changes yet';
+  }
+  function renderRegions(board){$$('.region-overlay').forEach(x=>x.remove());Object.values(board.blocks||{}).filter(b=>b.kind==='agent').forEach(agent=>{const regions=agent.meta?.regions||[];for(const region of regions){const box=document.createElement('div');box.className='region-overlay';box.style.cssText=`left:${region.x}px;top:${region.y}px;width:${region.w}px;height:${region.h}px`;box.innerHTML=`<span class="region-label">${esc(agent.name)} · ${esc(agent.meta?.mode||'read')}</span>`;$('#canvas-world').append(box)}})}
+  function renderMinimap(blocks){
+    const mini=$('.mini-inner'),board=state.data.board||state.data;
+    const rect=mini.getBoundingClientRect(),width=rect.width,height=rect.height,padding=4;
+    const positioned=blocks.map(b=>({b,p:position(b)}));
+    const minX=Math.min(0,...positioned.map(({p})=>p.x)),minY=Math.min(0,...positioned.map(({p})=>p.y));
+    const maxX=Math.max(320,...positioned.map(({b,p})=>p.x+(p.w||b.w||100)));
+    const maxY=Math.max(220,...positioned.map(({b,p})=>p.y+(p.h||b.h||60)));
+    const scale=Math.min((width-padding*2)/Math.max(1,maxX-minX),(height-padding*2)/Math.max(1,maxY-minY));
+    const offsetX=(width-(maxX-minX)*scale)/2,offsetY=(height-(maxY-minY)*scale)/2;
+    const x=value=>offsetX+(value-minX)*scale,y=value=>offsetY+(value-minY)*scale;
+    const nodes=new Map(positioned.map(({b,p})=>[b.id,{b,p,cx:x(p.x+(p.w||b.w||100)/2),cy:y(p.y+(p.h||b.h||60)/2)}]));
+    const arrows=state.data.arrows?.length?state.data.arrows:Object.values(board.arrows||{});
+    const links=arrows.map(a=>{const from=nodes.get(a.source||a.source_node_id),to=nodes.get(a.target||a.target_node_id);return from&&to?`<line class="mini-link ${esc(a.type||a.relationship||'calls')}" x1="${from.cx}" y1="${from.cy}" x2="${to.cx}" y2="${to.cy}"/>`:''}).join('');
+    mini.innerHTML=`<svg class="mini-connections" viewBox="0 0 ${width} ${height}" aria-hidden="true">${links}</svg>`;
+    positioned.forEach(({b,p})=>{const el=document.createElement('i'),nodeWidth=Math.max(2,(p.w||b.w||100)*scale),nodeHeight=Math.max(2,(p.h||b.h||60)*scale);el.className=`mini-rect ${esc(b.kind||'block')} ${['generated','new','unverified'].includes(b.status)?'generated':''}`;el.title=`${b.name||b.id} · ${b.kind||'block'}`;el.style.cssText=`left:${x(p.x)}px;top:${y(p.y)}px;width:${nodeWidth}px;height:${nodeHeight}px`;mini.append(el)});
+    const viewport=$('#canvas-viewport'),viewWidth=Math.min(width,viewport.clientWidth/state.scale*scale),viewHeight=Math.min(height,viewport.clientHeight/state.scale*scale),viewLeft=x(-state.x/state.scale),viewTop=y(-state.y/state.scale),view=document.createElement('i');
+    view.className='mini-view';view.style.cssText=`left:${Math.max(0,Math.min(width-viewWidth,viewLeft))}px;top:${Math.max(0,Math.min(height-viewHeight,viewTop))}px;width:${viewWidth}px;height:${viewHeight}px`;mini.append(view);
+  }
+  function renderSidebar(){
+    const board=state.data.board||state.data,blocks=Object.values(board.blocks||{}),host=$('#sidebar-content');
+    if(state.tab==='files'){
+      const folders=blocks.filter(b=>b.kind==='folder'),files=blocks.filter(b=>b.kind==='file');
+      host.innerHTML=`<div class="side-section-title">PROJECT FILES <button data-action="new-file">＋</button></div><div class="tree-row selected"><span class="tree-icon">⌄</span><span class="tree-icon">▰</span>${esc(projectName())}</div>${folders.map(f=>`<div class="tree-row tree-indent" data-open="${esc(f.id)}"><span class="tree-icon">⌄</span><span class="tree-icon">▰</span>${esc(f.name)}</div>${files.filter(x=>inFolder(x,f)).map(x=>`<div class="tree-row tree-indent" data-open="${esc(x.id)}"><span class="tree-icon file">▧</span>${esc(x.name)}<span class="tree-count">${x.status==='generated'?'●':''}</span></div>`).join('')}`).join('')}${files.filter(x=>!folders.some(f=>inFolder(x,f))).map(x=>`<div class="tree-row tree-indent" data-open="${esc(x.id)}"><span class="tree-icon file">▧</span>${esc(x.name)}</div>`).join('')}${folders.length||files.length?'':'<div class="empty-state">No files on the board yet. Use File › Import project, or ＋ to create one.</div>'}`;
+    }else if(state.tab==='agents'){
+      host.innerHTML=agentsPanel(board);
+    }else if(state.tab==='activity'){
+      host.innerHTML=activityPanel();
+    }else if(state.tab==='services'){
+      const svcs=blocks.filter(b=>['service','server','database','external'].includes(b.kind));
+      host.innerHTML=`<div class="side-section-title">SERVICES <button data-action="service-new" title="Add a service">＋</button></div>${svcs.map(s=>`<div class="service-card"><b>${kinds[s.kind]||'⬡'} &nbsp;${esc(s.name)}</b><small>${esc(s.meta?.language||s.kind)} · ${Object.values(board.endpoints||{}).filter(e=>e.service===s.id).length||'—'} endpoints</small></div>`).join('')||'<div class="empty-state">No services on this layer.</div>'}`;
+    }else{
+      const code=blocks.filter(b=>['file','function','code'].includes(b.kind));
+      host.innerHTML=`<div class="side-section-title">CODE & PROVENANCE <button data-command="/history">◷</button></div>${code.map(b=>`<div class="code-card"><div class="tree-row" data-open="${esc(b.id)}"><span class="tree-icon file">${kinds[b.kind]}</span>${esc(b.name)}<span class="tree-count">${b.status==='generated'?'NEW':'✓'}</span></div><small style="display:block;padding:2px 7px;color:#a1a6b0;font-size:8px">${esc(b.path||'Prompt: '+(b.meta?.prompt||'verified library'))} · ${Number(b.meta?.tokens||0)} tokens</small></div>`).join('')||'<div class="empty-state">Select a file to inspect its source.</div>'}`;
+    }
+    host.onclick=e=>{if(e.target.closest('[data-action],[data-command]'))return;const open=e.target.closest('[data-open]');if(open)openBlock(open.dataset.open)};
+  }
+  function showSelection(node){const p=$('#selection-popup'),r=node.getBoundingClientRect(),v=$('#canvas-viewport').getBoundingClientRect();p.style.left=`${Math.max(8,Math.min(v.width-220,r.left-v.left))}px`;p.style.top=`${Math.max(52,r.top-v.top-40)}px`;p.innerHTML='<button data-action="info">ⓘ Details</button><button data-action="edit">✎ Edit</button><button data-action="connect">↗ Connect</button>';p.classList.add('show')}
+  function openModal(title,body,eyebrow='PLOVANE'){ $('#modal-title').textContent=title;$('#modal-eyebrow').textContent=eyebrow;$('#modal-body').innerHTML=body;$('#modal').showModal() }
+  function openBlock(id){const board=state.data.board||state.data,b=board.blocks?.[id];if(!b)return;state.selected=id;const p=position(b),arrows=(state.data.arrows||Object.values(board.arrows||{})).filter(a=>a.source===id||a.target===id);let body=`<div class="row"><b>${esc(b.kind)}</b> · ${esc(b.status||'verified')}<br><span class="muted">${esc(b.path||b.id)} · Layer ${b.layer}</span></div><div class="row">Position ${Math.round(p.x)}, ${Math.round(p.y)} · ${p.w||b.w} × ${p.h||b.h}</div>`;if(b.kind==='code'||b.kind==='function')body+=`<div class="row">Source · ${esc(b.path||b.meta?.file||b.name)}</div><button data-action="open-code" data-block="${esc(id)}">Show code</button>`;if(b.kind==='file')body+=`<div class="row">Source · ${esc(b.path||b.name)}</div><button data-action="open-code" data-block="${esc(id)}">Open source</button>`;body+=`<div class="row"><b>Connections (${arrows.length})</b><br>${arrows.map(a=>`${esc(a.type)} · ${esc(a.endpoint||`${a.source} → ${a.target}`)} · ${esc(a.status)}`).join('<br>')||'No connections'}</div><div class="row">Provenance · ${b.status==='generated'?'Generated code awaiting approval':'Verified library code'}<br><span class="muted">${esc(b.meta?.prompt||'Prompt provenance available in project history')} · ${Number(b.meta?.tokens||0)} tokens</span></div>`;openModal(b.name,body,'BLOCK DETAILS');render()}
+  function record(prompt,data){const entry={prompt,at:new Date().toISOString(),tokens:Math.max(1,Math.ceil(prompt.trim().split(/\s+/).length*1.35)),result:data?.result?.message||data?.result?.id||'Command completed',kind:'prompt'};state.log.unshift(entry);state.log=state.log.slice(0,100);state.lastPrompt=prompt;localStorage.setItem('plovane-prompt-history',JSON.stringify(state.log));$('#token-count').textContent=`${state.log.reduce((n,x)=>n+x.tokens,0)} tokens`;$('#change-count').textContent=`${state.log.length} recent ${state.log.length===1?'change':'changes'}`;render()}
+  async function runCommand(command,confirm=false,prompt=command){try{const data=await request('command',{method:'POST',body:JSON.stringify({command,confirm})});if(data.status==='needs_confirmation'){openModal('Review before applying',`<p>${esc(data.message||'This command needs confirmation.')}</p><pre>${esc(JSON.stringify(data.preview||{},null,2))}</pre><div class="modal-actions"><button class="secondary" data-action="close-modal">Cancel</button><button data-action="confirm-command" data-command="${esc(command)}">Review & apply</button></div>`,'CONFIRMATION REQUIRED');return}record(prompt,data);await refresh();const changed=Object.keys(data.changes||{}).length>0;if(!changed&&data.result&&!(data.result.diff||data.diff)){openModal(command.split(' ').slice(0,2).join(' '),`${data.notes?`<div class="row">${esc([].concat(data.notes).join(' '))}</div>`:''}<pre>${esc(JSON.stringify(data.result,null,2))}</pre>`,'RESULT');return}toast(data.result?.message||data.result?.id||'Change applied to project graph.');const result=data.result||{};if(result.diff||data.diff){const diff=result.diff||data.diff,next=result.next||'';openModal('Review generated changes',`<p>Review this generated diff before it changes project files. Affected tests run in the backend sandbox.</p><pre>${esc(diff)}</pre>${result.tests?`<div class="row">Tests · ${result.tests.passed===false?'failed':'passed'} · ${esc(JSON.stringify(result.tests))}</div>`:''}<div class="modal-actions"><button class="secondary" data-action="close-modal">Keep reviewing</button>${next.startsWith('/compile apply')?`<button data-action="apply-compile" data-command="${esc(next)}">Approve & apply</button>`:''}</div>`,'GENERATED CODE');}}catch(e){toast(e.message,true)}}
+  async function refresh(){try{state.data=await request('board');state.online=true;state.demo=false;$('#breadcrumbs').title=state.data.project||'';showProject();render();applyFlash();return true}catch(e){state.data=demoBoard();state.online=false;render();return false}}
+  async function history(action){try{await request(action,{method:'POST',body:'{}'});await refresh();toast(`${action} complete.`)}catch(e){toast(e.message,true)}}
+  function promptCommand(text){
+    const v=text.trim();if(!v)return;
+    if(v.startsWith('/'))return v;
+    let m=v.match(/\b(?:add|create)\s+(?:a\s+)?(service|server|database|queue|external|folder|group|agent)\s+(?:called|named)\s+["“]?([^"”]+?)["”]?\s*$/i);
+    if(m){const kind=m[1].toLowerCase(),name=m[2].trim();if(kind==='folder')return `/folder create ${name}`;if(kind==='agent')return `/agent add "${name}"`;const layer=['service','server','database','queue','external'].includes(kind)?1:2;return `/block add ${kind} "${name}" --layer ${layer}`}
+    m=v.match(/\b(?:add|create)\s+(?:a\s+)?file\s+(?:at\s+)?["“]?([\w./-]+)["”]?\s*$/i);if(m)return `/file create ${m[1]}`;
+    m=v.match(/\bconnect\s+["“]?([\w./-]+)["”]?\s+to\s+["“]?([\w./:-]+)["”]?/i);if(m)return `/connect ${m[1]} -> ${m[2]} --type api`;
+    if(/\b(scan|security scan|check for vulnerabilities)\b/i.test(v))return '/scan';
+    if(state.selected)return `/block edit ${state.selected} "${v.replaceAll('"','\\"')}"`;
+    return `/rank "${v.replaceAll('"','\\"')}" --k 5`;
+  }
+  function submitPrompt(){const input=$('#prompt-input'),text=input.value.trim();if(!text)return;if(/^\/agent\s+add\b/i.test(promptCommand(text)||'')){input.value='';resizePrompt();openCli(promptCommand(text)+' ');toast('Agents are added in the Plovane CLI. Press Enter there to add it.');return}input.value='';resizePrompt();$('#autocomplete').hidden=true;if(text.startsWith('/'))runCommand(text,false,text);else planPrompt(text)}
+  async function planPrompt(prompt){try{const plan=await request('prompt/plan',{method:'POST',body:JSON.stringify({prompt,provider:$('#provider-select')?.value||'anthropic'})});state.pendingPrompts=state.pendingPrompts||{};state.pendingPrompts[plan.plan_id]={prompt,tokens:plan.tokens||{}};state.history.unshift(prompt);state.history=state.history.slice(0,40);localStorage.setItem('plovane-prompt-history',JSON.stringify(state.history));const candidates=plan.library_candidates||[];const library=candidates.length?`<div class="row"><b>Verified library candidates</b><br>${candidates.map(x=>`${esc(x.name||x.block_id)} · ${esc(x.block_id)} · score ${esc(x.score??'n/a')}`).join('<br>')}</div>`:'<div class="row">No verified library match cleared the cutoff. Plan uses new operations.</div>';openModal('Review AI plan',`<p>${esc(plan.summary||'Review the proposed operations before applying them.')}</p>${library}<div class="row"><b>Planned commands</b><pre>${esc(plan.commands.join('\n'))}</pre></div><div class="row"><b>Server preview</b><pre>${esc(JSON.stringify(plan.preview,null,2))}</pre></div><div class="row">${esc(providerLabel(plan.provider))} tokens · ${Number(plan.tokens?.input_tokens||0)} input · ${Number(plan.tokens?.output_tokens||0)} output</div><div class="modal-actions"><button class="secondary" data-action="close-modal">Cancel</button><button data-action="approve-prompt-plan" data-plan-id="${esc(plan.plan_id)}">Approve and apply</button></div>`,'APPROVAL REQUIRED')}catch(error){toast(error.message,true)}}
+  async function applyPromptPlan(planId,confirm=false){const plan=state.pendingPrompts?.[planId];if(!plan)return;try{const data=await request('prompt/apply',{method:'POST',body:JSON.stringify({plan_id:planId,confirm})});if(data.status==='needs_confirmation'){openModal('Confirm risky operations',`<p>${esc(data.message||'These operations need confirmation.')}</p><pre>${esc(JSON.stringify(data.preview||{},null,2))}</pre><div class="modal-actions"><button class="secondary" data-action="close-modal">Cancel</button><button data-action="confirm-prompt-plan" data-plan-id="${esc(planId)}">Confirm and apply</button></div>`,'CONFIRMATION REQUIRED');return}$('#modal').close();const tokens=Number(plan.tokens?.input_tokens||0)+Number(plan.tokens?.output_tokens||0);state.log.unshift({prompt:plan.prompt,at:new Date().toISOString(),tokens,token_usage:plan.tokens,kind:'prompt',result:'Approved AI plan'});state.log=state.log.slice(0,100);localStorage.setItem('plovane-prompt-history',JSON.stringify(state.log));$('#token-count').textContent=`${state.log.reduce((n,x)=>n+(x.tokens||0),0)} tokens`;await refresh();toast('Approved plan saved to the project graph and files.')}catch(error){toast(error.message,true)}}
+  function applyLayout(){const root=document.documentElement;root.style.setProperty('--sidebar-width',`${layout.sideWidth}px`);root.style.setProperty('--sidebar-visible-width',`${layout.sideOpen?layout.sideWidth:0}px`);root.style.setProperty('--prompt-height',`${layout.bottomOpen?layout.bottomHeight:0}px`);root.style.setProperty('--corner-overlap',`${layout.sideOpen&&layout.bottomOpen?layout.overlap:0}px`);$('#sidebar').classList.toggle('collapsed',!layout.sideOpen);$('.prompt-dock').classList.toggle('closed',!layout.bottomOpen);if(!layout.bottomOpen){$('#cli-panel').classList.remove('open');$('.prompt-dock').classList.remove('cli-open');document.body.classList.remove('cli-open');const button=$('[data-action="toggle-cli"]');button.classList.remove('active');button.setAttribute('aria-expanded','false')}localStorage.setItem('plovane-whiteboard-layout',JSON.stringify(layout))}
+  function toggleSide(){layout.sideOpen=!layout.sideOpen;applyLayout()}
+  function toggleBottom(){layout.bottomOpen=!layout.bottomOpen;applyLayout()}
+  function setTheme(theme){document.body.dataset.theme=theme;localStorage.setItem('plovane-theme',theme);updateGrid()}
+  const accents={red:['#D94A4A','#FCE8E6'],white:['#B7BDC8','#F2F3F5'],orange:['#E77928','#FFF0E3'],yellow:['#FCCE03','#FFF6CC'],green:['#25845F','#E7F5ED'],blue:['#397BD1','#E8F1FE'],purple:['#7357E8','#F0EDFF'],tan:['#A87845','#F5EBDD']};
+  function setAccent(name){const colors=accents[name]||accents.purple;document.documentElement.style.setProperty('--accent',colors[0]);document.documentElement.style.setProperty('--accent-soft',colors[1]);localStorage.setItem('plovane-accent',name)}
+  function openSettings(){const dark=document.body.dataset.theme==='dark',selected=localStorage.getItem('plovane-accent')||'purple';openModal('Settings',`<button class="library-link" data-action="connections">AI providers, API keys and MCP setup…</button><label class="settings-row" for="theme-toggle"><span><b>Dark mode</b><br><small>Use a darker whiteboard appearance.</small></span><input class="theme-switch" id="theme-toggle" type="checkbox" ${dark?'checked':''}></label><div class="settings-section"><b>Theme color</b><small>Choose your accent color.</small><div class="theme-colors">${Object.entries(accents).map(([name,colors])=>`<button class="theme-color ${selected===name?'selected':''}" type="button" data-theme-color="${name}" aria-pressed="${selected===name}" title="${name[0].toUpperCase()+name.slice(1)}"><span style="--swatch:${colors[0]}"></span>${name[0].toUpperCase()+name.slice(1)}</button>`).join('')}</div></div><div class="settings-section"><b>Grid</b><label class="settings-row" for="grid-toggle"><span>Show grid</span><input class="theme-switch" id="grid-toggle" type="checkbox" ${preferences.gridVisible?'checked':''}></label><label class="settings-control">Spacing <output>${preferences.gridSpacing}px</output><input id="grid-spacing" type="range" min="12" max="36" step="2" value="${preferences.gridSpacing}"></label><label class="settings-control">Contrast <output>${Math.round(preferences.gridContrast*100)}%</output><input id="grid-contrast" type="range" min="25" max="100" step="5" value="${Math.round(preferences.gridContrast*100)}"></label></div><div class="settings-section"><b>Canvas behavior</b><label class="settings-control">Zoom sensitivity <output>${Math.round(preferences.zoomSensitivity*100)}%</output><input id="zoom-sensitivity" type="range" min="50" max="200" step="10" value="${Math.round(preferences.zoomSensitivity*100)}"></label><label class="settings-control">Pan gesture<select id="pan-mode"><option value="drag" ${preferences.panMode==='drag'?'selected':''}>Drag canvas</option><option value="space" ${preferences.panMode==='space'?'selected':''}>Space + drag</option></select></label></div><div class="settings-section"><b>Code display</b><label class="settings-control">Font size <output>${preferences.codeFontSize}px</output><input id="code-font-size" type="range" min="10" max="20" step="1" value="${preferences.codeFontSize}"></label><label class="settings-control">Syntax theme<select id="code-theme"><option value="auto" ${preferences.codeTheme==='auto'?'selected':''}>Match appearance</option><option value="light" ${preferences.codeTheme==='light'?'selected':''}>Light</option><option value="dark" ${preferences.codeTheme==='dark'?'selected':''}>Dark</option></select></label></div>`,'')}
+  function bindPanelResize(handle,kind){let start=null;handle.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();start={x:e.clientX,y:e.clientY,width:layout.sideWidth,height:layout.bottomHeight,overlap:layout.overlap};handle.setPointerCapture(e.pointerId)});handle.addEventListener('pointermove',e=>{if(!start)return;if(kind==='side'){const width=start.width+e.clientX-start.x;if(width<80){layout.sideOpen=false}else{layout.sideOpen=true;layout.sideWidth=Math.max(180,Math.min(440,width))}}else if(kind==='bottom'){const height=start.height+start.y-e.clientY,maximum=Math.max(100,Math.min(innerHeight*.55,innerHeight-448));if(height<80){layout.bottomOpen=false}else{layout.bottomOpen=true;layout.bottomHeight=Math.max(100,Math.min(maximum,height))}}else{layout.overlap=Math.max(0,Math.min(180,start.overlap+start.x-e.clientX))}applyLayout()});const stop=()=>{start=null};handle.addEventListener('pointerup',stop);handle.addEventListener('pointercancel',stop)}
+  bindPanelResize($('#side-resize'),'side');bindPanelResize($('#bottom-resize'),'bottom');bindPanelResize($('#corner-resize'),'corner');applyLayout();setTheme(localStorage.getItem('plovane-theme')||'light');setAccent(localStorage.getItem('plovane-accent')||'purple');applyCodePreferences();$('#workspace-name').textContent=localStorage.getItem('plovane-workspace-name')||'Payments API';
+  function fit(){const v=$('#canvas-viewport'),blocks=Object.values(state.data?.board?.blocks||{}),focus=blocks.filter(b=>Number(b.layer)===1);const points=focus.length?focus:blocks;const left=Math.min(0,...points.map(b=>position(b).x)),top=Math.min(180,...points.map(b=>position(b).y)),right=Math.max(1080,...points.map(b=>position(b).x+(position(b).w||b.w||180))),bottom=Math.max(600,...points.map(b=>position(b).y+(position(b).h||b.h||80)));state.scale=.39;state.x=(v.clientWidth-(right-left)*state.scale)/2-left*state.scale;state.y=(v.clientHeight-(bottom-top)*state.scale)/2-top*state.scale;applyTransform()}
+  function zoomAt(next,cx,cy){next=Math.max(.16,Math.min(2.6,next));const v=$('#canvas-viewport').getBoundingClientRect(),px=cx??v.width/2,py=cy??v.height/2,wx=(px-state.x)/state.scale,wy=(py-state.y)/state.scale;state.scale=next;state.x=px-wx*next;state.y=py-wy*next;applyTransform()}
+  function setTab(tab){state.tab=tab;$$('.side-tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));renderSidebar()}
+  function menuClick(action){if(action==='toggle-cli'){const panel=$('#cli-panel'),open=!panel.classList.contains('open'),button=$('[data-action="toggle-cli"]');panel.classList.toggle('open',open);$('.prompt-dock').classList.toggle('cli-open',open);document.body.classList.toggle('cli-open',open);button.classList.toggle('active',open);button.setAttribute('aria-expanded',String(open));if(open)$('#cli-panel iframe').contentWindow.postMessage({type:'plovane-cli-focus'},location.origin)}else if(action==='home'){if(window.plovaneDesktop?.goHome)window.plovaneDesktop.goHome().catch(error=>toast(error.message,true));else toast('Home page opens inside the Plovane desktop app.',true)}else if(action==='undo'||action==='redo')history(action);else if(action==='zoom-in')zoomAt(state.scale*1.18);else if(action==='zoom-out')zoomAt(state.scale/1.18);else if(action==='fit')fit();else if(action==='toggle-sidebar')toggleSide();else if(action==='toggle-bottom-bar')toggleBottom();else if(action==='settings')openSettings();else if(action==='edit-workspace-name'){const current=$('#workspace-name').textContent,name=prompt('Workspace name',current);if(name?.trim()){const value=name.trim();$('#workspace-name').textContent=value;localStorage.setItem('plovane-workspace-name',value)}}else if(action==='close-modal')$('#modal').close();else if(action==='snapshot')runCommand('/snapshot "whiteboard snapshot"');else if(action==='import')runCommand('/project import');else if(action==='new-file'){const path=prompt('New file path','src/new_module.py');if(path)runCommand(`/file create ${path}`)}else if(action==='save')runCommand('/snapshot "whiteboard snapshot"');else if(action==='github')showGit();else if(action==='human-edit'){const note=prompt('Describe the edit you made by hand','Manual edit');if(note!==null)runCommand(`/snapshot "human edit: ${(note||'manual edit').replaceAll('"','\'')}"`)}else if(action==='commands'||action==='command-list')showCommands();else if(action==='history')showHistory();else if(action==='shortcuts')openModal('Keyboard shortcuts','<div class="row">Enter · Run prompt</div><div class="row">/ · Browse slash commands</div><div class="row">⌘ Z · Undo</div><div class="row">⇧ ⌘ Z · Redo</div><div class="row">Scroll · Zoom canvas</div><div class="row">Drag canvas · Pan</div>','HELP');else if(action==='about')openModal('Plovane Whiteboard','<p>An agentic coding workspace. Verified library code, the project graph, and your prompts meet on one infinite canvas.</p>','ABOUT');else if(action==='attach')showAttach();else if(action==='sidebar-menu')openModal('Workspace options','<button data-command="/project import">Import existing project</button> &nbsp; <button data-command="/history">View project history</button>','WORKSPACE');else if(action==='approve-change'){$('#modal').close();toast('Approval flow requires a previewed compile. Use /compile then /compile apply.')}else if(action==='connect'&&state.selected){const from=state.selected,to=prompt('Connect to block (name or id):');if(to)runCommand(`/connect ${from} -> ${to} --type api`)}else if(action==='edit'&&state.selected){const b=state.data.board.blocks[state.selected],name=prompt('New block name',b?.name||'');if(name)runCommand(`/block rename ${state.selected} "${name}"`)}else if(action==='info'&&state.selected)openBlock(state.selected);else if(action==='open-code'&&state.selected)showCode(state.selected)}
+  function showCommands(){const list=state.commands;openModal('Slash commands',list.length?list.map(c=>`<div class="row"><code>${esc(c.command)}</code> <span class="muted">${esc(c.summary||'')}</span><br><button data-run-example="${esc(c.example||c.command)}">${esc(c.example||c.command)}</button></div>`).join(''):'<p>Connect to the whiteboard backend to load its full command reference.</p>','COMMAND REFERENCE')}
+  async function showHistory(){try{const result=await request('log?last=100'),entries=result.entries||[];const rows=entries.map(x=>({prompt:x.args?.prompt||x.op||'Operation',tokens:x.args?.token_usage?.input_tokens||0,at:x.at,kind:x.op==='prompt.provenance'?'Prompt':'operation'}));const all=[...state.log,...rows].sort((a,b)=>new Date(b.at||0)-new Date(a.at||0));openModal('Project history',all.map(x=>`<div class="row"><b>${x.kind==='human'?'Human edit':x.kind==='operation'?'Backend operation':'Prompt'}</b> · ${esc(x.tokens||0)} tokens<br>${esc(x.prompt||'')}<br><span class="muted">${x.at?new Date(x.at).toLocaleString():''}</span></div>`).join('')||'<p>No project changes recorded yet.</p>','SERVER HISTORY')}catch(error){toast(error.message,true)}}
+  function handleAction(node){if(extraAction(node))return;if(node.dataset.action==='approve-prompt-plan')applyPromptPlan(node.dataset.planId);else if(node.dataset.action==='confirm-prompt-plan')applyPromptPlan(node.dataset.planId,true);else if(node.dataset.action==='confirm-command'||node.dataset.action==='apply-compile')runCommand(node.dataset.command,node.dataset.action==='confirm-command'||node.dataset.action==='apply-compile');else if(node.dataset.command)runCommand(node.dataset.command);else if(node.dataset.action)menuClick(node.dataset.action);else if(node.dataset.runExample)runCommand(node.dataset.runExample)}
+  function resizePrompt(){const t=$('#prompt-input');t.style.height='auto';t.style.height=`${Math.min(78,t.scrollHeight)}px`}
+  function autocomplete(){const input=$('#prompt-input'),box=$('#autocomplete'),v=input.value;if(!v.startsWith('/')){box.hidden=true;return}const groupAliases={blocks:'block',endpoints:'endpoint',layers:'layer',agents:'agent',services:'service',files:'file',folders:'folder',arrows:'arrow',templates:'template',connections:'connection'};const normalize=value=>{const [head,...tail]=value.toLowerCase().split(/\s+/);return [`/${groupAliases[head.slice(1)]||head.slice(1)}`,...tail].join(' ')};const q=normalize(v);const isGroupQuery=[...Object.keys(groupAliases),...Object.values(groupAliases)].includes(q.slice(1));const limit=isGroupQuery?30:9;const list=state.commands.filter(c=>normalize(c.command).startsWith(q)||c.command.toLowerCase().includes(v.toLowerCase())||c.summary?.toLowerCase().includes(v.toLowerCase())).slice(0,limit);box.innerHTML=(list.length?list.map(c=>`<button data-example="${esc(c.example||c.command)}"><span>${esc(c.command)} <small>${esc(c.summary||'')}</small></span><small>↵</small></button>`):[`/rank "${esc(v.slice(1))}" --k 5`].map(c=>`<button data-example="${esc(c)}"><span>${esc(c)} <small>Search verified library</small></span><small>↵</small></button>`)).join('');box.hidden=false;$$('button',box).forEach(b=>b.onclick=()=>{input.value=b.dataset.example;box.hidden=true;input.focus()})}
+  document.addEventListener('click',e=>{const trigger=e.target.closest('.menu-trigger');if(trigger){const wrap=trigger.closest('.menu-wrap'),was=wrap.classList.contains('open');$$('.menu-wrap').forEach(x=>{x.classList.remove('open');$('.menu-trigger',x).setAttribute('aria-expanded','false')});if(!was){wrap.classList.add('open');trigger.setAttribute('aria-expanded','true')}return}if(!e.target.closest('.menu-wrap'))$$('.menu-wrap').forEach(x=>x.classList.remove('open'));const tab=e.target.closest('.side-tab');if(tab)setTab(tab.dataset.tab);const action=e.target.closest('[data-action],[data-command],[data-run-example]');if(action)handleAction(action);if(e.target.id==='canvas-viewport'||e.target.id==='connections'||e.target.id==='blocks'){$('#selection-popup').classList.remove('show');state.selected=null;render()}});
+  document.addEventListener('change',e=>{if(e.target.id==='theme-toggle')setTheme(e.target.checked?'dark':'light')});
+  $('#modal').addEventListener('click',e=>{if(e.target===$('#modal'))$('#modal').close()});
+  $('#modal-body').addEventListener('input',e=>{const id=e.target.id;if(id==='grid-spacing'){preferences.gridSpacing=Number(e.target.value);e.target.previousElementSibling.value=`${preferences.gridSpacing}px`;updateGrid()}else if(id==='grid-contrast'){preferences.gridContrast=Number(e.target.value)/100;e.target.previousElementSibling.value=`${e.target.value}%`;updateGrid()}else if(id==='zoom-sensitivity'){preferences.zoomSensitivity=Number(e.target.value)/100;e.target.previousElementSibling.value=`${e.target.value}%`}else if(id==='code-font-size'){preferences.codeFontSize=Number(e.target.value);e.target.previousElementSibling.value=`${preferences.codeFontSize}px`;applyCodePreferences()}if(['grid-spacing','grid-contrast','zoom-sensitivity','code-font-size'].includes(id))savePreferences()});
+  $('#modal-body').addEventListener('change',e=>{const id=e.target.id;if(id==='grid-toggle'){preferences.gridVisible=e.target.checked;updateGrid()}else if(id==='pan-mode')preferences.panMode=e.target.value;else if(id==='code-theme'){preferences.codeTheme=e.target.value;applyCodePreferences()}if(['grid-toggle','pan-mode','code-theme'].includes(id))savePreferences()});
+  $('#modal-body').addEventListener('click',e=>{const button=e.target.closest('[data-theme-color]');if(!button)return;setAccent(button.dataset.themeColor);$$('[data-theme-color]',$('#modal-body')).forEach(item=>{const selected=item===button;item.classList.toggle('selected',selected);item.setAttribute('aria-pressed',String(selected))})});
+  $$('.menu-wrap').forEach(wrap=>{
+    const trigger=$('.menu-trigger',wrap);
+    wrap.addEventListener('pointerenter',()=>trigger.setAttribute('aria-expanded','true'));
+    wrap.addEventListener('pointerleave',()=>{
+      if(!wrap.contains(document.activeElement))trigger.setAttribute('aria-expanded','false');
+    });
+    wrap.addEventListener('focusout',e=>{
+      if(!wrap.contains(e.relatedTarget))trigger.setAttribute('aria-expanded','false');
+    });
+  });
+  const workspaceName=$('#workspace-name');workspaceName.addEventListener('blur',()=>{const value=workspaceName.textContent.trim()||'Payments API';workspaceName.textContent=value;localStorage.setItem('plovane-workspace-name',value)});workspaceName.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();workspaceName.blur()}if(e.key==='Escape'){workspaceName.textContent=localStorage.getItem('plovane-workspace-name')||'Payments API';workspaceName.blur()}});
+  $('#send-prompt').onclick=submitPrompt;$('#prompt-input').addEventListener('input',()=>{resizePrompt();autocomplete()});$('#prompt-input').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();submitPrompt()}if(e.key==='Escape')$('#autocomplete').hidden=true});$('#autocomplete').onclick=e=>{const b=e.target.closest('[data-example]');if(b){$('#prompt-input').value=b.dataset.example;$('#autocomplete').hidden=true;$('#prompt-input').focus()}};
+  const viewport=$('#canvas-viewport');viewport.addEventListener('wheel',e=>{e.preventDefault();zoomAt(state.scale*Math.exp(-e.deltaY*.001*preferences.zoomSensitivity),e.clientX-viewport.getBoundingClientRect().left,e.clientY-viewport.getBoundingClientRect().top)},{passive:false});viewport.addEventListener('pointerdown',e=>{if(e.target.closest('.block-node,.zoom-controls,.minimap,.selection-popup')||(preferences.panMode==='space'&&!spacePressed))return;state.drag={x:e.clientX,y:e.clientY,sx:state.x,sy:state.y};viewport.classList.add('panning');viewport.setPointerCapture(e.pointerId)});viewport.addEventListener('pointermove',e=>{if(!state.drag)return;state.x=state.drag.sx+e.clientX-state.drag.x;state.y=state.drag.sy+e.clientY-state.drag.y;applyTransform()});viewport.addEventListener('pointerup',()=>{state.drag=null;viewport.classList.remove('panning')});viewport.addEventListener('dblclick',e=>{if(e.target===viewport)fit()});window.addEventListener('resize',()=>render());window.addEventListener('keydown',e=>{if(e.code==='Space'&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)){spacePressed=true;if(preferences.panMode==='space')e.preventDefault()}if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'){e.preventDefault();history(e.shiftKey?'redo':'undo')}if(e.key==='/'&&document.activeElement!==$('#prompt-input')){$('#prompt-input').focus();$('#prompt-input').value='/';autocomplete()}if(e.key==='Escape')$$('.menu-wrap').forEach(x=>x.classList.remove('open'))});window.addEventListener('keyup',e=>{if(e.code==='Space')spacePressed=false});
+  const promptHistory=state.history;state.log=promptHistory.slice(0,100);$('#token-count').textContent=`${state.log.reduce((n,x)=>n+(x.tokens||0),0)} tokens`;
+  (async()=>{try{state.commands=(await request('commands')).commands||[]}catch(_){}await refresh();fit();if(!state.online)toast('Demo graph shown. Run "plovane open" in your project to load it.',true);else{connectEvents();loadProviders()}})();
+
+  /* ---- Live updates, AI agents and connectors ---- */
+  /**
+   * Input: none
+   * Output: string
+   * Processing: The open project's folder name.
+   * Changed by: Claude Code
+   * Date: 2026-11-09
+   */
+  function projectName(){const p=String(state.data?.project||'');return p.split(/[\\/]/).filter(Boolean).pop()||'project'}
+  /**
+   * Input: file (object), folder (object)
+   * Output: boolean
+   * Processing: Whether a file block sits inside a folder block, by parent or path.
+   * Changed by: Claude Code
+   * Date: 2026-11-09
+   */
+  function inFolder(file,folder){const fp=(folder.path||folder.name||'').replace(/\/$/,'');return file.parent===folder.id||(!!fp&&(file.path||'').startsWith(fp+'/'))}
+  /**
+   * Input: provider (string)
+   * Output: string
+   * Processing: Display name for a provider id.
+   * Changed by: Claude Code
+   * Date: 2026-11-09
+   */
+  function providerLabel(provider){return {anthropic:'Claude',deepseek:'DeepSeek',openai:'OpenAI'}[provider]||'Claude'}
+  /**
+   * Input: none
+   * Output: void
+   * Processing: Put the real project name in the top bar and workspace heading.
+   * Changed by: Claude Code
+   * Date: 2026-11-09
+   */
+  function showProject(){const name=projectName();$('.project-name').textContent=name;$('.project-name').title=state.data?.project||'';if(!localStorage.getItem('plovane-workspace-name'))$('#workspace-name').textContent=name;$('.github-card small').textContent=name}
+  /**
+   * Input: none
+   * Output: void
+   * Processing: Briefly highlight blocks the last live change touched.
+   * Changed by: Claude Code
+   * Date: 2026-11-09
+   */
+  function applyFlash(){if(!flashIds.size)return;const ids=flashIds;flashIds=new Set();ids.forEach(id=>{const n=document.querySelector(`[data-block="${CSS.escape(id)}"]`);if(n){n.classList.add('agent-flash');setTimeout(()=>n.classList.remove('agent-flash'),2600)}})}
+  /**
+   * Input: text (string), kind (string)
+   * Output: void
+   * Processing: Show the live connection state in the prompt bar.
+   * Changed by: Claude Code
+   * Date: 2026-11-09
+   */
+  function liveStatus(text,kind){const el=$('#live-status');if(el){el.textContent=text;el.dataset.kind=kind}}
+  /**
+   * Input: event (object)
+   * Output: void
+   * Processing: Add a change or agent step to the activity feed and redraw it when visible.
+   * Changed by: Claude Code
+   * Date: 2026-11-09
+   */
+  function pushActivity(event){activity.unshift(event);if(activity.length>200)activity.length=200;const badge=$('#activity-badge');if(badge&&state.tab!=='activity'){badge.hidden=false;badge.textContent=String(Math.min(99,Number(badge.textContent||0)+1))}if(state.tab==='activity'&&state.data)renderSidebar()}
+  /**
+   * Input: none
+   * Output: void
+   * Processing: Subscribe to the server's live events; redraw on every change, whoever made it.
+   * Changed by: Claude Code
+   * Date: 2026-11-09
+   */
+  function connectEvents(){if(!window.EventSource)return;const source=new EventSource(`${API}/events${TOKEN?`?token=${encodeURIComponent(TOKEN)}`:''}`);
+    const schedule=()=>{clearTimeout(refreshTimer);refreshTimer=setTimeout(refresh,120)};
+    source.addEventListener('hello',()=>liveStatus('● Live','on'));
+    source.addEventListener('change',ev=>{const e=JSON.parse(ev.data);pushActivity(e);const b=e.changes?.blocks||{};[...(b.added||[]),...(b.changed||[])].forEach(id=>flashIds.add(id));if(e.actor&&e.actor!=='user')toast(`${e.actor}: ${e.command||e.op}`);schedule()});
+    source.addEventListener('external',ev=>{pushActivity(JSON.parse(ev.data));schedule()});
+    source.addEventListener('agent',ev=>agentEvent(JSON.parse(ev.data)));
+    source.onerror=()=>liveStatus('○ Reconnecting…','off')}
+  /**
+   * Input: event (object)
+   * Output: void
+   * Processing: Track an AI run's progress from its live events.
+   * Changed by: Claude Code
+   * Date: 2026-11-09
+   */
+  function agentEvent(e){if(e.run){const r=runs[e.run]||(runs[e.run]={id:e.run,agent:e.actor,status:'running',steps:0});if(e.type==='started')Object.assign(r,{provider:e.provider,model:e.model,prompt:e.prompt});if(e.type==='command')r.steps+=1;if(e.type==='finished'){r.status=e.status;toast(`${e.actor} ${e.status==='done'?'finished':e.status}${e.error?`: ${e.error}`:''}`,e.status==='error')}}if(e.type!=='tool')pushActivity(e);if(state.tab==='agents'&&state.data)renderSidebar()}
+  /**
+   * Input: e (object)
+   * Output: string
+   * Processing: One activity feed row.
+   * Changed by: Claude Code
+   * Date: 2026-11-09
+   */
+  function activityRow(e){const who=e.actor||'another process',time=e.at?new Date(e.at).toLocaleTimeString():'';let what;if(e.kind==='external')what='Board changed outside this window';else if(e.kind==='agent'){what=e.type==='started'?`Started (${esc(providerLabel(e.provider))}): ${esc(e.prompt||'')}`:e.type==='thought'?esc(e.text||''):e.type==='command'?`${e.ok?'✓':'✗'} <code>${esc(e.command||'')}</code>${e.error?` <span class="muted">${esc(e.error)}</span>`:''}`:e.type==='finished'?`Finished · ${esc(e.status)}${e.summary?` · ${esc(e.summary)}`:''}${e.error?` · ${esc(e.error)}`:''}`:e.type==='token'?`API token issued for ${esc(e.agent)}`:esc(e.type||'')}else what=`<code>${esc(e.command||e.op||'')}</code>`;return `<div class="activity-row ${e.actor&&e.actor!=='user'?'by-agent':''}"><div><b>${esc(who)}</b><span class="muted"> · ${esc(time)}</span></div><div>${what}</div></div>`}
+  /**
+   * Input: none
+   * Output: string
+   * Processing: The Activity tab: every live change and AI step, newest first.
+   * Changed by: Claude Code
+   * Date: 2026-11-09
+   */
+  function activityPanel(){const badge=$('#activity-badge');if(badge){badge.hidden=true;badge.textContent=''}return `<div class="side-section-title">LIVE ACTIVITY <span id="live-status-side" class="muted">${activity.length}</span></div>${activity.length?activity.map(activityRow).join(''):'<div class="empty-state">Changes from you, the CLI and AI agents appear here as they happen.</div>'}`}
+  /**
+   * Input: agent (object)
+   * Output: string
+   * Processing: A readable summary of an agent's grants.
+   * Changed by: Claude Code
+   * Date: 2026-11-09
+   */
+  function grantsText(agent){const g=agent.grants||[],r=agent.regions||[];if(!g.length&&!r.length)return 'No access yet';return [...g.map(x=>`${x.path&&x.path!=='.'?x.path:'whole project'}: ${x.mode}`),...r.map(x=>`area ${x.area.join(',')}: ${x.mode}`)].join(' · ')}
+  /**
+   * Input: board (object)
+   * Output: string
+   * Processing: The Agents tab: agents with their access, connect and run buttons, and running AI jobs.
+   * Changed by: Claude Code
+   * Date: 2026-11-09
+   */
+  function agentsPanel(board){const agents=Object.values(board.agents||{}),active=Object.values(runs).filter(r=>r.status==='running');return `<div class="side-section-title">AI AGENTS <button data-action="agent-new" title="Add an agent in the Plovane CLI">›_</button></div><button class="library-link ai-run-link" data-action="ai-run">✦ Let Claude or DeepSeek build</button>${active.map(r=>`<div class="agent-card running"><span class="agent-avatar">⟳</span><div><b>${esc(r.agent)}</b><small>${esc(providerLabel(r.provider))} · ${r.steps} commands</small></div><button class="access-chip" data-action="stop-run" data-run="${esc(r.id)}">Stop</button></div>`).join('')}${agents.length?agents.map(a=>`<div class="agent-card"><span class="agent-avatar">◉</span><div><b>${esc(a.name)}</b><small>${esc(grantsText(a))}</small></div></div><div class="agent-actions"><button data-action="agent-grant" data-agent="${esc(a.name)}">Access</button><button data-action="agent-connect" data-agent="${esc(a.name)}">Connect</button><button data-action="agent-revoke" data-agent="${esc(a.name)}">Revoke key</button></div>`).join(''):`<div class="empty-state">No agents yet. Agents are added in the Plovane CLI:<br><code>plovane agent add claude --access read-write</code></div><button class="library-link" data-action="agent-new">›_ Add an agent in the CLI</button>`}<button class="library-link" data-action="connections">⚙ AI providers and MCP setup</button>`}
+  /**
+   * Input: none
+   * Output: Promise<void>
+   * Processing: Load which AI providers have keys and fill the provider picker.
+   * Changed by: Claude Code
+   * Date: 2026-11-09
+   */
+  async function loadProviders(){try{providerList=(await request('providers')).providers||[];const sel=$('#provider-select');if(sel){const keep=sel.value||localStorage.getItem('plovane-provider')||'anthropic';sel.innerHTML=providerList.map(p=>`<option value="${esc(p.provider)}">${esc(p.label)}${p.configured?'':' (no key)'}</option>`).join('');sel.value=providerList.some(p=>p.provider===keep)?keep:'anthropic'}}catch(_){}}
+  /**
+   * Input: none
+   * Output: Promise<void>
+   * Processing: The connections dialog: provider keys, MCP setup for Claude Code / Desktop, and API use.
+   * Changed by: Claude Code
+   * Date: 2026-11-09
+   */
+  async function showConnections(){await loadProviders();const project=state.data?.project||'<project folder>';openModal('AI providers and connections',`<div class="settings-section"><b>API keys</b><small>Used for plain-English prompts and AI agent runs. Saved on this machine in ~/.plovane/keys.json, readable only by you.</small>${providerList.map(p=>`<div class="provider-row"><span><b>${esc(p.label)}</b> <span class="muted">${esc(p.model)}</span><br><small class="${p.configured?'ok-text':'muted'}">${p.configured?'Connected':'No key'}</small></span><input type="password" id="key-${esc(p.provider)}" placeholder="${p.configured?'Replace key':'Paste API key'}" autocomplete="off"><button data-action="save-key" data-provider="${esc(p.provider)}">Save</button></div>`).join('')}</div><div class="settings-section"><b>Connect Claude Code, Claude Desktop or Cursor (MCP)</b><small>The AI acts as an agent: it only touches what you grant it in the Agents tab, and every change shows up here live.</small><pre>claude mcp add plovane -- plovane mcp --dir ${esc(project)} --agent claude</pre><small>Claude Desktop / Cursor config:</small><pre>${esc(JSON.stringify({mcpServers:{plovane:{command:'plovane',args:['mcp','--dir',project,'--agent','claude']}}},null,2))}</pre></div><div class="settings-section"><b>From the terminal</b><pre>plovane agent run "add a payments service" --provider deepseek\nplovane wb "/block add service payments"</pre><b>Your own code (HTTP API)</b><small>Get a key with Connect on an agent, then send it as a Bearer token:</small><pre>curl -X POST http://127.0.0.1:8700/api/v1/whiteboard/command \\\n  -H "Authorization: Bearer plv_…" \\\n  -d '{"command": "/block add service payments"}'</pre></div>`,'CONNECTIONS')}
+  /**
+   * Input: none
+   * Output: Promise<void>
+   * Processing: The AI run dialog: pick Claude, DeepSeek or OpenAI, the access, and the task.
+   * Changed by: Claude Code
+   * Date: 2026-11-09
+   */
+  async function showRunDialog(){await loadProviders();const chosen=$('#provider-select')?.value||'anthropic',task=$('#prompt-input').value.trim();openModal('Let an AI build on the whiteboard',`<label class="settings-control">Provider<select id="run-provider">${providerList.map(p=>`<option value="${esc(p.provider)}" ${p.provider===chosen?'selected':''}>${esc(p.label)} · ${esc(p.model)}${p.configured?'':' (no key — add one first)'}</option>`).join('')}</select></label>${agentNames().length?`<label class="settings-control">Agent<select id="run-agent">${agentNames().map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('')}</select></label>`:'<div class="row">No agents yet. Add one in the Plovane CLI first, e.g. <code>plovane agent add claude</code>, then come back.</div>'}<label class="settings-control">Access<select id="run-access"><option value="read-write">Read and write the whole project</option><option value="read">Read only</option><option value="existing">Keep the agent's current access</option></select></label><label class="settings-control">Task<textarea id="run-task" rows="4" placeholder="Add a payments service with a POST /charge endpoint and connect it to orders">${esc(task)}</textarea></label><div class="modal-actions"><button class="secondary" data-action="connections">API keys…</button><button class="secondary" data-action="close-modal">Cancel</button>${agentNames().length?'<button data-action="ai-run-start">Start</button>':'<button data-action="agent-new">Open the CLI</button>'}</div>`,'AI AGENT')}
+  /**
+   * Input: none
+   * Output: Promise<void>
+   * Processing: Start the AI run from the dialog and switch to the activity feed.
+   * Changed by: Claude Code
+   * Date: 2026-11-09
+   */
+  async function startRun(){const task=$('#run-task').value.trim();if(!task){toast('Describe the task first.',true);return}const provider=$('#run-provider').value,agent=$('#run-agent')?.value;if(!agent){toast('Add an agent in the Plovane CLI first.',true);return}try{const run=await request('agent/run',{method:'POST',body:JSON.stringify({prompt:task,provider,agent,access:$('#run-access').value})});runs[run.id]={id:run.id,agent:run.agent,provider:run.provider,status:'running',steps:0,prompt:run.prompt};$('#modal').close();$('#prompt-input').value='';setTab('activity');toast(`${run.agent} is working with ${providerLabel(run.provider)}.`)}catch(e){toast(e.message,true)}}
+  /**
+   * Input: agent (string)
+   * Output: void
+   * Processing: The access dialog for one agent: folder path and mode.
+   * Changed by: Claude Code
+   * Date: 2026-11-09
+   */
+  function showGrant(agent){const a=(state.data.board.agents||{})[agent]||{};openModal(`Access for ${agent}`,`<p class="muted">Current: ${esc(grantsText(a))}. The most specific folder wins, so "none" on a subfolder blocks it.</p><label class="settings-control">Folder<input id="grant-path" value="." autocomplete="off"></label><label class="settings-control">Access<select id="grant-mode"><option value="read-write">Read and write</option><option value="read">Read only</option><option value="none">No access</option></select></label><div class="modal-actions"><button class="secondary" data-action="close-modal">Cancel</button><button data-action="agent-grant-apply" data-agent="${esc(agent)}">Apply</button></div>`,'AGENT ACCESS')}
+  /**
+   * Input: value (string)
+   * Output: string
+   * Processing: Quote a slash-command argument that has spaces or quotes.
+   * Changed by: Claude Code
+   * Date: 2026-11-09
+   */
+  function quoteArg(value){return /^[\w./:-]+$/.test(value)?value:`"${value.replaceAll('"','\\"')}"`}
+  /**
+   * Input: agent (string)
+   * Output: Promise<void>
+   * Processing: Issue an API key for an agent and show how to connect an AI with it.
+   * Changed by: Claude Code
+   * Date: 2026-11-09
+   */
+  async function connectAgent(agent){try{const data=await request(`agents/${encodeURIComponent(agent)}/token`,{method:'POST',body:'{}'});const project=state.data?.project||'.';openModal(`Connect ${agent}`,`<p>This key is shown once. Anything using it acts as <b>${esc(agent)}</b>, limited to: ${esc(grantsText({grants:data.grants}))}.</p><pre class="token-box">${esc(data.token)}</pre><button data-action="copy-token" data-token="${esc(data.token)}">Copy key</button><div class="row"><b>MCP (Claude Code, Claude Desktop, Cursor)</b> — no key needed, the CLI makes one:<pre>claude mcp add plovane -- plovane mcp --dir ${esc(project)} --agent ${esc(agent)}</pre></div><div class="row"><b>HTTP API</b><pre>curl -X POST ${esc(API)}/command \\\n  -H "Authorization: Bearer ${esc(data.token)}" \\\n  -d '{"command": "/block add service payments"}'</pre></div>`,'AGENT KEY');render()}catch(e){toast(e.message,true)}}
+  /**
+   * Input: id (string)
+   * Output: Promise<void>
+   * Processing: Show a block's real source code from the project.
+   * Changed by: Claude Code
+   * Date: 2026-11-09
+   */
+  async function showCode(id){const b=state.data.board.blocks[id];if(!b)return;const target=b.path||b.meta?.file||id;try{const data=await request('command',{method:'POST',body:JSON.stringify({command:`/open ${quoteArg(target)}`})});const r=data.result||{};openModal(b.name||target,r.content!==undefined?`<div class="row muted">${esc(r.path)}${r.line?` · line ${r.line}`:''}</div><pre class="code-view">${esc(r.content)}</pre>`:`<div class="row">${esc(r.path)}</div><pre>${esc((r.files||[]).join('\n'))}</pre>`,'SOURCE')}catch(e){toast(e.message,true)}}
+  /**
+   * Input: none
+   * Output: Promise<void>
+   * Processing: Show the project's real Git status.
+   * Changed by: Claude Code
+   * Date: 2026-11-09
+   */
+  async function showGit(){try{const data=await request('command',{method:'POST',body:JSON.stringify({command:'/git status'})});openModal('Git',`<p>Git is the source of truth for the code; the whiteboard maps onto it.</p><pre>${esc(JSON.stringify(data.result||{},null,2))}</pre><div class="modal-actions"><button class="secondary" data-action="close-modal">Close</button><button data-command="/git sync">Sync (pull and push)</button></div>`,'PROJECT')}catch(e){toast(e.message,true)}}
+  /**
+   * Input: none
+   * Output: void
+   * Processing: Pick project files to mention in the prompt as context.
+   * Changed by: Claude Code
+   * Date: 2026-11-09
+   */
+  function showAttach(){const files=Object.values(state.data?.board?.blocks||{}).filter(b=>b.kind==='file'&&b.path);openModal('Add context',files.length?`<p class="muted">Pick files to mention in your prompt.</p>${files.map(f=>`<button class="attach-row" data-action="attach-path" data-path="${esc(f.path)}">▧ ${esc(f.path)}</button>`).join('')}`:'<p>No files on the board yet. Import the project first (File › Import project).</p>','PROMPT CONTEXT')}
+  /**
+   * Input: none
+   * Output: string[]
+   * Processing: Names of the agents on the board (added in the Plovane CLI).
+   * Changed by: Claude Code
+   * Date: 2026-11-09
+   */
+  function agentNames(){return Object.keys(state.data?.board?.agents||{}).sort()}
+  /**
+   * Input: text (string)
+   * Output: void
+   * Processing: Open the Plovane CLI panel and prefill its input, closing any dialog.
+   * Changed by: Claude Code
+   * Date: 2026-11-09
+   */
+  function openCli(text){if($('#modal').open)$('#modal').close();if(!layout.bottomOpen){layout.bottomOpen=true;applyLayout()}const panel=$('#cli-panel'),frame=$('#cli-panel iframe');if(!panel.classList.contains('open'))menuClick('toggle-cli');const send=()=>frame.contentWindow?.postMessage({type:'plovane-cli-focus',text},location.origin);if(frame.contentDocument?.readyState==='complete')send();else frame.addEventListener('load',send,{once:true});setTimeout(send,400)}
+  /**
+   * Input: node (HTMLElement)
+   * Output: boolean
+   * Processing: Handle the agent, AI and connection buttons; true when handled.
+   * Changed by: Claude Code
+   * Date: 2026-11-09
+   */
+  function extraAction(node){const a=node.dataset.action,d=node.dataset;if(!a)return false;
+    if(a==='ai-run'){showRunDialog();return true}
+    if(a==='ai-run-start'){startRun();return true}
+    if(a==='connections'){showConnections();return true}
+    if(a==='account'){showConnections();return true}
+    if(a==='stop-run'){request(`agent/runs/${d.run}/stop`,{method:'POST',body:'{}'}).then(()=>toast('Stopping after the current step.')).catch(e=>toast(e.message,true));return true}
+    if(a==='agent-new'){openCli('/agent add ');toast('Agents are added in the Plovane CLI: type a name and press Enter.');return true}
+    if(a==='agent-grant'){showGrant(d.agent);return true}
+    if(a==='agent-grant-apply'){const path=$('#grant-path').value.trim()||'.',mode=$('#grant-mode').value;$('#modal').close();runCommand(`/agent grant ${quoteArg(d.agent)} ${quoteArg(path)} --mode ${mode}`,true);return true}
+    if(a==='agent-connect'){connectAgent(d.agent);return true}
+    if(a==='agent-revoke'){if(confirm(`Revoke ${d.agent}'s API key? Anything using it stops working.`))request(`agents/${encodeURIComponent(d.agent)}/token`,{method:'DELETE'}).then(()=>toast(`${d.agent}'s key revoked.`)).catch(e=>toast(e.message,true));return true}
+    if(a==='copy-token'){navigator.clipboard?.writeText(d.token).then(()=>toast('Key copied.'),()=>toast('Copy failed; select the key and copy it.',true));return true}
+    if(a==='save-key'){const input=$(`#key-${d.provider}`),key=input?.value.trim();if(!key){toast('Paste a key first.',true);return true}request(`providers/${d.provider}/key`,{method:'POST',body:JSON.stringify({key})}).then(()=>{toast(`${providerLabel(d.provider)} connected.`);showConnections()}).catch(e=>toast(e.message,true));return true}
+    if(a==='attach-path'){const input=$('#prompt-input');input.value=`${input.value.trim()} @${d.path}`.trim()+' ';$('#modal').close();input.focus();resizePrompt();return true}
+    if(a==='open-code'&&d.block){showCode(d.block);return true}
+    if(a==='scan'){const b=state.selected&&state.data?.board?.blocks?.[state.selected];runCommand(`/scan ${quoteArg(b?(b.path||b.id):'.')}`);return true}
+    if(a==='find-code'){const q=prompt('What code do you need? (searches the verified library)',$('#prompt-input').value.trim()||'retry a failed request');if(q&&q.trim())runCommand(`/rank ${quoteArg(q.trim())} --k 5`);return true}
+    if(a==='service-new'){const name=prompt('Service name','new-service');if(name&&name.trim())runCommand(`/block add service ${quoteArg(name.trim())}`);return true}
+    return false}
+  $('#provider-select')?.addEventListener('change',e=>localStorage.setItem('plovane-provider',e.target.value));
+  window.PlovaneWhiteboard={request,refresh,runCommand,get board(){return state.data},get commands(){return state.commands}};
+})();

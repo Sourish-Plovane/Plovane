@@ -6,9 +6,21 @@ each takes an ``action`` (e.g. ``add`` on ``plovane_block``) and its
 ``args``. ``plovane_command`` takes the slash command text instead. Both
 run the same operations a person runs.
 
-The agent identity comes from ``PLOVANE_AGENT`` and is checked against its
-grants. Commands that change access (``/agent grant`` and friends) are never
-available through MCP: only a person runs them, in the whiteboard.
+Where the calls go:
+
+- **A running whiteboard server** (the normal case, and what ``plovane mcp``
+  sets up): when ``PLOVANE_URL`` and ``PLOVANE_AGENT_TOKEN`` are set, every
+  tool call is sent to that server with the agent's token. The server is the
+  one owner of the board, holds the agent to its grants and shows each change
+  live in the open whiteboard.
+- **No server**: the tools edit the project in this process. The board is
+  still saved to .plovane/board.json under the project lock, and a whiteboard
+  started later, or one already watching that file, picks the change up.
+
+Either way the caller is an agent, never the person: ``PLOVANE_AGENT`` names
+it, and it defaults to ``claude``. An agent a person has not added and granted
+access to can do nothing. Commands that change access (``/agent grant`` and
+friends) are never available through MCP: only a person runs them.
 """
 
 from __future__ import annotations
@@ -17,10 +29,41 @@ import os
 from collections import defaultdict
 from typing import Any
 
-from backend.whiteboard.engine import USER, Workspace
+from backend.whiteboard.engine import Workspace
 from backend.whiteboard.registry import OPERATIONS
 
 _workspace: Workspace | None = None
+DEFAULT_AGENT = "claude"
+
+
+# Input: none
+# Output: str
+# Processing: The agent this MCP server acts as: PLOVANE_AGENT, or "claude".
+# Changed by: Claude Code
+# Date: 2026-11-09
+def agent_name() -> str:
+    return os.environ.get("PLOVANE_AGENT") or DEFAULT_AGENT
+
+
+# Input: path (str), payload (dict[str, Any])
+# Output: dict[str, Any] | None
+# Processing: POST to the running whiteboard server as this agent, or None when no server is configured.
+# Changed by: Claude Code
+# Date: 2026-11-09
+def remote(path: str, payload: dict[str, Any]) -> dict[str, Any] | None:
+    url, token = os.environ.get("PLOVANE_URL"), os.environ.get("PLOVANE_AGENT_TOKEN")
+    if not url or not token:
+        return None
+    from backend.whiteboard.llm_agent import http_json
+
+    try:
+        reply = http_json(f"{url.rstrip('/')}/api/v1/whiteboard/{path}",
+                          {"authorization": f"Bearer {token}"}, payload, timeout=600)
+    except OSError as exc:
+        return {"ok": False, "data": None, "error": {"code": "SERVER_UNREACHABLE", "message":
+                f"the Plovane whiteboard at {url} is not answering ({exc}); run 'plovane open'"}}
+    reply.pop("_http_status", None)
+    return reply
 
 
 # Input: none
@@ -88,18 +131,28 @@ def describe(group: str, actions: dict[str, str]) -> str:
     return "\n".join(lines)
 
 
-# Input: op (str), args (dict | None), confirm (bool), dry_run (bool)
+# Input: op (str), args (dict | None), confirm (bool), dry_run (bool), command (str | None)
 # Output: dict[str, Any]
-# Processing: Run one operation as the configured agent.
-# Changed by: Sourish
-# Date: 2026-10-22
-def run(op: str, args: dict | None, confirm: bool, dry_run: bool) -> dict[str, Any]:
+# Processing: Run one operation as the configured agent: on the running server when there is one, else here.
+# Changed by: Claude Code
+# Date: 2026-11-09
+def run(op: str, args: dict | None, confirm: bool, dry_run: bool, command: str | None = None) -> dict[str, Any]:
     spec = OPERATIONS.get(op)
     if spec is not None and not spec.agents:
         return {"ok": False, "data": None, "error": {"code": "FORBIDDEN",
                 "message": f"{spec.command} changes access; a person runs it in the whiteboard"}}
-    return workspace().execute(op, args or {}, actor=os.environ.get("PLOVANE_AGENT") or USER,
-                               confirm=confirm, dry_run=dry_run)
+    if command is not None:
+        sent = remote("command", {"command": command, "confirm": confirm, "dry_run": dry_run})
+    else:
+        sent = remote("op", {"op": op, "args": args or {}, "confirm": confirm, "dry_run": dry_run})
+    if sent is not None:
+        return sent
+    ws = workspace()
+    ws.current_command = command
+    try:
+        return ws.execute(op, args or {}, actor=agent_name(), confirm=confirm, dry_run=dry_run)
+    finally:
+        ws.current_command = None
 
 
 # Input: mcp (MCPServer)
@@ -150,7 +203,7 @@ def register(mcp: Any) -> list[str]:
             op, args = parse(command)
         except OpError as exc:
             return {"ok": False, "data": None, "error": {"code": exc.code, "message": exc.message}}
-        return run(op, args, confirm, dry_run)
+        return run(op, args, confirm, dry_run, command=command)
 
     mcp.tool()(plovane_command)
     return [*names, "plovane_command"]
