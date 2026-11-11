@@ -90,10 +90,16 @@ same as typing `/block add service auth`.
 | `plovane_project`, `plovane_block` | real folders and files, block add/move/group/split/merge/rename/delete/info |
 | `plovane_place`, `plovane_style` | placement, alignment, size, grid, styles, presets, theme |
 | `plovane_connect`, `plovane_endpoint` | arrows, imports, trace, dependencies, API endpoints and their client calls |
-| `plovane_compile` | English step blocks, edit, compile with a test run, replace a step with a library helper |
+| `plovane_compile` | English step blocks, edit, compile with a test run, replace a step with a library helper, `blocks_generate` (the AI's own outline of a file as nested blocks) |
 | `plovane_template`, `plovane_batch` | templates and all-or-nothing batches |
 | `plovane_library`, `plovane_code`, `plovane_history`, `plovane_agent` | library, code, scans, health, undo, Git, agent logs |
 | `plovane_command` | any slash command as text |
+
+To have the AI draw the blocks inside a file without an API key, ask it to
+read the file and call `plovane_compile` with `{"action": "blocks_generate",
+"args": {"target": "src/billing.py", "blocks": [{"name": "Charge a card",
+"summary": "...", "lines": [5, 11], "children": [...]}]}}`. The whiteboard
+checks the line ranges and draws the result live.
 
 The full command list is in `backend/whiteboard/README.md`. Commands that grant or
 revoke access are not available here: a person runs them in the whiteboard.

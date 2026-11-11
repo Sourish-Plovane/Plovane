@@ -32,10 +32,12 @@
       <div class="canvas-toolbar"><div class="breadcrumbs" id="breadcrumbs"><span>Project</span><span class="crumb-sep">/</span><b>Architecture</b></div><div class="canvas-actions"><button class="tool-button" data-action="fit" title="Fit project">⊡ <span>Fit</span></button><span class="tool-divider"></span><div class="history-control"><button class="tool-button straight-arrow" data-action="undo" title="Undo" aria-label="Undo">←</button><small>undo</small></div><div class="history-control"><button class="tool-button straight-arrow" data-action="redo" title="Redo" aria-label="Redo">→</button><small>redo</small></div><span class="tool-divider"></span><button class="share-button" data-action="snapshot" title="Save a named snapshot of the board">↥ <span>Snapshot</span></button></div></div>
       <div id="canvas-viewport" class="canvas-viewport" tabindex="0" aria-label="Infinite project whiteboard">
         <div id="canvas-world" class="canvas-world"><svg id="connections" class="connections"></svg><div id="blocks"></div></div>
-        <div class="canvas-hint">Drag to pan <span>·</span> Scroll to zoom <span>·</span> Double-click a block to open</div>
+        <div class="canvas-hint">Scroll over a block to zoom into it <span>·</span> Double-click to open <span>·</span> Esc goes up</div>
+        <div class="focus-bar" id="focus-bar"></div>
         <div class="zoom-controls"><button data-action="zoom-in" aria-label="Zoom in">+</button><span id="zoom-label">100%</span><button data-action="zoom-out" aria-label="Zoom out">−</button></div>
         <div class="minimap" id="minimap"><div class="mini-label">OVERVIEW</div><div class="mini-inner"></div></div>
         <div class="selection-popup" id="selection-popup"></div>
+        <section class="code-editor" id="code-editor" hidden aria-label="Code editor"><header><span class="editor-path"></span><span class="editor-dirty">● unsaved</span><button data-action="editor-close" class="secondary">Close</button><button data-action="editor-save">Save <kbd>⌘ S</kbd></button></header><div class="editor-body"><pre class="editor-gutter" aria-hidden="true"></pre><textarea spellcheck="false" aria-label="File contents"></textarea></div></section>
       </div>
     </section>
   </main>

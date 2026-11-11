@@ -20,10 +20,10 @@
     const B=(id,kind,name,layer,x,y,w,h,more={})=>sample.board.blocks[id]={id,kind,name,layer,x,y,w,h,...more};
     B('test-writer','agent','Test writer',0,300,90,145,68,{meta:{mode:'read-write',path:'tests/',regions:[{x:250,y:70,w:330,h:240}]}});B('reviewer','agent','Code reviewer',0,760,110,145,68,{meta:{mode:'read',path:'src/',regions:[{x:690,y:80,w:360,h:280}]}});
     B('payments','service','Payments API',1,390,310,260,166,{status:'verified',meta:{language:'python',description:'Flask service · 4 endpoints'}});B('web-app','service','Web application',1,70,340,230,135,{status:'verified',meta:{language:'typescript'}});B('postgres','database','PostgreSQL',1,780,350,180,105,{status:'verified'});
-    B('api-folder','folder','payments',2,415,620,220,154,{path:'src/payments'});B('client-folder','folder','client',2,70,640,220,140,{path:'src/client'});
-    B('routes-file','file','routes.py',3,420,900,205,82,{path:'src/payments/routes.py',status:'verified'});B('billing-file','file','billing.py',3,680,900,205,82,{path:'src/payments/billing.py',status:'generated'});B('client-file','file','payments.ts',3,75,920,205,82,{path:'src/client/payments.ts'});
-    B('charge','function','charge_card()',4,405,1150,220,90,{symbol:'charge_card',status:'verified'});B('retry','function','retry_payment()',4,690,1150,220,90,{symbol:'retry_payment',status:'generated'});
-    B('charge-code','code','charge_card · Python',5,395,1400,340,185,{path:'src/payments/billing.py',status:'verified'});B('scan-payments','scan','Security scan',1,355,280,330,250,{status:'verified',meta:{alerts:1}});
+    B('api-folder','folder','payments',2,415,620,220,154,{path:'src/payments',parent:'payments'});B('client-folder','folder','client',2,70,640,220,140,{path:'src/client',parent:'web-app'});
+    B('routes-file','file','routes.py',3,420,900,205,82,{path:'src/payments/routes.py',status:'verified',parent:'api-folder',meta:{code:'from flask import Blueprint\nfrom .billing import charge_card\n\nroutes = Blueprint("payments", __name__)\n\n@routes.post("/charge")\ndef charge():\n    return charge_card(request.json)'}});B('billing-file','file','billing.py',3,680,900,205,82,{path:'src/payments/billing.py',status:'generated',parent:'api-folder'});B('client-file','file','payments.ts',3,75,920,205,82,{path:'src/client/payments.ts',parent:'client-folder',meta:{code:'export async function charge(amount: number) {\n  const res = await fetch("/charge", { method: "POST", body: JSON.stringify({ amount }) });\n  return res.json();\n}'}});
+    B('charge','function','charge_card()',4,405,1150,220,90,{symbol:'charge_card',status:'verified',parent:'billing-file',meta:{summary:'Checks the payment and charges the card'}});B('retry','function','retry_payment()',4,690,1150,220,90,{symbol:'retry_payment',status:'generated',parent:'billing-file',meta:{summary:'Retries a failed charge',code:'def retry_payment(payment, times=3):\n    for attempt in range(times):\n        if charge_card(payment):\n            return True\n    return False'}});
+    B('charge-code','code','charge_card · Python',5,395,1400,340,185,{status:'verified',parent:'charge',meta:{code:'def charge_card(payment):\n    if not payment.valid:\n        raise ValueError("invalid payment")\n    return stripe.charge(payment)'}});B('scan-payments','scan','Security scan',1,355,280,330,250,{status:'verified',meta:{alerts:1}});
     sample.board.arrows={'a1':{id:'a1',source:'web-app',target:'payments',type:'api',endpoint:'POST /charge',status:'built'},'a2':{id:'a2',source:'payments',target:'postgres',type:'database',status:'built'},'a3':{id:'a3',source:'client-file',target:'routes-file',type:'api',endpoint:'POST /charge',status:'built'},'a4':{id:'a4',source:'routes-file',target:'billing-file',type:'import',status:'built'},'a5':{id:'a5',source:'charge',target:'retry',type:'calls',status:'planned'}};
     sample.absolute={}; Object.values(sample.board.blocks).forEach(b=>sample.absolute[b.id]={x:b.x,y:b.y,w:b.w,h:b.h});sample.board.alerts=[{severity:'medium',message:'Payment amount is not validated before charge',block_id:'billing-file'}]; sample.board.templates={rest_api:{name:'REST API service',builtin:true}};sample.board.agents={};state.demo=true;return sample;
   }
@@ -34,45 +34,427 @@
   function toast(text,error=false){const t=$('#toast');t.textContent=text;t.classList.toggle('error',error);t.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>t.classList.remove('show'),3200)}
   function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
   function styleFor(b){return state.data?.block_styles?.[b.id]||{}}
-  function position(b){const a=state.data?.absolute?.[b.id];if(Array.isArray(a))return {x:a[0],y:a[1],w:b.w,h:b.h};return a||b}
-  function layerForZoom(z){if(z<.28)return 0;if(z<.48)return 1;if(z<.73)return 2;if(z<1.03)return 3;if(z<1.35)return 4;return 5}
-  function levelVisible(b,l){if(state.demo){if(l===0)return b.kind==='agent';if(l===1)return ['service','server','external','database','queue','scan'].includes(b.kind);if(l===2)return ['folder','group','slot'].includes(b.kind);if(l===3)return b.kind==='file';if(l===4)return ['function','class','step'].includes(b.kind);return b.kind==='code'}const ranges=state.data?.board?.layers||{};const layer=ranges[String(b.layer)]||ranges[b.layer];if(!layer)return b.layer===l;const n=Number(layer.number??b.layer);return n===l}
-  function levelName(l){return ['Agents & access','Services & endpoints','Folders','Files','English steps','Code'][l]}
   function savePreferences(){localStorage.setItem('plovane-whiteboard-preferences',JSON.stringify(preferences))}
   function applyCodePreferences(){document.documentElement.style.setProperty('--code-font-size',`${preferences.codeFontSize}px`);document.body.dataset.codeTheme=preferences.codeTheme}
   function updateGrid(){const z=state.scale;const base=Math.max(8,Math.min(48,preferences.gridSpacing*z));const major=base*5;const v=$('#canvas-viewport'),dark=document.body.dataset.theme==='dark',fade=Math.max(.25,Math.min(1,preferences.gridContrast)),minorColor=dark?`rgba(120,128,145,${.34*fade})`:`rgba(140,148,162,${.28*fade})`,majorColor=dark?`rgba(95,103,120,${.34*fade})`:`rgba(160,168,182,${.28*fade})`;v.style.backgroundImage=preferences.gridVisible?`radial-gradient(circle, ${minorColor} ${Math.max(.55,z*.8)}px, transparent ${Math.max(.8,z*.95)}px),linear-gradient(to right, transparent ${major-1}px,${majorColor} ${major-1}px,${majorColor} ${major}px,transparent ${major}px),linear-gradient(to bottom, transparent ${major-1}px,${majorColor} ${major-1}px,${majorColor} ${major}px,transparent ${major}px)`:'none';v.style.backgroundSize=`${base}px ${base}px,${major}px ${major}px,${major}px ${major}px`;v.style.backgroundPosition=`${state.x}px ${state.y}px,${state.x}px ${state.y}px,${state.x}px ${state.y}px`;$('#zoom-label').textContent=`${Math.round(z*100)}%`}
-  function applyTransform(){const world=$('#canvas-world');world.style.transform=`translate(${state.x}px,${state.y}px) scale(${state.scale})`;updateGrid();render()}
-  function blockHTML(b){const s=styleFor(b),p=position(b),kind=b.kind||'block',status=b.status||b.meta?.status||'verified',generated=['generated','new','unverified'].includes(status);let cls=`block-node ${kind}-node ${generated?'generated':''}`;if(kind==='database')cls+=' db-node';let style=`left:${p.x||0}px;top:${p.y||0}px;width:${p.w||b.w||180}px;min-height:${p.h||b.h||70}px;`;if(s.fill)style+=`background:${esc(s.fill)};`;if(s.border)style+=`border-color:${esc(s.border)};`;if(s.radius)style+=`border-radius:${Number(s.radius)}px;`;if(s.opacity!=null)style+=`opacity:${Number(s.opacity)};`;const verified=generated?'<span class="block-status status-generated">Generated</span>':'<span class="block-status status-verified">✓ Verified</span>';
-    let body='';if(kind==='service'||kind==='server'){const endpoints=Object.values(state.data.board.endpoints||{}).filter(e=>e.service===b.id);body=(endpoints.length?endpoints.slice(0,3).map(e=>`<div class="endpoint-row"><span class="method">${esc(e.method)}</span> ${esc(e.path)} <span style="margin-left:auto;color:#aaa">↗</span></div>`).join(''):`<div class="block-body">${esc(b.meta?.description||b.meta?.language||'API · REST')}</div>`)}else if(kind==='file'){body=`<div class="block-body"><span class="mono">${esc(b.path||'src/'+b.name)}</span></div>`}else if(kind==='function'||kind==='step'){body=`<div class="block-body">${esc(b.meta?.description||'Plain-English code steps')}</div>`}else if(kind==='code'){body=`<div class="code-preview"><span class="kw">def</span> ${esc(b.symbol||b.name.split(' ')[0])}():\n    <span class="kw">if</span> payment.valid:\n        <span class="kw">return</span> charge(payment)</div>`}else if(kind==='agent'){body=`<div class="block-body">${esc(b.meta?.mode||'read')} access · ${esc(b.meta?.path||'project region')}</div>`}else if(kind==='scan'){body=`<div class="block-body"><span class="alert-chip">1 issue found</span><br>Input validation needs review.</div>`}else if(kind==='folder'||kind==='group'){const count=Object.values(state.data.board.blocks).filter(x=>x.parent===b.id).length;body=`<div class="block-body">${esc(b.path||'Project group')} <span style="float:right">${count||'—'} items</span></div>`}else if(kind==='database')body='<div class="block-body">PostgreSQL · connected</div>';
-    const footer=['service','server'].includes(kind)?'<div class="block-footer"><span>API layer</span><span>•••</span></div>':kind==='agent'?'<div class="block-footer"><span>Region access</span><span>◉</span></div>':`<div class="block-footer"><span>${esc(b.path||kind)}</span><span>•••</span></div>`;
-    return `<article class="${cls}" data-block="${esc(b.id)}" data-kind="${esc(kind)}" style="${style}" title="${esc(b.path||b.id)}"><div class="block-head"><span class="block-icon">${kinds[kind]||'□'}</span><div style="min-width:0"><div class="block-name">${esc(b.name||b.id)}</div><div class="block-kind">${esc(kind[0].toUpperCase()+kind.slice(1))}</div></div>${verified}</div>${body}${footer}</article>`;
-  }
-  function render(){if(!state.data)return;const board=state.data.board||state.data,l=layerForZoom(state.scale);state.viewLevel=l;const blocks=Object.values(board.blocks||{});const visible=blocks.filter(b=>levelVisible(b,l));$('#blocks').innerHTML=visible.map(blockHTML).join('');
-    $$('#blocks .block-node').forEach(n=>{n.classList.toggle('selected',n.dataset.block===state.selected);n.addEventListener('click',e=>{e.stopPropagation();state.selected=n.dataset.block;render();showSelection(n)});n.addEventListener('dblclick',e=>{e.stopPropagation();openBlock(n.dataset.block)})});
-    const map=new Map(visible.map(b=>[b.id,{b,p:position(b)}])),byId=new Map(blocks.map(b=>[b.id,b]));
-    const collapse=id=>{let b=byId.get(id),guard=0;while(b&&guard++<12){if(map.has(b.id))return b.id;b=byId.get(b.parent)}return null};
-    const arrows=state.data.arrows?.length?state.data.arrows:Object.values(board.arrows||{});$('#connections').innerHTML=arrows.map(a=>{const source=collapse(a.source||a.source_node_id),target=collapse(a.target||a.target_node_id);if(!source||!target||source===target)return '';const A=map.get(source),B=map.get(target),x1=A.p.x+A.p.w/2,y1=A.p.y+A.p.h/2,x2=B.p.x+B.p.w/2,y2=B.p.y+B.p.h/2,cx=(x1+x2)/2,cy=(y1+y2)/2-30,label=a.endpoint||a.label||a.relationship||(a.type==='api'?'API':'');return `<path class="${esc(a.type||a.relationship||'calls')} ${esc(a.status||'')}" d="M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}" marker-end="url(#arrowhead)"/><text x="${cx}" y="${cy-5}" text-anchor="middle">${esc(label)}</text>`}).join('')+`<defs><marker id="arrowhead" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="#aaa3ca"/></marker></defs>`;
-    renderRegions(board);renderMinimap(blocks);renderSidebar();$('#breadcrumbs b').textContent=levelName(l);$('#change-count').textContent=state.log.length?`${state.log.length} recent ${state.log.length===1?'change':'changes'}`:'No changes yet';
-  }
-  function renderRegions(board){$$('.region-overlay').forEach(x=>x.remove());Object.values(board.blocks||{}).filter(b=>b.kind==='agent').forEach(agent=>{const regions=agent.meta?.regions||[];for(const region of regions){const box=document.createElement('div');box.className='region-overlay';box.style.cssText=`left:${region.x}px;top:${region.y}px;width:${region.w}px;height:${region.h}px`;box.innerHTML=`<span class="region-label">${esc(agent.name)} · ${esc(agent.meta?.mode||'read')}</span>`;$('#canvas-world').append(box)}})}
-  function renderMinimap(blocks){
-    const mini=$('.mini-inner'),board=state.data.board||state.data;
-    const rect=mini.getBoundingClientRect(),width=rect.width,height=rect.height,padding=4;
-    const positioned=blocks.map(b=>({b,p:position(b)}));
-    const minX=Math.min(0,...positioned.map(({p})=>p.x)),minY=Math.min(0,...positioned.map(({p})=>p.y));
-    const maxX=Math.max(320,...positioned.map(({b,p})=>p.x+(p.w||b.w||100)));
-    const maxY=Math.max(220,...positioned.map(({b,p})=>p.y+(p.h||b.h||60)));
-    const scale=Math.min((width-padding*2)/Math.max(1,maxX-minX),(height-padding*2)/Math.max(1,maxY-minY));
-    const offsetX=(width-(maxX-minX)*scale)/2,offsetY=(height-(maxY-minY)*scale)/2;
-    const x=value=>offsetX+(value-minX)*scale,y=value=>offsetY+(value-minY)*scale;
-    const nodes=new Map(positioned.map(({b,p})=>[b.id,{b,p,cx:x(p.x+(p.w||b.w||100)/2),cy:y(p.y+(p.h||b.h||60)/2)}]));
-    const arrows=state.data.arrows?.length?state.data.arrows:Object.values(board.arrows||{});
-    const links=arrows.map(a=>{const from=nodes.get(a.source||a.source_node_id),to=nodes.get(a.target||a.target_node_id);return from&&to?`<line class="mini-link ${esc(a.type||a.relationship||'calls')}" x1="${from.cx}" y1="${from.cy}" x2="${to.cx}" y2="${to.cy}"/>`:''}).join('');
-    mini.innerHTML=`<svg class="mini-connections" viewBox="0 0 ${width} ${height}" aria-hidden="true">${links}</svg>`;
-    positioned.forEach(({b,p})=>{const el=document.createElement('i'),nodeWidth=Math.max(2,(p.w||b.w||100)*scale),nodeHeight=Math.max(2,(p.h||b.h||60)*scale);el.className=`mini-rect ${esc(b.kind||'block')} ${['generated','new','unverified'].includes(b.status)?'generated':''}`;el.title=`${b.name||b.id} · ${b.kind||'block'}`;el.style.cssText=`left:${x(p.x)}px;top:${y(p.y)}px;width:${nodeWidth}px;height:${nodeHeight}px`;mini.append(el)});
-    const viewport=$('#canvas-viewport'),viewWidth=Math.min(width,viewport.clientWidth/state.scale*scale),viewHeight=Math.min(height,viewport.clientHeight/state.scale*scale),viewLeft=x(-state.x/state.scale),viewTop=y(-state.y/state.scale),view=document.createElement('i');
-    view.className='mini-view';view.style.cssText=`left:${Math.max(0,Math.min(width-viewWidth,viewLeft))}px;top:${Math.max(0,Math.min(height-viewHeight,viewTop))}px;width:${viewWidth}px;height:${viewHeight}px`;mini.append(view);
-  }
+  /* ---- Nested zoom: the project as boxes inside boxes ----
+   * The canvas always looks at one block (the focus, or the whole project).
+   * Its children are cards; each card already shows its own children as
+   * small tiles, laid out with the same proportions they get once you are
+   * inside it. Zooming into a card until it fills the screen makes it the
+   * focus and remaps the camera, so the tiles simply become cards. A block
+   * with no children shows its code. Zooming out past the frame goes up. */
+  const FRAME_W=1600,ENTER_AT=.7,LEAVE_AT=.42,HIDDEN=new Set(['agent','scan']);
+  const KIND_ORDER={service:0,server:0,endpoint:1,database:1,queue:1,external:1,folder:2,slot:2,file:3,class:4,function:4,group:4,step:4,code:5,note:6};
+  const nest={stack:[],items:new Map(),code:{},target:null,anim:0,lastAnchor:null};
+  /**
+   * Input: b (object)
+   * Output: object
+   * Processing: A block's stored position (kept for the details dialog).
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function position(b){const a=state.data?.absolute?.[b.id];if(Array.isArray(a))return {x:a[0],y:a[1],w:b.w,h:b.h};return a||b}
+  /**
+   * Input: none
+   * Output: object
+   * Processing: The board's blocks by id.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function boardBlocks(){return (state.data?.board||state.data||{}).blocks||{}}
+  /**
+   * Input: b (object)
+   * Output: number
+   * Processing: The first line a block covers, for ordering.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function lineOf(b){return Number(b.meta?.lines?.[0]??0)}
+  /**
+   * Input: id (string | null)
+   * Output: object[]
+   * Processing: The blocks drawn inside a block (or at the top of the project), AI outline first.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function childrenOf(id){const all=boardBlocks();let list=Object.values(all).filter(b=>!HIDDEN.has(b.kind)&&(id==null?(!b.parent||!all[b.parent]):b.parent===id));
+    if(list.some(b=>b.meta?.source==='ai'))list=list.filter(b=>b.meta?.source==='ai'||!['function','class','step'].includes(b.kind));
+    return list.sort((a,b)=>(KIND_ORDER[a.kind]??7)-(KIND_ORDER[b.kind]??7)||lineOf(a)-lineOf(b)||String(a.name).localeCompare(String(b.name)))}
+  /**
+   * Input: b (object)
+   * Output: object | null
+   * Processing: Where a block's code is: file path and line range, or inline demo code.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function codeSource(b){if(!b)return null;if(b.meta?.code)return {inline:b.meta.code,from:1,to:Infinity};const path=b.meta?.file||(['file','code'].includes(b.kind)?b.path:null);if(!path)return null;const l=b.meta?.lines;return {path,from:l?Number(l[0]):1,to:l?Number(l[1]):Infinity}}
+  /**
+   * Input: id (string)
+   * Output: boolean
+   * Processing: Whether zooming into a block shows anything (blocks or code).
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function enterable(id){return childrenOf(id).length>0||!!codeSource(boardBlocks()[id])}
+  /**
+   * Input: r (object)
+   * Output: object
+   * Processing: The part of a box below its title, where its children or code go.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function innerOf(r){const head=Math.min(r.w*.12,r.h*.3);return {x:r.x,y:r.y+head,w:r.w,h:r.h-head,head}}
+  /**
+   * Input: n (number), r (object)
+   * Output: object[]
+   * Processing: n cells filling a box, in the column count that keeps them closest to 16:10.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function grid(n,r){if(!n)return [];const m=Math.min(r.w,r.h),pad=m*.05,gap=m*.035,W=r.w-2*pad,H=r.h-2*pad;let best=null;
+    for(let cols=1;cols<=n;cols++){const rows=Math.ceil(n/cols),cw=(W-gap*(cols-1))/cols,ch=(H-gap*(rows-1))/rows;if(cw<=0||ch<=0)continue;const score=Math.abs(Math.log(cw/ch/1.6));if(!best||score<best.score)best={cols,cw,ch,score}}
+    if(!best)return [];return Array.from({length:n},(_,i)=>({x:r.x+pad+(i%best.cols)*(best.cw+gap),y:r.y+pad+Math.floor(i/best.cols)*(best.ch+gap),w:best.cw,h:best.ch}))}
+  /**
+   * Input: inner (object)
+   * Output: object
+   * Processing: Font, line height and padding for code shown in a box, proportional to its width.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function codeMetrics(inner,n=0){const pad=inner.w*.03,fill=n?(inner.h-2*pad)/(n*1.55):0,font=Math.max(inner.w/95,Math.min(inner.w/42,fill||inner.w/95)),line=font*1.55;return {font,line,pad}}
+  /**
+   * Input: source (object)
+   * Output: string[] | null
+   * Processing: The lines a block covers, once its file has been fetched (fetching it the first time).
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function codeLines(source){if(!source)return null;if(source.inline!=null)return String(source.inline).split('\n');const entry=nest.code[source.path];
+    if(!entry){nest.code[source.path]={loading:true};request('command',{method:'POST',body:JSON.stringify({command:`/open ${quoteArg(source.path)}`})}).then(d=>{nest.code[source.path]={text:d.result?.content??''};render()}).catch(e=>{nest.code[source.path]={error:e.message};render()});return null}
+    if(entry.error)return ['// '+entry.error];if(entry.text==null)return null;const all=entry.text.split('\n');return all.slice(source.from-1,Math.min(all.length,source.to))}
+  const KW=new Set('def class return if elif else for while try except finally with as import from raise yield lambda pass break continue and or not in is None True False async await function const let var new this export default switch case throw catch typeof interface type extends implements public private static void null undefined true false self'.split(' '));
+  /**
+   * Input: line (string)
+   * Output: string
+   * Processing: One line of code as escaped HTML with keywords, strings, numbers and comments coloured.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function highlight(line){let out='',last=0;for(const m of line.matchAll(/(#.*$|\/\/.*$)|("(?:[^"\\]|\\.)*"?|'(?:[^'\\]|\\.)*'?|`[^`]*`?)|(\b\d+(?:\.\d+)?\b)|([A-Za-z_$][\w$]*)/g)){out+=esc(line.slice(last,m.index));const t=esc(m[0]);out+=m[1]?`<span class="c">${t}</span>`:m[2]?`<span class="s">${t}</span>`:m[3]?`<span class="n">${t}</span>`:KW.has(m[0])?`<span class="k">${t}</span>`:t;last=m.index+m[0].length}return out+esc(line.slice(last))}
+  /**
+   * Input: source (object), inner (object), all (boolean)
+   * Output: object
+   * Processing: The code panel for a box (every line, or only the ones that fit) and the height it needs.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function codeHTML(source,inner,all,sizing=inner){const lines=codeLines(source),{font,line,pad}=codeMetrics(sizing,lines?lines.length:0);
+    if(!lines)return {html:`<div class="nest-code loading" style="left:${inner.x+pad}px;top:${inner.y+pad}px;width:${inner.w-2*pad}px;font-size:${font}px">Loading code…</div>`,height:0};
+    const fit=all?Math.min(lines.length,4000):Math.max(1,Math.floor((inner.h-2*pad)/line)),shown=lines.slice(0,fit),first=source.from||1;
+    const rows=shown.map((l,i)=>`<div><i>${first+i}</i>${highlight(l)||' '}</div>`).join('');
+    const more=all&&lines.length>fit?`<div class="more">… ${lines.length-fit} more lines; use Edit code to see them all</div>`:'';
+    return {html:`<div class="nest-code" style="--w:${inner.w};left:${inner.x+pad}px;top:${inner.y+pad}px;width:${inner.w-2*pad}px;${all?'':`height:${inner.h-2*pad}px;`}font-size:${font}px;line-height:${line}px">${rows}${more}</div>`,height:2*pad+(shown.length+(more?1:0))*line}}
+  /**
+   * Input: b (object)
+   * Output: string
+   * Processing: The one-line description shown under a block's name.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function summaryOf(b){if(['service','server'].includes(b.kind)){const eps=Object.values((state.data?.board||{}).endpoints||{}).filter(e=>e.service===b.id);if(eps.length)return eps.slice(0,4).map(e=>`${e.method} ${e.path}`).join(' · ')}
+    const l=b.meta?.lines;return b.meta?.summary||b.meta?.description||(l?`lines ${l[0]}–${l[1]}${b.meta?.file?` of ${b.meta.file.split('/').pop()}`:''}`:'')||b.path||b.meta?.language||''}
+  /**
+   * Input: b (object)
+   * Output: string
+   * Processing: The status badge for a block: AI-made, generated code, or verified.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function badgeOf(b){if(b.meta?.source==='ai')return `<span class="nest-badge ai">✦ ${esc({anthropic:'claude',user:'you'}[b.meta.by]||b.meta.by||'AI')}</span>`;if(['generated','new','unverified'].includes(b.status))return '<span class="nest-badge gen">Generated</span>';if(b.status==='missing')return '<span class="nest-badge gen">Missing</span>';return ''}
+  /**
+   * Input: b (object), r (object)
+   * Output: string
+   * Processing: A small tile for a block seen inside its parent's card.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function tileHTML(b,r){const font=Math.min(r.w*.075,r.h*.24),n=childrenOf(b.id).length,hint=n?`${n} inside`:codeSource(b)?'{ } code':'';
+    return `<div class="nest-tile ${esc(b.kind)}-tile" data-tile="${esc(b.id)}" style="--w:${r.w};left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px;font-size:${font}px"><b>${kinds[b.kind]||'□'} ${esc(b.name||b.id)}</b><small>${esc(hint)}</small></div>`}
+  /**
+   * Input: b (object), r (object)
+   * Output: string
+   * Processing: A card for a block inside the focus, with its own children (or code) previewed inside it.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function cardHTML(b,r){const inner=innerOf(r),font=inner.head*.34,kids=childrenOf(b.id);let inside='';
+    if(kids.length)grid(kids.length,inner).forEach((cell,i)=>{inside+=tileHTML(kids[i],cell);nest.items.set(kids[i].id,{level:2,rect:cell,parent:b.id})});
+    else if(codeSource(b))inside=codeHTML(codeSource(b),inner,false).html;
+    else inside=`<div class="nest-empty" style="left:${inner.x}px;top:${inner.y+inner.h*.35}px;width:${inner.w}px;font-size:${font*.7}px">${esc(summaryOf(b)||b.kind)}</div>`;
+    return `<article class="nest-card ${esc(b.kind)}-card ${state.selected===b.id?'selected':''}" data-block="${esc(b.id)}" style="--w:${r.w};left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px"><header style="height:${inner.head}px;font-size:${font}px"><span class="nest-icon">${kinds[b.kind]||'□'}</span><span class="nest-name">${esc(b.name||b.id)}</span>${badgeOf(b)}<small>${esc(b.kind)}${summaryOf(b)?' · '+esc(summaryOf(b)):''}</small></header></article>${inside}`}
+  /**
+   * Input: none
+   * Output: object
+   * Processing: The block being looked at (top of the zoom path), dropping any that no longer exist.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function focusEntry(){const all=boardBlocks(),v=$('#canvas-viewport');if(!nest.stack.length)nest.stack=[{id:null,w:FRAME_W,h:FRAME_W*Math.max(.45,Math.min(1,(v.clientHeight||600)/(v.clientWidth||1000)))}];
+    const bad=nest.stack.findIndex((e,i)=>i>0&&!all[e.id]);if(bad>0)nest.stack=nest.stack.slice(0,bad);return nest.stack[nest.stack.length-1]}
+  /**
+   * Input: none
+   * Output: void
+   * Processing: Redraw the focus frame, its cards, their tiles and the arrows between cards.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function render(){if(!state.data)return;const top=focusEntry(),all=boardBlocks(),focus=top.id?all[top.id]:null,kids=childrenOf(top.id);nest.items=new Map();
+    let frame={x:0,y:0,w:top.w,h:top.h},inner=innerOf(frame),html='',leafCode=!kids.length&&focus&&codeSource(focus);
+    if(leafCode){if(top.h0==null)top.h0=top.h;const code=codeHTML(codeSource(focus),inner,true,innerOf({x:0,y:0,w:top.w,h:top.h0}));if(code.height){top.h=Math.max(top.h,inner.head+code.height+inner.w*.03);frame.h=top.h}html+=code.html}
+    else if(kids.length)grid(kids.length,inner).forEach((cell,i)=>{nest.items.set(kids[i].id,{level:1,rect:cell});html+=cardHTML(kids[i],cell)});
+    else html+=`<div class="nest-empty big" style="left:0;top:${frame.h*.42}px;width:${frame.w}px;font-size:${frame.w/55}px">${focus?'Nothing inside this block yet.':'No project files on the board yet.'}<br><button data-action="${focus?'generate-blocks':'import'}">${focus?'✦ Generate blocks with AI':'Import project files'}</button></div>`;
+    top.leaf=!!leafCode;
+    const title=focus?`${kinds[focus.kind]||'□'} ${esc(focus.name||focus.id)}`:`▰ ${esc(projectName())}`,sub=focus?summaryOf(focus):'Scroll over a block to zoom into it';
+    $('#blocks').innerHTML=`<section class="nest-frame ${leafCode?'code-frame':''}" style="width:${frame.w}px;height:${frame.h}px"><header style="height:${inner.head}px;font-size:${inner.head*.3}px"><b>${title}</b>${focus?badgeOf(focus):''}<small>${esc(sub)}</small></header></section>${html}`;
+    drawArrows(frame);bindCards();renderCrumbs();renderFocusBar();renderMinimap();renderSidebar();applyCamera();
+    $('#change-count').textContent=state.log.length?`${state.log.length} recent ${state.log.length===1?'change':'changes'}`:'No changes yet'}
+  /**
+   * Input: frame (object)
+   * Output: void
+   * Processing: Arrows between the cards in view; an arrow to a block deeper inside goes to the card holding it.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function drawArrows(frame){const all=boardBlocks(),board=state.data.board||state.data,holder=id=>{let b=all[id],guard=0;while(b&&guard++<20){const it=nest.items.get(b.id);if(it&&it.level===1)return b.id;b=all[b.parent]}return null};
+    const edge=(r,tx,ty)=>{const cx=r.x+r.w/2,cy=r.y+r.h/2,dx=tx-cx,dy=ty-cy,k=1/Math.max(Math.abs(dx)/(r.w/2)||0,Math.abs(dy)/(r.h/2)||0,1e-6);return [cx+dx*Math.min(k,1),cy+dy*Math.min(k,1)]};
+    const seen=new Set(),arrows=state.data.arrows?.length?state.data.arrows:Object.values(board.arrows||{});
+    const paths=arrows.map(a=>{const s=holder(a.source||a.source_node_id),t=holder(a.target||a.target_node_id);if(!s||!t||s===t||seen.has(s+'>'+t))return '';seen.add(s+'>'+t);const A=nest.items.get(s).rect,B=nest.items.get(t).rect,[x1,y1]=edge(A,B.x+B.w/2,B.y+B.h/2),[x2,y2]=edge(B,A.x+A.w/2,A.y+A.h/2),cx=(x1+x2)/2,cy=(y1+y2)/2,label=a.endpoint||a.label||(a.type==='api'?'API':a.type||'');
+      return `<path class="${esc(a.type||'calls')} ${esc(a.status||'')}" d="M ${x1} ${y1} L ${x2} ${y2}" marker-end="url(#arrowhead)"/><text x="${cx}" y="${cy-frame.w/250}" text-anchor="middle" style="font-size:${frame.w/130}px">${esc(label)}</text>`}).join('');
+    $('#connections').setAttribute('width',frame.w);$('#connections').setAttribute('height',frame.h);
+    $('#connections').innerHTML=paths+`<defs><marker id="arrowhead" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="#aaa3ca"/></marker></defs>`}
+  /**
+   * Input: none
+   * Output: void
+   * Processing: Click selects a card, double-click zooms into it (or into the tile clicked).
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function bindCards(){$$('#blocks .nest-card').forEach(n=>{n.addEventListener('click',e=>{e.stopPropagation();state.selected=n.dataset.block;$$('#blocks .nest-card').forEach(x=>x.classList.toggle('selected',x===n));showSelection(n)});n.addEventListener('dblclick',e=>{e.stopPropagation();flyInto(n.dataset.block)})});
+    $$('#blocks .nest-tile').forEach(n=>{n.addEventListener('click',e=>{e.stopPropagation();const parent=nest.items.get(n.dataset.tile)?.parent;state.selected=n.dataset.tile;const card=parent&&$(`#blocks .nest-card[data-block="${CSS.escape(parent)}"]`);if(card)showSelection(card,n.dataset.tile)});n.addEventListener('dblclick',e=>{e.stopPropagation();flyTo(n.dataset.tile)})})}
+  /**
+   * Input: none
+   * Output: void
+   * Processing: The zoom path as clickable breadcrumbs.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function renderCrumbs(){const all=boardBlocks();$('#breadcrumbs').innerHTML=nest.stack.map((e,i)=>{const name=e.id?(all[e.id]?.name||e.id):projectName();return `${i?'<span class="crumb-sep">/</span>':''}<button class="crumb ${i===nest.stack.length-1?'current':''}" data-action="crumb" data-crumb="${i}">${esc(name)}</button>`}).join('')}
+  /**
+   * Input: none
+   * Output: void
+   * Processing: The bar over the canvas naming the focus and offering what can be done with it.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function renderFocusBar(){const top=nest.stack[nest.stack.length-1],b=top?.id?boardBlocks()[top.id]:null,bar=$('#focus-bar');if(!bar)return;const src=b&&(b.path||b.meta?.file),code=b&&(codeSource(b)||b.kind==='file');
+    bar.innerHTML=`${nest.stack.length>1?'<button data-action="zoom-up" title="Up one level (Esc)">↑ Up</button>':''}<span class="focus-name">${b?`${kinds[b.kind]||'□'} ${esc(b.name)}`:'▰ '+esc(projectName())}</span>${b&&src&&b.kind!=='folder'?'<button data-action="generate-blocks" title="Let Claude or DeepSeek group this code into blocks">✦ AI blocks</button>':''}${b&&b.kind==='folder'?'<button data-action="generate-blocks" title="Outline every file in this folder">✦ AI blocks for folder</button>':''}${b&&b.kind==='file'?'<button data-action="split-functions" title="One block per function, no AI needed">ƒ Functions</button>':''}${code?'<button data-action="edit-code" title="Open the code to read or edit">✎ Edit code</button>':''}${b?'<button data-action="focus-info">ⓘ</button>':''}`}
+  /**
+   * Input: none
+   * Output: object
+   * Processing: The canvas size in screen pixels.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function viewSize(){const v=$('#canvas-viewport');return {w:v.clientWidth||1000,h:v.clientHeight||600}}
+  /**
+   * Input: none
+   * Output: void
+   * Processing: Put the camera on screen: transform, fade level, grid and minimap window.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function applyCamera(){const world=$('#canvas-world');world.style.transform=`translate(${state.x}px,${state.y}px) scale(${state.scale})`;world.style.setProperty('--z',state.scale);updateGrid();updateMiniView()}
+  /**
+   * Input: none
+   * Output: void
+   * Processing: Kept for callers that move the camera directly (panning).
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function applyTransform(){nest.target=null;applyCamera()}
+  /**
+   * Input: s (number)
+   * Output: number
+   * Processing: Keep the zoom where the focus is still findable and code still readable.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function clampScale(s){const top=focusEntry(),v=viewSize(),min=nest.stack.length>1?1e-6:v.w*.25/top.w,max=top.leaf?40/(top.w/95):v.w*30/top.w;return Math.max(min,Math.min(max,s))}
+  /**
+   * Input: f (number), dx (number), dy (number)
+   * Output: void
+   * Processing: Change world units under the camera (and its target) without moving anything on screen.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function remap(f,ox,oy){for(const c of [state,nest.target]){if(!c)continue;c.x+=ox*c.scale;c.y+=oy*c.scale;c.scale/=f}}
+  /**
+   * Input: id (string), rect (object)
+   * Output: void
+   * Processing: Make a card the focus, keeping it exactly where it is on screen.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function enter(id,rect){const f=FRAME_W/rect.w;remap(f,rect.x,rect.y);nest.stack.push({id,w:FRAME_W,h:rect.h*f});state.selected=null;hidePopup();render();fadeIn()}
+  /**
+   * Input: none
+   * Output: boolean
+   * Processing: Go up to the parent, keeping the old focus where it is on screen.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function leave(){if(nest.stack.length<2)return false;const child=nest.stack.pop();render();const it=nest.items.get(child.id);if(!it){fit();return true}const r=it.rect,f=child.w/r.w;for(const c of [state,nest.target]){if(!c)continue;c.scale*=f;c.x-=r.x*c.scale;c.y-=r.y*c.scale}hidePopup();render();fadeIn();return true}
+  /**
+   * Input: none
+   * Output: void
+   * Processing: Blend new boxes in after the focus changes.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function fadeIn(){const b=$('#blocks');b.classList.remove('nest-fade');void b.offsetWidth;b.classList.add('nest-fade')}
+  /**
+   * Input: dir (number), ax (number), ay (number)
+   * Output: void
+   * Processing: After zooming, enter the card under the pointer once it fills the screen, or leave once the frame is small.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function checkDepth(dir,ax,ay){const v=viewSize(),top=focusEntry();
+    if(dir<0&&nest.stack.length>1&&top.w*state.scale<LEAVE_AT*v.w&&(top.leaf||top.h*state.scale<LEAVE_AT*v.h)){leave();return}
+    if(dir>0){const wx=(ax-state.x)/state.scale,wy=(ay-state.y)/state.scale;for(const [id,it] of nest.items){const r=it.rect;if(it.level!==1||wx<r.x||wy<r.y||wx>r.x+r.w||wy>r.y+r.h||!enterable(id))continue;if(r.w*state.scale>ENTER_AT*v.w||r.h*state.scale>ENTER_AT*v.h)enter(id,r);return}}}
+  /**
+   * Input: next (number), cx (number | undefined), cy (number | undefined), smooth (boolean)
+   * Output: void
+   * Processing: Zoom around a screen point, eased over a few frames, entering or leaving blocks on the way.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function zoomAt(next,cx,cy,smooth=true){const v=viewSize(),px=cx??v.w/2,py=cy??v.h/2,base=nest.target||{x:state.x,y:state.y,scale:state.scale},s=clampScale(next/state.scale*base.scale),wx=(px-base.x)/base.scale,wy=(py-base.y)/base.scale;
+    nest.target={x:px-wx*s,y:py-wy*s,scale:s};nest.lastAnchor=[px,py];if(!smooth){Object.assign(state,nest.target);nest.target=null;applyCamera();checkDepth(Math.sign(s-base.scale),px,py);return}if(!nest.anim)nest.anim=requestAnimationFrame(stepCamera)}
+  /**
+   * Input: none
+   * Output: void
+   * Processing: One animation frame of the camera easing toward its target.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function stepCamera(){nest.anim=0;const t=nest.target;if(!t)return;const before=state.scale,k=.28;state.scale=Math.exp(Math.log(state.scale)+(Math.log(t.scale)-Math.log(state.scale))*k);state.x+=(t.x-state.x)*k;state.y+=(t.y-state.y)*k;
+    const done=Math.abs(Math.log(t.scale/state.scale))<.002&&Math.abs(t.x-state.x)<.5&&Math.abs(t.y-state.y)<.5;if(done){Object.assign(state,t);nest.target=null;const id=nest.pendingEnter;nest.pendingEnter=null;const it=id&&nest.items.get(id);if(it&&it.level===1){enter(id,it.rect);return}}applyCamera();const [ax,ay]=nest.lastAnchor||[viewSize().w/2,viewSize().h/2];checkDepth(Math.sign(state.scale-before),ax,ay);if(nest.target)nest.anim=requestAnimationFrame(stepCamera)}
+  /**
+   * Input: animate (boolean)
+   * Output: void
+   * Processing: Fit the focus in the canvas (code frames show from the top).
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function fit(animate=false){if(!state.data)return;const top=focusEntry(),v=viewSize(),head=104,room={w:v.w-24,h:Math.max(120,v.h-head-16)},visibleH=top.leaf?Math.min(top.h,top.w*room.h/room.w):top.h,s=Math.min(room.w/top.w,room.h/visibleH),goal={scale:s,x:(v.w-top.w*s)/2,y:head+(top.leaf?0:(room.h-top.h*s)/2)};
+    if(animate){nest.target=goal;nest.lastAnchor=null;if(!nest.anim)nest.anim=requestAnimationFrame(stepCamera)}else{nest.target=null;Object.assign(state,goal);applyCamera()}}
+  /**
+   * Input: id (string)
+   * Output: void
+   * Processing: Zoom smoothly into a card in view until it becomes the focus.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function flyInto(id){const it=nest.items.get(id);if(!it||!enterable(id)){openBlock(id);return}if(it.level!==1){flyTo(id);return}const v=viewSize(),r=it.rect,head=104,rh=Math.max(120,v.h-head-16),s=clampScale(Math.min((v.w-24)/r.w,rh/r.h));nest.target={scale:s,x:v.w/2-(r.x+r.w/2)*s,y:head+rh/2-(r.y+r.h/2)*s};nest.lastAnchor=[v.w/2,head+rh/2];nest.pendingEnter=id;if(!nest.anim)nest.anim=requestAnimationFrame(stepCamera)}
+  /**
+   * Input: id (string)
+   * Output: void
+   * Processing: Jump straight to any block: rebuild the zoom path from the project down to it and fit it.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function flyTo(id){const all=boardBlocks();if(!all[id])return;const chain=[];let b=all[id],guard=0;while(b&&guard++<40){chain.unshift(b.id);b=all[b.parent]}
+    nest.stack=nest.stack.slice(0,1);focusEntry();for(const next of chain){const top=nest.stack[nest.stack.length-1],kids=childrenOf(top.id),i=kids.findIndex(k=>k.id===next);if(i<0||!enterable(next))break;const r=grid(kids.length,innerOf({x:0,y:0,w:top.w,h:top.h}))[i];nest.stack.push({id:next,w:FRAME_W,h:r.h*FRAME_W/r.w})}
+    if(nest.stack[nest.stack.length-1].id!==id)state.selected=id;render();fit();fadeIn()}
+  /**
+   * Input: none
+   * Output: void
+   * Processing: The overview map: the focus frame, its cards and the part of it on screen.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function renderMinimap(){const mini=$('.mini-inner');if(!mini)return;const top=focusEntry(),rect=mini.getBoundingClientRect(),k=Math.min((rect.width-8)/top.w,(rect.height-8)/top.h)||0;nest.mini={k,ox:(rect.width-top.w*k)/2,oy:(rect.height-top.h*k)/2};
+    mini.innerHTML=[...nest.items].filter(([,it])=>it.level===1).map(([id,it])=>{const b=boardBlocks()[id]||{};return `<i class="mini-rect ${esc(b.kind||'')}" title="${esc(b.name||id)}" style="left:${nest.mini.ox+it.rect.x*k}px;top:${nest.mini.oy+it.rect.y*k}px;width:${Math.max(2,it.rect.w*k)}px;height:${Math.max(2,it.rect.h*k)}px"></i>`}).join('')+'<i class="mini-view"></i>';updateMiniView()}
+  /**
+   * Input: none
+   * Output: void
+   * Processing: Move the minimap's window to match the camera.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function updateMiniView(){const view=$('.mini-inner .mini-view'),m=nest.mini;if(!view||!m)return;const v=viewSize();view.style.cssText=`left:${m.ox+(-state.x/state.scale)*m.k}px;top:${m.oy+(-state.y/state.scale)*m.k}px;width:${v.w/state.scale*m.k}px;height:${v.h/state.scale*m.k}px`}
+  /**
+   * Input: none
+   * Output: object | null
+   * Processing: The block the focus bar's actions apply to: the selected card, else the focus.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function actionBlock(){const all=boardBlocks(),top=nest.stack[nest.stack.length-1];return (state.selected&&all[state.selected])||(top?.id?all[top.id]:null)}
+  /**
+   * Input: b (object)
+   * Output: Promise<void>
+   * Processing: Ask the chosen AI to outline a block's file (or folder) as nested blocks; explain the options when there is no key.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  async function generateBlocks(b){if(!b){toast('Zoom into a file or folder first.',true);return}const path=b.kind==='folder'?(b.path||''):(b.meta?.file||b.path);if(path==null){toast('This block has no code behind it.',true);return}const provider=$('#provider-select')?.value||'anthropic';
+    toast(`${providerLabel(provider)} is reading ${path||'the project'}…`);try{const data=await request('command',{method:'POST',body:JSON.stringify({command:`/blocks generate ${quoteArg(path||'.')} --provider ${provider}`})});const r=data.result||{};await refresh();toast(`${r.blocks||0} blocks made by ${providerLabel(provider)}${r.failed?.length?`; ${r.failed.length} files failed`:''}.`);const owner=b.kind==='folder'?b.id:(boardBlocks()[r.files?.[0]?.block]?r.files[0].block:b.id);flyTo(owner)}
+    catch(e){if(/API key/i.test(e.message))openModal('Connect an AI to make blocks',`<p>${esc(e.message)}</p><div class="row"><b>Use Claude on your account (no API key)</b><br>In Claude Code with the Plovane MCP connection, ask:<pre class="code-view">Use Plovane to generate blocks for ${esc(path)}: read the file, then call plovane_compile with action "blocks_generate", target "${esc(path)}" and your blocks.</pre></div><div class="modal-actions"><button class="secondary" data-action="split-functions">ƒ One block per function (no AI)</button><button data-action="connections">Add an API key…</button></div>`,'AI BLOCKS');else toast(e.message,true)}}
+  /**
+   * Input: b (object)
+   * Output: Promise<void>
+   * Processing: Blocks for a file without AI: its functions, with their statements inside.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  async function splitFunctions(b){const path=b&&(b.meta?.file||b.path);if(!path){toast('Zoom into a file first.',true);return}try{await request('command',{method:'POST',body:JSON.stringify({command:`/blocks view ${quoteArg(path)} --detail 2 --discard`})});$('#modal').open&&$('#modal').close();await refresh();const owner=Object.values(boardBlocks()).find(x=>x.kind==='file'&&x.path===path);if(owner)flyTo(owner.id)}catch(e){toast(e.message,true)}}
+  /**
+   * Input: b (object)
+   * Output: Promise<void>
+   * Processing: Open a block's file in the code editor, scrolled to and selecting the block's lines.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  async function editCode(b){const src=codeSource(b),path=src?.path||(b?.kind==='file'?b.path:null);if(!path){toast('This block has no file to edit.',true);return}
+    try{const data=await request('command',{method:'POST',body:JSON.stringify({command:`/open ${quoteArg(path)}`})}),text=data.result?.content??'',ed=$('#code-editor'),area=$('#code-editor textarea');ed.dataset.path=path;ed.base=text;area.value=text;$('#code-editor .editor-path').textContent=path;ed.hidden=false;syncGutter();area.focus();
+      if(src&&src.to!==Infinity){const lines=text.split('\n'),start=lines.slice(0,src.from-1).join('\n').length+(src.from>1?1:0),end=lines.slice(0,src.to).join('\n').length;area.setSelectionRange(start,end);area.scrollTop=(src.from-3)*parseFloat(getComputedStyle(area).lineHeight)}else area.setSelectionRange(0,0)}catch(e){toast(e.message,true)}}
+  /**
+   * Input: none
+   * Output: void
+   * Processing: Line numbers beside the editor, scrolled with it.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function syncGutter(){const area=$('#code-editor textarea'),gutter=$('#code-editor .editor-gutter'),n=area.value.split('\n').length;if(gutter.childElementCount!==n)gutter.textContent=Array.from({length:n},(_,i)=>i+1).join('\n');gutter.scrollTop=area.scrollTop;$('#code-editor').classList.toggle('dirty',area.value!==$('#code-editor').base)}
+  /**
+   * Input: none
+   * Output: Promise<void>
+   * Processing: Save the editor's text to the file (refused if the file changed meanwhile); undo restores it.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  async function saveCode(){const ed=$('#code-editor'),path=ed.dataset.path,content=$('#code-editor textarea').value;try{const data=await request('op',{method:'POST',body:JSON.stringify({op:'file.save',args:{path,content,base:ed.base}})});ed.base=content;syncGutter();delete nest.code[path];toast(data.result?.changed===false?'No changes to save.':`Saved ${path}. ⌘Z on the board undoes it.`);(data.notes||[]).forEach(n=>toast(n));await refresh()}catch(e){toast(e.message,true)}}
+  /**
+   * Input: none
+   * Output: void
+   * Processing: Close the editor, asking first when there are unsaved edits.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function closeEditor(){const ed=$('#code-editor');if($('#code-editor textarea').value!==ed.base&&!confirm('Discard your unsaved edits?'))return;ed.hidden=true}
   function renderSidebar(){
     const board=state.data.board||state.data,blocks=Object.values(board.blocks||{}),host=$('#sidebar-content');
     if(state.tab==='files'){
@@ -89,14 +471,14 @@
       const code=blocks.filter(b=>['file','function','code'].includes(b.kind));
       host.innerHTML=`<div class="side-section-title">CODE & PROVENANCE <button data-command="/history">◷</button></div>${code.map(b=>`<div class="code-card"><div class="tree-row" data-open="${esc(b.id)}"><span class="tree-icon file">${kinds[b.kind]}</span>${esc(b.name)}<span class="tree-count">${b.status==='generated'?'NEW':'✓'}</span></div><small style="display:block;padding:2px 7px;color:#a1a6b0;font-size:8px">${esc(b.path||'Prompt: '+(b.meta?.prompt||'verified library'))} · ${Number(b.meta?.tokens||0)} tokens</small></div>`).join('')||'<div class="empty-state">Select a file to inspect its source.</div>'}`;
     }
-    host.onclick=e=>{if(e.target.closest('[data-action],[data-command]'))return;const open=e.target.closest('[data-open]');if(open)openBlock(open.dataset.open)};
+    host.onclick=e=>{if(e.target.closest('[data-action],[data-command]'))return;const open=e.target.closest('[data-open]');if(open)flyTo(open.dataset.open)};
   }
-  function showSelection(node){const p=$('#selection-popup'),r=node.getBoundingClientRect(),v=$('#canvas-viewport').getBoundingClientRect();p.style.left=`${Math.max(8,Math.min(v.width-220,r.left-v.left))}px`;p.style.top=`${Math.max(52,r.top-v.top-40)}px`;p.innerHTML='<button data-action="info">ⓘ Details</button><button data-action="edit">✎ Edit</button><button data-action="connect">↗ Connect</button>';p.classList.add('show')}
+  function showSelection(node,id=node.dataset.block){const p=$('#selection-popup'),r=node.getBoundingClientRect(),v=$('#canvas-viewport').getBoundingClientRect(),b=boardBlocks()[id];if(!b)return;p.style.left=`${Math.max(8,Math.min(v.width-360,r.left-v.left))}px`;p.style.top=`${Math.max(52,r.top-v.top-40)}px`;p.innerHTML=`${enterable(id)?`<button data-action="zoom-into" data-block="${esc(id)}">⤢ Zoom in</button>`:''}<button data-action="info">ⓘ Details</button>${(b.path||b.meta?.file)?'<button data-action="generate-blocks">✦ AI blocks</button><button data-action="edit-code">✎ Code</button>':''}<button data-action="edit">Rename</button><button data-action="connect">↗ Connect</button>`;p.classList.add('show')}
   function openModal(title,body,eyebrow='PLOVANE'){ $('#modal-title').textContent=title;$('#modal-eyebrow').textContent=eyebrow;$('#modal-body').innerHTML=body;$('#modal').showModal() }
   function openBlock(id){const board=state.data.board||state.data,b=board.blocks?.[id];if(!b)return;state.selected=id;const p=position(b),arrows=(state.data.arrows||Object.values(board.arrows||{})).filter(a=>a.source===id||a.target===id);let body=`<div class="row"><b>${esc(b.kind)}</b> · ${esc(b.status||'verified')}<br><span class="muted">${esc(b.path||b.id)} · Layer ${b.layer}</span></div><div class="row">Position ${Math.round(p.x)}, ${Math.round(p.y)} · ${p.w||b.w} × ${p.h||b.h}</div>`;if(b.kind==='code'||b.kind==='function')body+=`<div class="row">Source · ${esc(b.path||b.meta?.file||b.name)}</div><button data-action="open-code" data-block="${esc(id)}">Show code</button>`;if(b.kind==='file')body+=`<div class="row">Source · ${esc(b.path||b.name)}</div><button data-action="open-code" data-block="${esc(id)}">Open source</button>`;body+=`<div class="row"><b>Connections (${arrows.length})</b><br>${arrows.map(a=>`${esc(a.type)} · ${esc(a.endpoint||`${a.source} → ${a.target}`)} · ${esc(a.status)}`).join('<br>')||'No connections'}</div><div class="row">Provenance · ${b.status==='generated'?'Generated code awaiting approval':'Verified library code'}<br><span class="muted">${esc(b.meta?.prompt||'Prompt provenance available in project history')} · ${Number(b.meta?.tokens||0)} tokens</span></div>`;openModal(b.name,body,'BLOCK DETAILS');render()}
   function record(prompt,data){const entry={prompt,at:new Date().toISOString(),tokens:Math.max(1,Math.ceil(prompt.trim().split(/\s+/).length*1.35)),result:data?.result?.message||data?.result?.id||'Command completed',kind:'prompt'};state.log.unshift(entry);state.log=state.log.slice(0,100);state.lastPrompt=prompt;localStorage.setItem('plovane-prompt-history',JSON.stringify(state.log));$('#token-count').textContent=`${state.log.reduce((n,x)=>n+x.tokens,0)} tokens`;$('#change-count').textContent=`${state.log.length} recent ${state.log.length===1?'change':'changes'}`;render()}
   async function runCommand(command,confirm=false,prompt=command){try{const data=await request('command',{method:'POST',body:JSON.stringify({command,confirm})});if(data.status==='needs_confirmation'){openModal('Review before applying',`<p>${esc(data.message||'This command needs confirmation.')}</p><pre>${esc(JSON.stringify(data.preview||{},null,2))}</pre><div class="modal-actions"><button class="secondary" data-action="close-modal">Cancel</button><button data-action="confirm-command" data-command="${esc(command)}">Review & apply</button></div>`,'CONFIRMATION REQUIRED');return}record(prompt,data);await refresh();const changed=Object.keys(data.changes||{}).length>0;if(!changed&&data.result&&!(data.result.diff||data.diff)){openModal(command.split(' ').slice(0,2).join(' '),`${data.notes?`<div class="row">${esc([].concat(data.notes).join(' '))}</div>`:''}<pre>${esc(JSON.stringify(data.result,null,2))}</pre>`,'RESULT');return}toast(data.result?.message||data.result?.id||'Change applied to project graph.');const result=data.result||{};if(result.diff||data.diff){const diff=result.diff||data.diff,next=result.next||'';openModal('Review generated changes',`<p>Review this generated diff before it changes project files. Affected tests run in the backend sandbox.</p><pre>${esc(diff)}</pre>${result.tests?`<div class="row">Tests · ${result.tests.passed===false?'failed':'passed'} · ${esc(JSON.stringify(result.tests))}</div>`:''}<div class="modal-actions"><button class="secondary" data-action="close-modal">Keep reviewing</button>${next.startsWith('/compile apply')?`<button data-action="apply-compile" data-command="${esc(next)}">Approve & apply</button>`:''}</div>`,'GENERATED CODE');}}catch(e){toast(e.message,true)}}
-  async function refresh(){try{state.data=await request('board');state.online=true;state.demo=false;$('#breadcrumbs').title=state.data.project||'';showProject();render();applyFlash();return true}catch(e){state.data=demoBoard();state.online=false;render();return false}}
+  async function refresh(){try{state.data=await request('board');state.online=true;state.demo=false;$('#breadcrumbs').title=state.data.project||'';showProject();if(await autoImport())state.data=await request('board');render();applyFlash();return true}catch(e){state.data=demoBoard();state.online=false;render();return false}}
   async function history(action){try{await request(action,{method:'POST',body:'{}'});await refresh();toast(`${action} complete.`)}catch(e){toast(e.message,true)}}
   function promptCommand(text){
     const v=text.trim();if(!v)return;
@@ -121,16 +503,14 @@
   function openSettings(){const dark=document.body.dataset.theme==='dark',selected=localStorage.getItem('plovane-accent')||'purple';openModal('Settings',`<button class="library-link" data-action="connections">AI providers, API keys and MCP setup…</button><label class="settings-row" for="theme-toggle"><span><b>Dark mode</b><br><small>Use a darker whiteboard appearance.</small></span><input class="theme-switch" id="theme-toggle" type="checkbox" ${dark?'checked':''}></label><div class="settings-section"><b>Theme color</b><small>Choose your accent color.</small><div class="theme-colors">${Object.entries(accents).map(([name,colors])=>`<button class="theme-color ${selected===name?'selected':''}" type="button" data-theme-color="${name}" aria-pressed="${selected===name}" title="${name[0].toUpperCase()+name.slice(1)}"><span style="--swatch:${colors[0]}"></span>${name[0].toUpperCase()+name.slice(1)}</button>`).join('')}</div></div><div class="settings-section"><b>Grid</b><label class="settings-row" for="grid-toggle"><span>Show grid</span><input class="theme-switch" id="grid-toggle" type="checkbox" ${preferences.gridVisible?'checked':''}></label><label class="settings-control">Spacing <output>${preferences.gridSpacing}px</output><input id="grid-spacing" type="range" min="12" max="36" step="2" value="${preferences.gridSpacing}"></label><label class="settings-control">Contrast <output>${Math.round(preferences.gridContrast*100)}%</output><input id="grid-contrast" type="range" min="25" max="100" step="5" value="${Math.round(preferences.gridContrast*100)}"></label></div><div class="settings-section"><b>Canvas behavior</b><label class="settings-control">Zoom sensitivity <output>${Math.round(preferences.zoomSensitivity*100)}%</output><input id="zoom-sensitivity" type="range" min="50" max="200" step="10" value="${Math.round(preferences.zoomSensitivity*100)}"></label><label class="settings-control">Pan gesture<select id="pan-mode"><option value="drag" ${preferences.panMode==='drag'?'selected':''}>Drag canvas</option><option value="space" ${preferences.panMode==='space'?'selected':''}>Space + drag</option></select></label></div><div class="settings-section"><b>Code display</b><label class="settings-control">Font size <output>${preferences.codeFontSize}px</output><input id="code-font-size" type="range" min="10" max="20" step="1" value="${preferences.codeFontSize}"></label><label class="settings-control">Syntax theme<select id="code-theme"><option value="auto" ${preferences.codeTheme==='auto'?'selected':''}>Match appearance</option><option value="light" ${preferences.codeTheme==='light'?'selected':''}>Light</option><option value="dark" ${preferences.codeTheme==='dark'?'selected':''}>Dark</option></select></label></div>`,'')}
   function bindPanelResize(handle,kind){let start=null;handle.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();start={x:e.clientX,y:e.clientY,width:layout.sideWidth,height:layout.bottomHeight,overlap:layout.overlap};handle.setPointerCapture(e.pointerId)});handle.addEventListener('pointermove',e=>{if(!start)return;if(kind==='side'){const width=start.width+e.clientX-start.x;if(width<80){layout.sideOpen=false}else{layout.sideOpen=true;layout.sideWidth=Math.max(180,Math.min(440,width))}}else if(kind==='bottom'){const height=start.height+start.y-e.clientY,maximum=Math.max(100,Math.min(innerHeight*.55,innerHeight-448));if(height<80){layout.bottomOpen=false}else{layout.bottomOpen=true;layout.bottomHeight=Math.max(100,Math.min(maximum,height))}}else{layout.overlap=Math.max(0,Math.min(180,start.overlap+start.x-e.clientX))}applyLayout()});const stop=()=>{start=null};handle.addEventListener('pointerup',stop);handle.addEventListener('pointercancel',stop)}
   bindPanelResize($('#side-resize'),'side');bindPanelResize($('#bottom-resize'),'bottom');bindPanelResize($('#corner-resize'),'corner');applyLayout();setTheme(localStorage.getItem('plovane-theme')||'light');setAccent(localStorage.getItem('plovane-accent')||'purple');applyCodePreferences();$('#workspace-name').textContent=localStorage.getItem('plovane-workspace-name')||'Payments API';
-  function fit(){const v=$('#canvas-viewport'),blocks=Object.values(state.data?.board?.blocks||{}),focus=blocks.filter(b=>Number(b.layer)===1);const points=focus.length?focus:blocks;const left=Math.min(0,...points.map(b=>position(b).x)),top=Math.min(180,...points.map(b=>position(b).y)),right=Math.max(1080,...points.map(b=>position(b).x+(position(b).w||b.w||180))),bottom=Math.max(600,...points.map(b=>position(b).y+(position(b).h||b.h||80)));state.scale=.39;state.x=(v.clientWidth-(right-left)*state.scale)/2-left*state.scale;state.y=(v.clientHeight-(bottom-top)*state.scale)/2-top*state.scale;applyTransform()}
-  function zoomAt(next,cx,cy){next=Math.max(.16,Math.min(2.6,next));const v=$('#canvas-viewport').getBoundingClientRect(),px=cx??v.width/2,py=cy??v.height/2,wx=(px-state.x)/state.scale,wy=(py-state.y)/state.scale;state.scale=next;state.x=px-wx*next;state.y=py-wy*next;applyTransform()}
   function setTab(tab){state.tab=tab;$$('.side-tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));renderSidebar()}
-  function menuClick(action){if(action==='toggle-cli'){const panel=$('#cli-panel'),open=!panel.classList.contains('open'),button=$('[data-action="toggle-cli"]');panel.classList.toggle('open',open);$('.prompt-dock').classList.toggle('cli-open',open);document.body.classList.toggle('cli-open',open);button.classList.toggle('active',open);button.setAttribute('aria-expanded',String(open));if(open)$('#cli-panel iframe').contentWindow.postMessage({type:'plovane-cli-focus'},location.origin)}else if(action==='home'){if(window.plovaneDesktop?.goHome)window.plovaneDesktop.goHome().catch(error=>toast(error.message,true));else toast('Home page opens inside the Plovane desktop app.',true)}else if(action==='undo'||action==='redo')history(action);else if(action==='zoom-in')zoomAt(state.scale*1.18);else if(action==='zoom-out')zoomAt(state.scale/1.18);else if(action==='fit')fit();else if(action==='toggle-sidebar')toggleSide();else if(action==='toggle-bottom-bar')toggleBottom();else if(action==='settings')openSettings();else if(action==='edit-workspace-name'){const current=$('#workspace-name').textContent,name=prompt('Workspace name',current);if(name?.trim()){const value=name.trim();$('#workspace-name').textContent=value;localStorage.setItem('plovane-workspace-name',value)}}else if(action==='close-modal')$('#modal').close();else if(action==='snapshot')runCommand('/snapshot "whiteboard snapshot"');else if(action==='import')runCommand('/project import');else if(action==='new-file'){const path=prompt('New file path','src/new_module.py');if(path)runCommand(`/file create ${path}`)}else if(action==='save')runCommand('/snapshot "whiteboard snapshot"');else if(action==='github')showGit();else if(action==='human-edit'){const note=prompt('Describe the edit you made by hand','Manual edit');if(note!==null)runCommand(`/snapshot "human edit: ${(note||'manual edit').replaceAll('"','\'')}"`)}else if(action==='commands'||action==='command-list')showCommands();else if(action==='history')showHistory();else if(action==='shortcuts')openModal('Keyboard shortcuts','<div class="row">Enter · Run prompt</div><div class="row">/ · Browse slash commands</div><div class="row">⌘ Z · Undo</div><div class="row">⇧ ⌘ Z · Redo</div><div class="row">Scroll · Zoom canvas</div><div class="row">Drag canvas · Pan</div>','HELP');else if(action==='about')openModal('Plovane Whiteboard','<p>An agentic coding workspace. Verified library code, the project graph, and your prompts meet on one infinite canvas.</p>','ABOUT');else if(action==='attach')showAttach();else if(action==='sidebar-menu')openModal('Workspace options','<button data-command="/project import">Import existing project</button> &nbsp; <button data-command="/history">View project history</button>','WORKSPACE');else if(action==='approve-change'){$('#modal').close();toast('Approval flow requires a previewed compile. Use /compile then /compile apply.')}else if(action==='connect'&&state.selected){const from=state.selected,to=prompt('Connect to block (name or id):');if(to)runCommand(`/connect ${from} -> ${to} --type api`)}else if(action==='edit'&&state.selected){const b=state.data.board.blocks[state.selected],name=prompt('New block name',b?.name||'');if(name)runCommand(`/block rename ${state.selected} "${name}"`)}else if(action==='info'&&state.selected)openBlock(state.selected);else if(action==='open-code'&&state.selected)showCode(state.selected)}
+  function menuClick(action){if(action==='toggle-cli'){const panel=$('#cli-panel'),open=!panel.classList.contains('open'),button=$('[data-action="toggle-cli"]');panel.classList.toggle('open',open);$('.prompt-dock').classList.toggle('cli-open',open);document.body.classList.toggle('cli-open',open);button.classList.toggle('active',open);button.setAttribute('aria-expanded',String(open));if(open)$('#cli-panel iframe').contentWindow.postMessage({type:'plovane-cli-focus'},location.origin)}else if(action==='home'){if(window.plovaneDesktop?.goHome)window.plovaneDesktop.goHome().catch(error=>toast(error.message,true));else toast('Home page opens inside the Plovane desktop app.',true)}else if(action==='undo'||action==='redo')history(action);else if(action==='zoom-in')zoomAt(state.scale*1.18);else if(action==='zoom-out')zoomAt(state.scale/1.18);else if(action==='fit')fit(true);else if(action==='toggle-sidebar')toggleSide();else if(action==='toggle-bottom-bar')toggleBottom();else if(action==='settings')openSettings();else if(action==='edit-workspace-name'){const current=$('#workspace-name').textContent,name=prompt('Workspace name',current);if(name?.trim()){const value=name.trim();$('#workspace-name').textContent=value;localStorage.setItem('plovane-workspace-name',value)}}else if(action==='close-modal')$('#modal').close();else if(action==='snapshot')runCommand('/snapshot "whiteboard snapshot"');else if(action==='import')runCommand('/project import');else if(action==='new-file'){const path=prompt('New file path','src/new_module.py');if(path)runCommand(`/file create ${path}`)}else if(action==='save')runCommand('/snapshot "whiteboard snapshot"');else if(action==='github')showGit();else if(action==='human-edit'){const note=prompt('Describe the edit you made by hand','Manual edit');if(note!==null)runCommand(`/snapshot "human edit: ${(note||'manual edit').replaceAll('"','\'')}"`)}else if(action==='commands'||action==='command-list')showCommands();else if(action==='history')showHistory();else if(action==='shortcuts')openModal('Keyboard shortcuts','<div class="row">Enter · Run prompt</div><div class="row">/ · Browse slash commands</div><div class="row">⌘ Z · Undo</div><div class="row">⇧ ⌘ Z · Redo</div><div class="row">Scroll · Zoom canvas</div><div class="row">Drag canvas · Pan</div>','HELP');else if(action==='about')openModal('Plovane Whiteboard','<p>An agentic coding workspace. Verified library code, the project graph, and your prompts meet on one infinite canvas.</p>','ABOUT');else if(action==='attach')showAttach();else if(action==='sidebar-menu')openModal('Workspace options','<button data-command="/project import">Import existing project</button> &nbsp; <button data-command="/history">View project history</button>','WORKSPACE');else if(action==='approve-change'){$('#modal').close();toast('Approval flow requires a previewed compile. Use /compile then /compile apply.')}else if(action==='connect'&&state.selected){const from=state.selected,to=prompt('Connect to block (name or id):');if(to)runCommand(`/connect ${from} -> ${to} --type api`)}else if(action==='edit'&&state.selected){const b=state.data.board.blocks[state.selected],name=prompt('New block name',b?.name||'');if(name)runCommand(`/block rename ${state.selected} "${name}"`)}else if(action==='info'&&state.selected)openBlock(state.selected);else if(action==='open-code'&&state.selected)showCode(state.selected)}
   function showCommands(){const list=state.commands;openModal('Slash commands',list.length?list.map(c=>`<div class="row"><code>${esc(c.command)}</code> <span class="muted">${esc(c.summary||'')}</span><br><button data-run-example="${esc(c.example||c.command)}">${esc(c.example||c.command)}</button></div>`).join(''):'<p>Connect to the whiteboard backend to load its full command reference.</p>','COMMAND REFERENCE')}
   async function showHistory(){try{const result=await request('log?last=100'),entries=result.entries||[];const rows=entries.map(x=>({prompt:x.args?.prompt||x.op||'Operation',tokens:x.args?.token_usage?.input_tokens||0,at:x.at,kind:x.op==='prompt.provenance'?'Prompt':'operation'}));const all=[...state.log,...rows].sort((a,b)=>new Date(b.at||0)-new Date(a.at||0));openModal('Project history',all.map(x=>`<div class="row"><b>${x.kind==='human'?'Human edit':x.kind==='operation'?'Backend operation':'Prompt'}</b> · ${esc(x.tokens||0)} tokens<br>${esc(x.prompt||'')}<br><span class="muted">${x.at?new Date(x.at).toLocaleString():''}</span></div>`).join('')||'<p>No project changes recorded yet.</p>','SERVER HISTORY')}catch(error){toast(error.message,true)}}
   function handleAction(node){if(extraAction(node))return;if(node.dataset.action==='approve-prompt-plan')applyPromptPlan(node.dataset.planId);else if(node.dataset.action==='confirm-prompt-plan')applyPromptPlan(node.dataset.planId,true);else if(node.dataset.action==='confirm-command'||node.dataset.action==='apply-compile')runCommand(node.dataset.command,node.dataset.action==='confirm-command'||node.dataset.action==='apply-compile');else if(node.dataset.command)runCommand(node.dataset.command);else if(node.dataset.action)menuClick(node.dataset.action);else if(node.dataset.runExample)runCommand(node.dataset.runExample)}
   function resizePrompt(){const t=$('#prompt-input');t.style.height='auto';t.style.height=`${Math.min(78,t.scrollHeight)}px`}
   function autocomplete(){const input=$('#prompt-input'),box=$('#autocomplete'),v=input.value;if(!v.startsWith('/')){box.hidden=true;return}const groupAliases={blocks:'block',endpoints:'endpoint',layers:'layer',agents:'agent',services:'service',files:'file',folders:'folder',arrows:'arrow',templates:'template',connections:'connection'};const normalize=value=>{const [head,...tail]=value.toLowerCase().split(/\s+/);return [`/${groupAliases[head.slice(1)]||head.slice(1)}`,...tail].join(' ')};const q=normalize(v);const isGroupQuery=[...Object.keys(groupAliases),...Object.values(groupAliases)].includes(q.slice(1));const limit=isGroupQuery?30:9;const list=state.commands.filter(c=>normalize(c.command).startsWith(q)||c.command.toLowerCase().includes(v.toLowerCase())||c.summary?.toLowerCase().includes(v.toLowerCase())).slice(0,limit);box.innerHTML=(list.length?list.map(c=>`<button data-example="${esc(c.example||c.command)}"><span>${esc(c.command)} <small>${esc(c.summary||'')}</small></span><small>↵</small></button>`):[`/rank "${esc(v.slice(1))}" --k 5`].map(c=>`<button data-example="${esc(c)}"><span>${esc(c)} <small>Search verified library</small></span><small>↵</small></button>`)).join('');box.hidden=false;$$('button',box).forEach(b=>b.onclick=()=>{input.value=b.dataset.example;box.hidden=true;input.focus()})}
-  document.addEventListener('click',e=>{const trigger=e.target.closest('.menu-trigger');if(trigger){const wrap=trigger.closest('.menu-wrap'),was=wrap.classList.contains('open');$$('.menu-wrap').forEach(x=>{x.classList.remove('open');$('.menu-trigger',x).setAttribute('aria-expanded','false')});if(!was){wrap.classList.add('open');trigger.setAttribute('aria-expanded','true')}return}if(!e.target.closest('.menu-wrap'))$$('.menu-wrap').forEach(x=>x.classList.remove('open'));const tab=e.target.closest('.side-tab');if(tab)setTab(tab.dataset.tab);const action=e.target.closest('[data-action],[data-command],[data-run-example]');if(action)handleAction(action);if(e.target.id==='canvas-viewport'||e.target.id==='connections'||e.target.id==='blocks'){$('#selection-popup').classList.remove('show');state.selected=null;render()}});
+  document.addEventListener('click',e=>{const trigger=e.target.closest('.menu-trigger');if(trigger){const wrap=trigger.closest('.menu-wrap'),was=wrap.classList.contains('open');$$('.menu-wrap').forEach(x=>{x.classList.remove('open');$('.menu-trigger',x).setAttribute('aria-expanded','false')});if(!was){wrap.classList.add('open');trigger.setAttribute('aria-expanded','true')}return}if(!e.target.closest('.menu-wrap'))$$('.menu-wrap').forEach(x=>x.classList.remove('open'));const tab=e.target.closest('.side-tab');if(tab)setTab(tab.dataset.tab);const action=e.target.closest('[data-action],[data-command],[data-run-example]');if(action)handleAction(action);if(e.target.id==='canvas-viewport'||e.target.id==='connections'||e.target.id==='blocks'){hidePopup();state.selected=null;render()}});
   document.addEventListener('change',e=>{if(e.target.id==='theme-toggle')setTheme(e.target.checked?'dark':'light')});
   $('#modal').addEventListener('click',e=>{if(e.target===$('#modal'))$('#modal').close()});
   $('#modal-body').addEventListener('input',e=>{const id=e.target.id;if(id==='grid-spacing'){preferences.gridSpacing=Number(e.target.value);e.target.previousElementSibling.value=`${preferences.gridSpacing}px`;updateGrid()}else if(id==='grid-contrast'){preferences.gridContrast=Number(e.target.value)/100;e.target.previousElementSibling.value=`${e.target.value}%`;updateGrid()}else if(id==='zoom-sensitivity'){preferences.zoomSensitivity=Number(e.target.value)/100;e.target.previousElementSibling.value=`${e.target.value}%`}else if(id==='code-font-size'){preferences.codeFontSize=Number(e.target.value);e.target.previousElementSibling.value=`${preferences.codeFontSize}px`;applyCodePreferences()}if(['grid-spacing','grid-contrast','zoom-sensitivity','code-font-size'].includes(id))savePreferences()});
@@ -148,7 +528,12 @@
   });
   const workspaceName=$('#workspace-name');workspaceName.addEventListener('blur',()=>{const value=workspaceName.textContent.trim()||'Payments API';workspaceName.textContent=value;localStorage.setItem('plovane-workspace-name',value)});workspaceName.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();workspaceName.blur()}if(e.key==='Escape'){workspaceName.textContent=localStorage.getItem('plovane-workspace-name')||'Payments API';workspaceName.blur()}});
   $('#send-prompt').onclick=submitPrompt;$('#prompt-input').addEventListener('input',()=>{resizePrompt();autocomplete()});$('#prompt-input').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();submitPrompt()}if(e.key==='Escape')$('#autocomplete').hidden=true});$('#autocomplete').onclick=e=>{const b=e.target.closest('[data-example]');if(b){$('#prompt-input').value=b.dataset.example;$('#autocomplete').hidden=true;$('#prompt-input').focus()}};
-  const viewport=$('#canvas-viewport');viewport.addEventListener('wheel',e=>{e.preventDefault();zoomAt(state.scale*Math.exp(-e.deltaY*.001*preferences.zoomSensitivity),e.clientX-viewport.getBoundingClientRect().left,e.clientY-viewport.getBoundingClientRect().top)},{passive:false});viewport.addEventListener('pointerdown',e=>{if(e.target.closest('.block-node,.zoom-controls,.minimap,.selection-popup')||(preferences.panMode==='space'&&!spacePressed))return;state.drag={x:e.clientX,y:e.clientY,sx:state.x,sy:state.y};viewport.classList.add('panning');viewport.setPointerCapture(e.pointerId)});viewport.addEventListener('pointermove',e=>{if(!state.drag)return;state.x=state.drag.sx+e.clientX-state.drag.x;state.y=state.drag.sy+e.clientY-state.drag.y;applyTransform()});viewport.addEventListener('pointerup',()=>{state.drag=null;viewport.classList.remove('panning')});viewport.addEventListener('dblclick',e=>{if(e.target===viewport)fit()});window.addEventListener('resize',()=>render());window.addEventListener('keydown',e=>{if(e.code==='Space'&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)){spacePressed=true;if(preferences.panMode==='space')e.preventDefault()}if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'){e.preventDefault();history(e.shiftKey?'redo':'undo')}if(e.key==='/'&&document.activeElement!==$('#prompt-input')){$('#prompt-input').focus();$('#prompt-input').value='/';autocomplete()}if(e.key==='Escape')$$('.menu-wrap').forEach(x=>x.classList.remove('open'))});window.addEventListener('keyup',e=>{if(e.code==='Space')spacePressed=false});
+  const viewport=$('#canvas-viewport');viewport.addEventListener('wheel',e=>{e.preventDefault();const r=viewport.getBoundingClientRect(),top=focusEntry();if(top.leaf&&!e.ctrlKey&&!e.metaKey){nest.target=null;state.x-=e.deltaX;state.y-=e.deltaY;applyCamera();return}zoomAt(state.scale*Math.exp(-e.deltaY*(e.ctrlKey?.01:.0015)*preferences.zoomSensitivity),e.clientX-r.left,e.clientY-r.top)},{passive:false});
+  viewport.addEventListener('pointerdown',e=>{if(e.button!==0||e.target.closest('.zoom-controls,.minimap,.selection-popup,.focus-bar,button,.code-editor')||(preferences.panMode==='space'&&!spacePressed))return;state.drag={x:e.clientX,y:e.clientY,sx:state.x,sy:state.y,id:e.pointerId,moved:false}});
+  viewport.addEventListener('pointermove',e=>{const d=state.drag;if(!d)return;if(!d.moved&&Math.hypot(e.clientX-d.x,e.clientY-d.y)<4)return;if(!d.moved){d.moved=true;viewport.classList.add('panning');viewport.setPointerCapture(d.id);hidePopup()}state.x=d.sx+e.clientX-d.x;state.y=d.sy+e.clientY-d.y;applyTransform()});
+  viewport.addEventListener('pointerup',()=>{if(state.drag?.moved){const stop=ev=>{ev.stopPropagation();ev.preventDefault()};window.addEventListener('click',stop,{capture:true,once:true});setTimeout(()=>window.removeEventListener('click',stop,{capture:true}),0)}state.drag=null;viewport.classList.remove('panning')});
+  viewport.addEventListener('click',e=>{if(!e.target.closest('.nest-card,.nest-tile,.selection-popup,.focus-bar')){state.selected=null;$$('#blocks .nest-card.selected').forEach(x=>x.classList.toggle('selected',false));hidePopup()}});
+  viewport.addEventListener('dblclick',e=>{if(!e.target.closest('.nest-card,.nest-tile,.focus-bar'))fit(true)});window.addEventListener('resize',()=>{if(nest.stack.length===1)nest.stack=[];render()});window.addEventListener('keydown',e=>{if(e.code==='Space'&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)){spacePressed=true;if(preferences.panMode==='space')e.preventDefault()}if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'){e.preventDefault();history(e.shiftKey?'redo':'undo')}if(e.key==='/'&&document.activeElement!==$('#prompt-input')){$('#prompt-input').focus();$('#prompt-input').value='/';autocomplete()}if(e.key==='Escape'){$$('.menu-wrap').forEach(x=>x.classList.toggle('open',false));if(!$('#modal').open&&$('#code-editor').hidden&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)&&leave())fit(true)}});window.addEventListener('keyup',e=>{if(e.code==='Space')spacePressed=false});
   const promptHistory=state.history;state.log=promptHistory.slice(0,100);$('#token-count').textContent=`${state.log.reduce((n,x)=>n+(x.tokens||0),0)} tokens`;
   (async()=>{try{state.commands=(await request('commands')).commands||[]}catch(_){}await refresh();fit();if(!state.online)toast('Demo graph shown. Run "plovane open" in your project to load it.',true);else{connectEvents();loadProviders()}})();
 
@@ -168,7 +553,7 @@
    * Changed by: Claude Code
    * Date: 2026-11-09
    */
-  function inFolder(file,folder){const fp=(folder.path||folder.name||'').replace(/\/$/,'');return file.parent===folder.id||(!!fp&&(file.path||'').startsWith(fp+'/'))}
+  function inFolder(file,folder){if(file.parent)return file.parent===folder.id;const fp=(folder.path||folder.name||'').replace(/\/$/,'');return !!fp&&(file.path||'').startsWith(fp+'/')}
   /**
    * Input: provider (string)
    * Output: string
@@ -192,7 +577,7 @@
    * Changed by: Claude Code
    * Date: 2026-11-09
    */
-  function applyFlash(){if(!flashIds.size)return;const ids=flashIds;flashIds=new Set();ids.forEach(id=>{const n=document.querySelector(`[data-block="${CSS.escape(id)}"]`);if(n){n.classList.add('agent-flash');setTimeout(()=>n.classList.remove('agent-flash'),2600)}})}
+  function applyFlash(){if(!flashIds.size)return;const ids=flashIds;flashIds=new Set();ids.forEach(id=>{const n=document.querySelector(`#blocks [data-block="${CSS.escape(id)}"],#blocks [data-tile="${CSS.escape(id)}"]`);if(n){n.classList.add('agent-flash');setTimeout(()=>n.classList.remove('agent-flash'),2600)}})}
   /**
    * Input: text (string), kind (string)
    * Output: void
@@ -219,8 +604,8 @@
   function connectEvents(){if(!window.EventSource)return;const source=new EventSource(`${API}/events${TOKEN?`?token=${encodeURIComponent(TOKEN)}`:''}`);
     const schedule=()=>{clearTimeout(refreshTimer);refreshTimer=setTimeout(refresh,120)};
     source.addEventListener('hello',()=>liveStatus('● Live','on'));
-    source.addEventListener('change',ev=>{const e=JSON.parse(ev.data);pushActivity(e);const b=e.changes?.blocks||{};[...(b.added||[]),...(b.changed||[])].forEach(id=>flashIds.add(id));if(e.actor&&e.actor!=='user')toast(`${e.actor}: ${e.command||e.op}`);schedule()});
-    source.addEventListener('external',ev=>{pushActivity(JSON.parse(ev.data));schedule()});
+    source.addEventListener('change',ev=>{const e=JSON.parse(ev.data);pushActivity(e);(e.changes?.files||[]).forEach(f=>delete nest.code[f]);const b=e.changes?.blocks||{};[...(b.added||[]),...(b.changed||[])].forEach(id=>flashIds.add(id));if(e.actor&&e.actor!=='user')toast(`${e.actor}: ${e.command||e.op}`);schedule()});
+    source.addEventListener('external',ev=>{pushActivity(JSON.parse(ev.data));nest.code={};schedule()});
     source.addEventListener('agent',ev=>agentEvent(JSON.parse(ev.data)));
     source.onerror=()=>liveStatus('○ Reconnecting…','off')}
   /**
@@ -383,8 +768,34 @@
     if(a==='open-code'&&d.block){showCode(d.block);return true}
     if(a==='scan'){const b=state.selected&&state.data?.board?.blocks?.[state.selected];runCommand(`/scan ${quoteArg(b?(b.path||b.id):'.')}`);return true}
     if(a==='find-code'){const q=prompt('What code do you need? (searches the verified library)',$('#prompt-input').value.trim()||'retry a failed request');if(q&&q.trim())runCommand(`/rank ${quoteArg(q.trim())} --k 5`);return true}
+    if(a==='zoom-into'){hidePopup();flyInto(d.block||state.selected);return true}
+    if(a==='zoom-up'){if(leave())fit(true);return true}
+    if(a==='crumb'){nest.stack=nest.stack.slice(0,Number(d.crumb)+1);state.selected=null;render();fit();fadeIn();return true}
+    if(a==='generate-blocks'){hidePopup();generateBlocks(actionBlock());return true}
+    if(a==='split-functions'){splitFunctions(actionBlock());return true}
+    if(a==='edit-code'){hidePopup();editCode(actionBlock());return true}
+    if(a==='focus-info'){const top=nest.stack[nest.stack.length-1];if(top?.id)openBlock(top.id);return true}
+    if(a==='editor-save'){saveCode();return true}
+    if(a==='editor-close'){closeEditor();return true}
     if(a==='service-new'){const name=prompt('Service name','new-service');if(name&&name.trim())runCommand(`/block add service ${quoteArg(name.trim())}`);return true}
     return false}
   $('#provider-select')?.addEventListener('change',e=>localStorage.setItem('plovane-provider',e.target.value));
+  /**
+   * Input: none
+   * Output: void
+   * Processing: Hide the floating actions over a selected block.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  function hidePopup(){$('#selection-popup').classList.toggle('show',false)}
+  /**
+   * Input: none
+   * Output: Promise<boolean>
+   * Processing: Put the project's real folders and files on an empty board, once per project.
+   * Changed by: Claude Code
+   * Date: 2026-11-10
+   */
+  async function autoImport(){const blocks=Object.values(state.data?.board?.blocks||{}),key=`plovane-imported:${state.data?.project||''}`;if(blocks.some(b=>['file','folder'].includes(b.kind))||localStorage.getItem(key))return false;localStorage.setItem(key,'1');try{const data=await request('command',{method:'POST',body:JSON.stringify({command:'/project import'})});toast(`Imported ${data.result?.files_found||0} project files.`);return true}catch(e){toast(e.message,true);return false}}
+  const editorArea=$('#code-editor textarea');editorArea.addEventListener('input',syncGutter);editorArea.addEventListener('scroll',syncGutter);editorArea.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='s'){e.preventDefault();saveCode()}else if(e.key==='Escape'){e.preventDefault();closeEditor()}else if(e.key==='Tab'){e.preventDefault();editorArea.setRangeText('    ',editorArea.selectionStart,editorArea.selectionEnd,'end');syncGutter()}e.stopPropagation()});
   window.PlovaneWhiteboard={request,refresh,runCommand,get board(){return state.data},get commands(){return state.commands}};
 })();

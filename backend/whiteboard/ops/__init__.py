@@ -16,6 +16,7 @@ from backend.whiteboard.ops import (  # noqa: F401
     history,
     layers,
     library,
+    outline,
     placement,
     project,
     style,
