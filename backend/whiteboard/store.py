@@ -22,6 +22,7 @@ from __future__ import annotations
 import base64
 import contextlib
 import json
+import os
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
@@ -31,6 +32,11 @@ from backend.whiteboard.model import Board, default_board
 from backend.whiteboard.registry import OpError
 
 STATE_DIR = ".plovane"
+SKIP_DIRS = frozenset({".git", STATE_DIR, ".claude", "node_modules", "__pycache__", ".venv", "venv", "env",
+                       ".mypy_cache", ".pytest_cache", ".ruff_cache", ".tox", ".idea", ".vscode", ".next",
+                       "dist", "build", ".cache"})
+"""Folders that hold tools' copies, caches or build output, never project code. ``.claude`` holds
+agent worktrees, which are whole extra copies of the repository."""
 HISTORY_LIMIT = 50
 IGNORED = ("history.json", "log.jsonl", "compile/", "monitor/", "submissions.jsonl",
            "server.json", "agent_tokens.json", "lock", "*.tmp")
@@ -218,6 +224,8 @@ class FileJournal:
         self._before: dict[str, bytes | None] = {}
         self._dirs_created: list[str] = []
         self._dirs_removed: list[str] = []
+        self._listing: dict[str, list[str]] = {}
+        """files_under answers for this operation; any change clears them."""
 
     # Input: rel (str), write (bool)
     # Output: Path
@@ -292,6 +300,7 @@ class FileJournal:
         if target.parent != self.root:
             self.mkdir(self.rel(target.parent))
         self._remember(rel)
+        self._listing.clear()
         target.write_text(text, encoding="utf-8")
 
     # Input: rel (str)
@@ -300,6 +309,7 @@ class FileJournal:
     # Changed by: Sourish
     # Date: 2026-10-22
     def mkdir(self, rel: str) -> None:
+        self._listing.clear()
         target = self.path(rel, write=True)
         missing = []
         probe = target
@@ -316,6 +326,7 @@ class FileJournal:
     # Changed by: Sourish
     # Date: 2026-10-22
     def remove(self, rel: str) -> None:
+        self._listing.clear()
         target = self.path(rel, write=True)
         if target == self.root:
             raise OpError("INVALID_PATH", "refusing to delete the project root")
@@ -337,6 +348,7 @@ class FileJournal:
     # Changed by: Sourish
     # Date: 2026-10-22
     def move(self, source: str, destination: str) -> None:
+        self._listing.clear()
         src, dst = self.path(source, write=True), self.path(destination, write=True)
         if not src.exists():
             raise OpError("NOT_FOUND", f"no file or folder {source!r}")
@@ -359,14 +371,20 @@ class FileJournal:
     # Changed by: Sourish
     # Date: 2026-10-22
     def files_under(self, rel: str = "") -> list[str]:
+        if rel in self._listing:
+            return list(self._listing[rel])
         base = self.path(rel)
-        skip = {".git", STATE_DIR, "node_modules", "__pycache__", ".venv", "venv", ".mypy_cache", ".pytest_cache"}
         found = []
-        for file in sorted(base.rglob("*")):
-            parts = file.relative_to(self.root).parts
-            if file.is_file() and not skip.intersection(parts):
-                found.append(file.relative_to(self.root).as_posix())
-        return found
+        if base.is_file():
+            found.append(self.rel(base))
+        for folder, dirs, files in os.walk(base):
+            # Prune in place so os.walk never descends into skipped folders.
+            dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS and not d.endswith(".egg-info"))
+            here = Path(folder).relative_to(self.root).as_posix()
+            found.extend(f if here == "." else f"{here}/{f}" for f in sorted(files))
+        found.sort()
+        self._listing[rel] = found
+        return list(found)
 
     # Input: none
     # Output: dict[str, Any]

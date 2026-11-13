@@ -132,3 +132,15 @@ def test_file_save_writes_checks_base_and_undoes(tmp_path):
     assert stale["error"]["code"] == "CONFLICT"
     assert ws.command("/undo")["ok"] and (tmp_path / "src/billing.py").read_text() == BILLING
     assert ws.execute("file.save", {"path": "src/nope.py", "content": "x"})["error"]["code"] == "NOT_FOUND"
+
+
+# Input: tmp_path
+# Output: None
+# Processing: Check that the project import never walks tool folders such as node_modules or .claude worktrees.
+# Changed by: Claude Code
+# Date: 2026-11-12
+def test_import_skips_tool_and_worktree_folders(tmp_path):
+    ws = project(tmp_path, {"src/app.py": "x = 1\n", "node_modules/lib/index.js": "1",
+                            ".claude/worktrees/copy/src/app.py": "x = 1\n", "pkg.egg-info/x.py": "y = 2\n"})
+    result = ok(ws, "/project import")
+    assert result["files_found"] == 1 and ws.board.block_for_path("src/app.py") is not None
