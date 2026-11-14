@@ -1,0 +1,430 @@
+{"query": "turn a file path into a module I can import", "entry_id": "pallets_flask:prepare_import", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "add a script's folder to sys path so I can import it", "entry_id": "pallets_flask:prepare_import", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "read config from a .env file at startup", "entry_id": "pallets_flask:load_dotenv", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "pull secrets out of a local env file into os.environ", "entry_id": "pallets_flask:load_dotenv", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "print a startup message once when the dev server boots", "entry_id": "pallets_flask:show_server_banner", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "show a banner on first launch but not on reload", "entry_id": "pallets_flask:show_server_banner", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "run cleanup code once this request finishes", "entry_id": "pallets_flask:after_this_request", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "hook that fires after the response is sent", "entry_id": "pallets_flask:after_this_request", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "check whether I'm inside a web request right now", "entry_id": "pallets_flask:has_request_context", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "is there a live request I can read or am I in a script", "entry_id": "pallets_flask:has_request_context", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "detect whether the application is set up in this thread", "entry_id": "pallets_flask:has_app_context", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "am I running inside the app at all", "entry_id": "pallets_flask:has_app_context", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "decide if debug mode is on from an environment variable", "entry_id": "pallets_flask:get_debug_flag", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "read a dev mode toggle out of the environment", "entry_id": "pallets_flask:get_debug_flag", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "let a user opt out of automatic env file loading", "entry_id": "pallets_flask:get_load_dotenv", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "flag to skip reading a .env file", "entry_id": "pallets_flask:get_load_dotenv", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "attach custom headers to what my view returns", "entry_id": "pallets_flask:make_response", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "wrap a string return value so I can set a cookie on it", "entry_id": "pallets_flask:make_response", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "build a link to a route by its name instead of hardcoding the path", "entry_id": "pallets_flask:url_for", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "construct a path from a route name and parameters", "entry_id": "pallets_flask:url_for", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "send the browser to a different page", "entry_id": "pallets_flask:redirect", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "return a 302 to another location", "entry_id": "pallets_flask:redirect", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "bail out of a handler with a 404", "entry_id": "pallets_flask:abort", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "stop processing and return an error status", "entry_id": "pallets_flask:abort", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "call a macro defined in a template from python code", "entry_id": "pallets_flask:get_template_attribute", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "import something a template exports", "entry_id": "pallets_flask:get_template_attribute", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "show a one-time notification after a redirect", "entry_id": "pallets_flask:flash", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "pass a success message to the next page load", "entry_id": "pallets_flask:flash", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "figure out the directory a package lives in", "entry_id": "pallets_flask:get_root_path", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "locate the folder containing a module by name", "entry_id": "pallets_flask:get_root_path", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "turn an object into a json string", "entry_id": "pallets_flask:dumps", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "encode a dict to json text", "entry_id": "pallets_flask:dumps", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "write an object straight to a json file", "entry_id": "pallets_flask:dump", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "save a dict as json to disk", "entry_id": "pallets_flask:dump", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "parse a json string into an object", "entry_id": "pallets_flask:loads", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "decode json text to a dict", "entry_id": "pallets_flask:loads", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "read a json file into a dict", "entry_id": "pallets_flask:load", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "load an object from a json file on disk", "entry_id": "pallets_flask:load", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "return json from a view with the right content type", "entry_id": "pallets_flask:jsonify", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "send a dict back as a json api response", "entry_id": "pallets_flask:jsonify", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "where should I write error output in a wsgi app", "entry_id": "pallets_flask:wsgi_errors_stream", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "pick the right stream for logging errors under a server", "entry_id": "pallets_flask:wsgi_errors_stream", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "check whether a logger already has somewhere to write", "entry_id": "pallets_flask:has_level_handler", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "avoid adding a duplicate log handler", "entry_id": "pallets_flask:has_level_handler", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "raise if the caller already aborted", "entry_id": "axios_axios:throwIfRequested", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "bail out when the operation was cancelled", "entry_id": "axios_axios:throwIfRequested", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "register a callback for when something is aborted", "entry_id": "axios_axios:subscribe", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "listen for a cancellation event", "entry_id": "axios_axios:subscribe", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "remove a previously registered abort listener", "entry_id": "axios_axios:unsubscribe", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "detach a cancel callback", "entry_id": "axios_axios:unsubscribe", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "find where my appended frames start in a stack trace", "entry_id": "axios_axios:getCauseStackIndex", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "locate a boundary in an error stack without matching the message text", "entry_id": "axios_axios:getCauseStackIndex", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "define a property descriptor that prototype pollution cannot hijack", "entry_id": "axios_axios:function", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "safe descriptor object with no prototype", "entry_id": "axios_axios:function", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "keep numeric and string keys behaving the same after switching to a Map", "entry_id": "axios_axios:normalizeHandlerId", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "coerce an id the way array indexing used to", "entry_id": "axios_axios:normalizeHandlerId", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "strip tokens out of a url before logging it", "entry_id": "axios_axios:redactFragment", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "hide credentials in a url for safe output", "entry_id": "axios_axios:redactFragment", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "throw when a cancel token has been triggered", "entry_id": "axios_axios:throwIfCancellationRequested", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "guard a step on an abort signal", "entry_id": "axios_axios:throwIfCancellationRequested", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "resolve or reject depending on the http status code", "entry_id": "axios_axios:settle", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "turn a response into a promise outcome", "entry_id": "axios_axios:settle", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "run a chain of transforms over a payload", "entry_id": "axios_axios:transformData", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "apply converters to request and response bodies", "entry_id": "axios_axios:transformData", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "convert a plain object into url encoded form data", "entry_id": "axios_axios:AxiosURLSearchParams", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "build a query string body from key value pairs", "entry_id": "axios_axios:AxiosURLSearchParams", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "lock a function's this value", "entry_id": "axios_axios:bind", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "pre-bind a method to its object", "entry_id": "axios_axios:bind", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "percent encode but leave some characters readable", "entry_id": "axios_axios:encode", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "escape a query value without mangling colons and commas", "entry_id": "axios_axios:encode", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "join a base url and a relative path without double slashes", "entry_id": "axios_axios:combineURLs", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "concatenate two url pieces safely", "entry_id": "axios_axios:combineURLs", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "warn once when someone calls an old api", "entry_id": "axios_axios:deprecatedMethod", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "print a deprecation notice", "entry_id": "axios_axios:deprecatedMethod", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "turn a list into a keyed object", "entry_id": "axios_axios:arrayToObject", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "build a lookup map from an array", "entry_id": "axios_axios:arrayToObject", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "tell whether a url has a scheme and host", "entry_id": "axios_axios:isAbsoluteURL", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "check if a path is fully qualified or relative", "entry_id": "axios_axios:isAbsoluteURL", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "distinguish a http client error from any other exception", "entry_id": "axios_axios:isAxiosError", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "narrow an unknown catch value to a request failure", "entry_id": "axios_axios:isAxiosError", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "measure bytes per second during a transfer", "entry_id": "axios_axios:speedometer", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "compute a rolling transfer rate", "entry_id": "axios_axios:speedometer", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "call a function with an array as its argument list", "entry_id": "axios_axios:spread", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "adapt a variadic function to take one array", "entry_id": "axios_axios:spread", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "limit how often a callback can fire", "entry_id": "axios_axios:throttle", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "rate limit a function to once every n ms", "entry_id": "axios_axios:throttle", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "check whether a value can be walked into", "entry_id": "axios_axios:isVisitable", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "is this something I can recurse through", "entry_id": "axios_axios:isVisitable", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "strip trailing square brackets off a key name", "entry_id": "axios_axios:removeBrackets", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "clean the [] from the end of a field name", "entry_id": "axios_axios:removeBrackets", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "validate an options object's field types", "entry_id": "axios_axios:assertOptions", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "throw if a config object has wrong types", "entry_id": "axios_axios:assertOptions", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "get the global object in any javascript environment", "entry_id": "axios_axios:getGlobal", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "reference globalThis with a fallback", "entry_id": "axios_axios:getGlobal", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "stream a file to the client without buffering it", "entry_id": "axios_axios:pipeFileToResponse", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "send a file as the http response body", "entry_id": "axios_axios:pipeFileToResponse", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "route and dispatch requests under an api prefix", "entry_id": "axios_axios:handleApiRequest", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "single handler for all api endpoints", "entry_id": "axios_axios:handleApiRequest", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "append a value to a list of format arguments", "entry_id": "fmtlib_fmt:push_back", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "collect arguments to pass to a formatter later", "entry_id": "fmtlib_fmt:push_back", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "empty a container without freeing its memory", "entry_id": "fmtlib_fmt:clear", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "reset a store to zero elements", "entry_id": "fmtlib_fmt:clear", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "preallocate capacity to avoid reallocation", "entry_id": "fmtlib_fmt:reserve", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "grow a buffer up front", "entry_id": "fmtlib_fmt:reserve", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "format three two digit numbers with a separator", "entry_id": "fmtlib_fmt:write_digit2_separated", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "write a time like value into a char buffer", "entry_id": "fmtlib_fmt:write_digit2_separated", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "formatted output to a stream with colour codes", "entry_id": "fmtlib_fmt:print", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "printf style write with ansi escapes", "entry_id": "fmtlib_fmt:print", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "formatted print with a trailing newline", "entry_id": "fmtlib_fmt:println", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "write a formatted line to a stream", "entry_id": "fmtlib_fmt:println", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "reject mixing manual and automatic placeholder numbering", "entry_id": "fmtlib_fmt:check_arg_id", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "validate explicit argument indexes in a format string", "entry_id": "fmtlib_fmt:check_arg_id", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "detect a repeated named argument", "entry_id": "fmtlib_fmt:check_for_duplicate", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "error on duplicate keys in a named argument list", "entry_id": "fmtlib_fmt:check_for_duplicate", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "resize a buffer and report failure instead of throwing", "entry_id": "fmtlib_fmt:try_resize", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "grow storage without exceptions", "entry_id": "fmtlib_fmt:try_resize", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "reserve capacity returning false on failure", "entry_id": "fmtlib_fmt:try_reserve", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "non throwing capacity increase", "entry_id": "fmtlib_fmt:try_reserve", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "write the whole buffer to a file and fail loudly", "entry_id": "fmtlib_fmt:fwrite_all", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "detect a short write when saving", "entry_id": "fmtlib_fmt:fwrite_all", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "push a character back onto a stream", "entry_id": "fmtlib_fmt:unget", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "rewind one token while parsing", "entry_id": "fmtlib_fmt:unget", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "write output on a console that is not utf8", "entry_id": "fmtlib_fmt:vprint_mojibake", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "handle a legacy codepage when printing", "entry_id": "fmtlib_fmt:vprint_mojibake", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "zero pad a number to two digits into a buffer", "entry_id": "fmtlib_fmt:write2digits", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "emit a two digit field quickly", "entry_id": "fmtlib_fmt:write2digits", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "subtract one big integer from another in place", "entry_id": "fmtlib_fmt:subtract_aligned", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "in place big number subtraction", "entry_id": "fmtlib_fmt:subtract_aligned", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "line up two big numbers exponents before adding", "entry_id": "fmtlib_fmt:align", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "normalise the scale of two arbitrary precision values", "entry_id": "fmtlib_fmt:align", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "coerce a printf argument to the right integer width", "entry_id": "fmtlib_fmt:convert_arg", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "cast a variadic integer to a target type", "entry_id": "fmtlib_fmt:convert_arg", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "clamp a byte count for the platform's read signature", "entry_id": "fmtlib_fmt:convert_rwcount", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "portable size argument for read and write", "entry_id": "fmtlib_fmt:convert_rwcount", "language": "cpp", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "set up an isolated environment for building docs", "entry_id": "fmtlib_fmt:create_doc_env", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "virtualenv with locked doc requirements", "entry_id": "fmtlib_fmt:create_doc_env", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "force a function to report a fixed argument count", "entry_id": "lodash_lodash:baseArity", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "wrap a callable so its length is n", "entry_id": "lodash_lodash:baseArity", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "drop extra arguments a callback is given", "entry_id": "lodash_lodash:baseAry", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "cap how many args get forwarded", "entry_id": "lodash_lodash:baseAry", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "make a copier from an assignment strategy", "entry_id": "lodash_lodash:createCloner", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "build a clone function from a setter", "entry_id": "lodash_lodash:createCloner", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "make a mutating function return a copy instead", "entry_id": "lodash_lodash:wrapImmutable", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "turn an in place operation immutable", "entry_id": "lodash_lodash:wrapImmutable", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "convert a utility library to a curried functional style", "entry_id": "lodash_lodash:browserConvert", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "data last auto curried wrapper for a whole module", "entry_id": "lodash_lodash:browserConvert", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "copy a file or folder recursively", "entry_id": "lodash_lodash:copy", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "duplicate a directory tree", "entry_id": "lodash_lodash:copy", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "compile every template file matching a glob", "entry_id": "lodash_lodash:globTemplate", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "load templates by pattern keyed on filename", "entry_id": "lodash_lodash:globTemplate", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "preconfigure a minifier with input and output paths", "entry_id": "lodash_lodash:min", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "partially apply source and destination for minification", "entry_id": "lodash_lodash:min", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "write a file returning a promise", "entry_id": "lodash_lodash:write", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "promisified file write", "entry_id": "lodash_lodash:write", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "shrink a javascript file and save the result", "entry_id": "lodash_lodash:minify", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "minify a source file to an output path", "entry_id": "lodash_lodash:minify", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "plain object map with no inherited keys", "entry_id": "lodash_lodash:Hash", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "dictionary seeded from another object's own properties", "entry_id": "lodash_lodash:Hash", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "rethrow whatever error comes in", "entry_id": "lodash_lodash:pitch", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "a handler that just propagates the failure", "entry_id": "lodash_lodash:pitch", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "render a long list of names into wrapped columns", "entry_id": "lodash_lodash:toFuncList", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "format an array of identifiers as a wrapped string", "entry_id": "lodash_lodash:toFuncList", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "tell whether a name is an alternate spelling for a method", "entry_id": "lodash_lodash:isAlias", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "detect alias names in an api", "entry_id": "lodash_lodash:isAlias", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "build a markdown link to a package page", "entry_id": "lodash_lodash:npmLink", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "generate an npm url from a package name", "entry_id": "lodash_lodash:npmLink", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "tidy up generated markdown after the fact", "entry_id": "lodash_lodash:postprocess", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "run fixups over a rendered document", "entry_id": "lodash_lodash:postprocess", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "turn method mentions in text into doc links", "entry_id": "lodash_lodash:autoLink", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "autolink api names in prose", "entry_id": "lodash_lodash:autoLink", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "strip the separator lines out of markdown", "entry_id": "lodash_lodash:removeHorizontalRules", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "delete rule lines from a document", "entry_id": "lodash_lodash:removeHorizontalRules", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "iterate an array from the end to the start", "entry_id": "lodash_lodash:arrayEachRight", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "loop backwards over a list", "entry_id": "lodash_lodash:arrayEachRight", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "fold an array starting from the last element", "entry_id": "lodash_lodash:arrayReduceRight", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "accumulate right to left", "entry_id": "lodash_lodash:arrayReduceRight", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "check for NaN without coercing", "entry_id": "lodash_lodash:baseIsNaN", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "strict not a number test", "entry_id": "lodash_lodash:baseIsNaN", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "read a property without throwing on null", "entry_id": "lodash_lodash:getValue", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "safe single key lookup", "entry_id": "lodash_lodash:getValue", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "compose a transform onto a function's single argument", "entry_id": "lodash_lodash:overArg", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "pre transform the input of a one arg function", "entry_id": "lodash_lodash:overArg", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "find the last position of a value using strict equality", "entry_id": "lodash_lodash:strictLastIndexOf", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "search from the end with strict comparison", "entry_id": "lodash_lodash:strictLastIndexOf", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "base constructor for a chainable wrapper", "entry_id": "lodash_lodash:baseLodash", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "prototype root for a fluent api", "entry_id": "lodash_lodash:baseLodash", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "wrap a value so methods can be chained", "entry_id": "lodash_lodash:LodashWrapper", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "constructor for a chaining wrapper", "entry_id": "lodash_lodash:LodashWrapper", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "read an entry from a small key value stack", "entry_id": "lodash_lodash:stackGet", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "lookup in a hybrid map structure", "entry_id": "lodash_lodash:stackGet", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "bound a number between a low and high limit", "entry_id": "lodash_lodash:baseClamp", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "constrain a value to a range", "entry_id": "lodash_lodash:baseClamp", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "greater than comparison without type coercion", "entry_id": "lodash_lodash:baseGt", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "strict ordering predicate", "entry_id": "lodash_lodash:baseGt", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "check a property exists including inherited ones", "entry_id": "lodash_lodash:baseHasIn", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "the in operator as a function", "entry_id": "lodash_lodash:baseHasIn", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "test whether a number falls inside bounds", "entry_id": "lodash_lodash:baseInRange", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "between check for numbers", "entry_id": "lodash_lodash:baseInRange", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "less than without coercion", "entry_id": "lodash_lodash:baseLt", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "strict less than predicate", "entry_id": "lodash_lodash:baseLt", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "random integer between two bounds", "entry_id": "lodash_lodash:baseRandom", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "pick a whole number in a range", "entry_id": "lodash_lodash:baseRandom", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "copy a binary buffer", "entry_id": "lodash_lodash:cloneArrayBuffer", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "duplicate raw bytes", "entry_id": "lodash_lodash:cloneArrayBuffer", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "copy a symbol wrapper", "entry_id": "lodash_lodash:cloneSymbol", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "duplicate a symbol primitive object", "entry_id": "lodash_lodash:cloneSymbol", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "can this value be used as an object key", "entry_id": "lodash_lodash:isKeyable", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "check a value is a valid map key without boxing", "entry_id": "lodash_lodash:isKeyable", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "read a property while blocking prototype pollution", "entry_id": "lodash_lodash:safeGet", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "guarded property access against __proto__", "entry_id": "lodash_lodash:safeGet", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "concatenate list items with a delimiter", "entry_id": "lodash_lodash:join", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "turn an array into a delimited string", "entry_id": "lodash_lodash:join", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "grab the final item of a list", "entry_id": "lodash_lodash:last", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "read the end of an array", "entry_id": "lodash_lodash:last", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "flip the order of a list in place", "entry_id": "lodash_lodash:reverse", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "invert an array's element order", "entry_id": "lodash_lodash:reverse", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "run a side effect mid chain and keep the value", "entry_id": "lodash_lodash:tap", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "peek at a value without changing it", "entry_id": "lodash_lodash:tap", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "transform a value mid chain", "entry_id": "lodash_lodash:thru", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "pass a value through a function in a pipeline", "entry_id": "lodash_lodash:thru", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "make a custom object work with for of", "entry_id": "lodash_lodash:wrapperToIterator", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "add iterator support to a wrapper", "entry_id": "lodash_lodash:wrapperToIterator", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "compare two values treating NaN as equal", "entry_id": "lodash_lodash:eq", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "same value zero equality", "entry_id": "lodash_lodash:eq", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "check a number is neither infinite nor NaN", "entry_id": "lodash_lodash:isFinite", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "validate a numeric value is usable", "entry_id": "lodash_lodash:isFinite", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "is this a valid length property", "entry_id": "lodash_lodash:isLength", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "check a number can index an array", "entry_id": "lodash_lodash:isLength", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "test strictly for null", "entry_id": "lodash_lodash:isNull", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "null check that excludes undefined", "entry_id": "lodash_lodash:isNull", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "check for null or undefined in one call", "entry_id": "lodash_lodash:isNil", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "test a value is missing either way", "entry_id": "lodash_lodash:isNil", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "test strictly for undefined", "entry_id": "lodash_lodash:isUndefined", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "detect an unset value", "entry_id": "lodash_lodash:isUndefined", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "function that always returns the same thing", "entry_id": "lodash_lodash:constant", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "wrap a value as a thunk", "entry_id": "lodash_lodash:constant", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "fall back to another value when this one is missing", "entry_id": "lodash_lodash:defaultTo", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "substitute a default for null", "entry_id": "lodash_lodash:defaultTo", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "a no op function that returns its input", "entry_id": "lodash_lodash:identity", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "pass through function", "entry_id": "lodash_lodash:identity", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "do nothing function", "entry_id": "lodash_lodash:noop", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "empty callback placeholder", "entry_id": "lodash_lodash:noop", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "function returning a fresh empty list", "entry_id": "lodash_lodash:stubArray", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "default factory for an array", "entry_id": "lodash_lodash:stubArray", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "function that always returns false", "entry_id": "lodash_lodash:stubFalse", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "constant false predicate", "entry_id": "lodash_lodash:stubFalse", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "function returning a fresh empty object", "entry_id": "lodash_lodash:stubObject", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "default factory for an object", "entry_id": "lodash_lodash:stubObject", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "function that always returns an empty string", "entry_id": "lodash_lodash:stubString", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "constant empty text", "entry_id": "lodash_lodash:stubString", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "function that always returns true", "entry_id": "lodash_lodash:stubTrue", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "constant true predicate", "entry_id": "lodash_lodash:stubTrue", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "convert a benchmark timing into operations per second", "entry_id": "lodash_lodash:getHz", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "compute throughput from a mean duration", "entry_id": "lodash_lodash:getHz", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "build the serialisation half of a validation schema", "entry_id": "pydantic_pydantic:as_ser_schema", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "derive a serializer spec from a core schema", "entry_id": "pydantic_pydantic:as_ser_schema", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "pull the identifier out of a schema node", "entry_id": "pydantic_pydantic:get_ref", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "read a schema's reference key if present", "entry_id": "pydantic_pydantic:get_ref", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "populate a class's field metadata from its annotations", "entry_id": "pydantic_pydantic:set_dataclass_fields", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "gather declared fields onto a dataclass", "entry_id": "pydantic_pydantic:set_dataclass_fields", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "tell a plain dataclass apart from a validating one", "entry_id": "pydantic_pydantic:is_stdlib_dataclass", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "check a class uses the standard library decorator only", "entry_id": "pydantic_pydantic:is_stdlib_dataclass", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "list the parents of a class including typed dicts", "entry_id": "pydantic_pydantic:get_bases", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "read base classes in a way that works for typeddict", "entry_id": "pydantic_pydantic:get_bases", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "get to the original function behind decorators", "entry_id": "pydantic_pydantic:unwrap_wrapped_function", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "strip wrappers until the real callable", "entry_id": "pydantic_pydantic:unwrap_wrapped_function", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "how many positional arguments does this function require", "entry_id": "pydantic_pydantic:count_positional_required_params", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "count mandatory parameters of a callable", "entry_id": "pydantic_pydantic:count_positional_required_params", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "coerce a method into a property descriptor", "entry_id": "pydantic_pydantic:ensure_property", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "make sure an attribute is a descriptor", "entry_id": "pydantic_pydantic:ensure_property", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "does this factory want the already validated fields", "entry_id": "pydantic_pydantic:takes_validated_data_argument", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "inspect a default factory's signature for a data parameter", "entry_id": "pydantic_pydantic:takes_validated_data_argument", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "work out a field's default from either form", "entry_id": "pydantic_pydantic:resolve_default_value", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "pick between a literal default and a factory", "entry_id": "pydantic_pydantic:resolve_default_value", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "does this validator apply to this field", "entry_id": "pydantic_pydantic:check_validator_fields_against_field_name", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "match a validator's targets against a field name", "entry_id": "pydantic_pydantic:check_validator_fields_against_field_name", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "error when a validator names a field that is not there", "entry_id": "pydantic_pydantic:check_decorator_fields_exist", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "verify decorator targets exist on the model", "entry_id": "pydantic_pydantic:check_decorator_fields_exist", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "attach whole object validators to a schema", "entry_id": "pydantic_pydantic:apply_model_validators", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "wire model level checks into validation", "entry_id": "pydantic_pydantic:apply_model_validators", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "add a default value layer to a schema", "entry_id": "pydantic_pydantic:wrap_default", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "make a schema optional with a fallback", "entry_id": "pydantic_pydantic:wrap_default", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "check whether a folder is under version control", "entry_id": "pydantic_pydantic:is_git_repo", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "detect a git working tree", "entry_id": "pydantic_pydantic:is_git_repo", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "is the git binary available on this machine", "entry_id": "pydantic_pydantic:have_git", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "check a command line tool is installed", "entry_id": "pydantic_pydantic:have_git", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "read the current commit hash", "entry_id": "pydantic_pydantic:git_revision", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "get HEAD's identifier from a checkout", "entry_id": "pydantic_pydantic:git_revision", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "flatten grouped annotation metadata", "entry_id": "pydantic_pydantic:expand_grouped_metadata", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "unpack combined constraints into individual ones", "entry_id": "pydantic_pydantic:expand_grouped_metadata", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "reject constraints that do not apply to this type", "entry_id": "pydantic_pydantic:check_metadata", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "validate annotation metadata against a target", "entry_id": "pydantic_pydantic:check_metadata", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "sentinel marking a field that is not set in init", "entry_id": "pydantic_pydantic:NoInitField", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "typing only placeholder default", "entry_id": "pydantic_pydantic:NoInitField", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "find a post initialisation hook on a class or its parents", "entry_id": "pydantic_pydantic:get_model_post_init", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "look up an after init method through the mro", "entry_id": "pydantic_pydantic:get_model_post_init", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "collect a class's annotations into field metadata", "entry_id": "pydantic_pydantic:set_model_fields", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "separate class variables from real fields", "entry_id": "pydantic_pydantic:set_model_fields", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "get the globals of the module an object came from", "entry_id": "pydantic_pydantic:get_module_ns_of", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "resolve names in the defining module's scope", "entry_id": "pydantic_pydantic:get_module_ns_of", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "walk a schema tree collecting what can be pruned", "entry_id": "pydantic_pydantic:gather_schemas_for_cleaning", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "find unused definitions in a nested schema", "entry_id": "pydantic_pydantic:gather_schemas_for_cleaning", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "build a stable identifier for an enum type", "entry_id": "pydantic_pydantic:enum_type_ref", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "name an enum for schema references", "entry_id": "pydantic_pydantic:enum_type_ref", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "get the real type out of Annotated", "entry_id": "pydantic_pydantic:annotated_type", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "strip annotation metadata to the base type", "entry_id": "pydantic_pydantic:annotated_type", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "read the type inside Unpack", "entry_id": "pydantic_pydantic:unpack_type", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "unwrap a variadic generic form", "entry_id": "pydantic_pydantic:unpack_type", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "detect a named tuple class", "entry_id": "pydantic_pydantic:is_namedtuple", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "tell a namedtuple from a plain tuple subclass", "entry_id": "pydantic_pydantic:is_namedtuple", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "read the caller's local variables", "entry_id": "pydantic_pydantic:parent_frame_namespace", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "get locals from one stack frame up", "entry_id": "pydantic_pydantic:parent_frame_namespace", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "inspect a signature without resolving string annotations", "entry_id": "pydantic_pydantic:signature_no_eval", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "read parameters while leaving forward refs alone", "entry_id": "pydantic_pydantic:signature_no_eval", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "can this parameter be passed without a keyword", "entry_id": "pydantic_pydantic:can_be_positional", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "check a parameter's calling convention", "entry_id": "pydantic_pydantic:can_be_positional", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "check a string can be used as a variable name", "entry_id": "pydantic_pydantic:is_valid_identifier", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "validate a name is not reserved", "entry_id": "pydantic_pydantic:is_valid_identifier", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "pick the first non null of two values", "entry_id": "pydantic_pydantic:get_first_not_none", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "coalesce two optionals", "entry_id": "pydantic_pydantic:get_first_not_none", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "get a readable name for any callable", "entry_id": "pydantic_pydantic:extract_function_name", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "name a function partial or method uniformly", "entry_id": "pydantic_pydantic:extract_function_name", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "get a fully qualified name for a callable", "entry_id": "pydantic_pydantic:extract_function_qualname", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "dotted path name of a function", "entry_id": "pydantic_pydantic:extract_function_qualname", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "validate a value is a sequence and convert it", "entry_id": "pydantic_pydantic:sequence_validator", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "coerce input into a sequence type", "entry_id": "pydantic_pydantic:sequence_validator", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "parse and validate an ipv4 subnet", "entry_id": "pydantic_pydantic:ip_v4_network_validator", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "turn a string into an ipv4 network object", "entry_id": "pydantic_pydantic:ip_v4_network_validator", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "parse and validate an ipv6 subnet", "entry_id": "pydantic_pydantic:ip_v6_network_validator", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "convert text to an ipv6 network", "entry_id": "pydantic_pydantic:ip_v6_network_validator", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "normalise a colour channel to a 0 to 1 float", "entry_id": "pydantic_pydantic:parse_color_value", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "accept a colour component as percent or byte", "entry_id": "pydantic_pydantic:parse_color_value", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "validate an opacity value", "entry_id": "pydantic_pydantic:parse_float_alpha", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "check an alpha channel is in range", "entry_id": "pydantic_pydantic:parse_float_alpha", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "scale a fraction to a byte value", "entry_id": "pydantic_pydantic:float_to_255", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "convert normalised colour to 8 bit", "entry_id": "pydantic_pydantic:float_to_255", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "regenerate a model's schema after a forward reference resolves", "entry_id": "pydantic_pydantic:rebuild_dataclass", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "rebuild validation after deferred types are available", "entry_id": "pydantic_pydantic:rebuild_dataclass", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "detect a validating dataclass", "entry_id": "pydantic_pydantic:is_pydantic_dataclass", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "check a class was decorated by the validation library", "entry_id": "pydantic_pydantic:is_pydantic_dataclass", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "serialise a decimal without losing whole numbers", "entry_id": "pydantic_pydantic:decimal_encoder", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "json encode a fixed point value", "entry_id": "pydantic_pydantic:decimal_encoder", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "format a duration as an iso 8601 string", "entry_id": "pydantic_pydantic:timedelta_isoformat", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "serialise a time delta to text", "entry_id": "pydantic_pydantic:timedelta_isoformat", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "produce json schema for an arbitrary type", "entry_id": "pydantic_pydantic:schema_of", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "get a json schema dict from a type annotation", "entry_id": "pydantic_pydantic:schema_of", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "describe a function's parameters as a schema", "entry_id": "pydantic_pydantic:generate_arguments_schema", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "build a validation schema from a signature", "entry_id": "pydantic_pydantic:generate_arguments_schema", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "export a model's json schema", "entry_id": "pydantic_pydantic:model_json_schema", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "json schema document for a class", "entry_id": "pydantic_pydantic:model_json_schema", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "inject a method into a class during type checking", "entry_id": "pydantic_pydantic:add_method", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "synthesise a method on a class in a plugin", "entry_id": "pydantic_pydantic:add_method", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "read settings out of a toml file", "entry_id": "pydantic_pydantic:parse_toml", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "load a pyproject config section", "entry_id": "pydantic_pydantic:parse_toml", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "keep only the hooks a plugin actually overrides", "entry_id": "pydantic_pydantic:filter_handlers", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "drop inherited no op handlers", "entry_id": "pydantic_pydantic:filter_handlers", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "a set type with a size limit", "entry_id": "pydantic_pydantic:conset", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "constrained set annotation", "entry_id": "pydantic_pydantic:conset", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "immutable set with validation rules", "entry_id": "pydantic_pydantic:confrozenset", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "frozen set type with constraints", "entry_id": "pydantic_pydantic:confrozenset", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "list type with a minimum and maximum length", "entry_id": "pydantic_pydantic:conlist", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "constrained list annotation", "entry_id": "pydantic_pydantic:conlist", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "build a validating model from a named tuple", "entry_id": "pydantic_pydantic:create_model_from_namedtuple", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "derive a model class from a tuple's fields", "entry_id": "pydantic_pydantic:create_model_from_namedtuple", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "check for a standard library dataclass", "entry_id": "pydantic_pydantic:is_builtin_dataclass", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "detect the builtin dataclass decorator", "entry_id": "pydantic_pydantic:is_builtin_dataclass", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "locate a file ignoring letter case", "entry_id": "pydantic_pydantic:find_case_path", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "case insensitive filename lookup in a folder", "entry_id": "pydantic_pydantic:find_case_path", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "construct an exception subclass with keyword arguments", "entry_id": "pydantic_pydantic:cls_kwargs", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "instantiate a builtin exception from a dict", "entry_id": "pydantic_pydantic:cls_kwargs", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "find out where a function was called from", "entry_id": "pydantic_pydantic:get_caller_frame_info", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "inspect the caller's file and line", "entry_id": "pydantic_pydantic:get_caller_frame_info", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "read a symbol's full name across library versions", "entry_id": "pydantic_pydantic:get_fullname", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "version tolerant fullname accessor", "entry_id": "pydantic_pydantic:get_fullname", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "read a symbol's name across library versions", "entry_id": "pydantic_pydantic:get_name", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "version tolerant name accessor", "entry_id": "pydantic_pydantic:get_name", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "handle a literal containing mixed types", "entry_id": "pydantic_pydantic:multitypes_literal_field_for_schema", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "split a union of literal values by type", "entry_id": "pydantic_pydantic:multitypes_literal_field_for_schema", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "canonicalise a type name", "entry_id": "pydantic_pydantic:normalize_name", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "sanitise a class name for output", "entry_id": "pydantic_pydantic:normalize_name", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "resolve string annotations into real types", "entry_id": "pydantic_pydantic:resolve_annotations", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "evaluate forward references on a class", "entry_id": "pydantic_pydantic:resolve_annotations", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "detect a typed dict class", "entry_id": "pydantic_pydantic:is_typeddict", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "tell a typeddict from a normal dict subclass", "entry_id": "pydantic_pydantic:is_typeddict", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "load a class from a dotted path string", "entry_id": "pydantic_pydantic:import_string", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "import by name at runtime", "entry_id": "pydantic_pydantic:import_string", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "shorten a string for display with dots", "entry_id": "pydantic_pydantic:truncate", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "cut text to a maximum length", "entry_id": "pydantic_pydantic:truncate", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "reject a field name that collides with a method", "entry_id": "pydantic_pydantic:validate_field_name", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "check a name does not shadow a base attribute", "entry_id": "pydantic_pydantic:validate_field_name", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "detect whether code is running in a notebook", "entry_id": "pydantic_pydantic:in_ipython", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "am I in jupyter", "entry_id": "pydantic_pydantic:in_ipython", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "compare two floats with a tolerance", "entry_id": "pydantic_pydantic:almost_equal_floats", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "approximate equality for decimals", "entry_id": "pydantic_pydantic:almost_equal_floats", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "exhaustiveness check in a match statement", "entry_id": "pydantic_pydantic:assert_never", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "fail at type check time on an unhandled case", "entry_id": "pydantic_pydantic:assert_never", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "ensure a tagged union's key is consistent across members", "entry_id": "pydantic_pydantic:get_unique_discriminator_alias", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "check discriminator aliases agree", "entry_id": "pydantic_pydantic:get_unique_discriminator_alias", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "require a field to equal a fixed value", "entry_id": "pydantic_pydantic:constant_validator", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "validate a literal constant field", "entry_id": "pydantic_pydantic:constant_validator", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "validate that a value can be called", "entry_id": "pydantic_pydantic:callable_validator", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "check input is a function", "entry_id": "pydantic_pydantic:callable_validator", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "turn a version string into comparable numbers", "entry_id": "pydantic_pydantic:parse_mypy_version", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "parse semver text into a tuple", "entry_id": "pydantic_pydantic:parse_mypy_version", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "serialise a value by calling str on it", "entry_id": "pydantic_pydantic:to_string_ser_schema", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "schema that outputs the text form", "entry_id": "pydantic_pydantic:to_string_ser_schema", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "walk the branches of a union type", "entry_id": "pydantic_pydantic:iter_union_choices", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "enumerate the members of a union schema", "entry_id": "pydantic_pydantic:iter_union_choices", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "pull generated changelog text from the api", "entry_id": "pydantic_pydantic:get_notes", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "fetch release notes for a tag", "entry_id": "pydantic_pydantic:get_notes", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "automate committing and pushing to a fresh branch", "entry_id": "pydantic_pydantic:commit_and_push_changes", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "script a commit and push", "entry_id": "pydantic_pydantic:commit_and_push_changes", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "create a pull request programmatically", "entry_id": "pydantic_pydantic:open_pull_request", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "open a PR from a script", "entry_id": "pydantic_pydantic:open_pull_request", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "tag a release automatically", "entry_id": "pydantic_pydantic:create_version_tag", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "create and push a git tag", "entry_id": "pydantic_pydantic:create_version_tag", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "publish a release via the api", "entry_id": "pydantic_pydantic:create_github_release", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "cut a github release from a script", "entry_id": "pydantic_pydantic:create_github_release", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "make an unpublished draft release", "entry_id": "pydantic_pydantic:create_github_release_draft", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "prepare a release without publishing it", "entry_id": "pydantic_pydantic:create_github_release_draft", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "execute a subprocess and capture stdout", "entry_id": "pydantic_pydantic:run_command", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "shell out and get the result as text", "entry_id": "pydantic_pydantic:run_command", "language": "python", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "move a generated search index into the build output", "entry_id": "twbs_bootstrap:copyPagefindIndex", "language": "typescript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "copy prebuilt search assets during a build", "entry_id": "twbs_bootstrap:copyPagefindIndex", "language": "typescript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "copy a built library into a docs site", "entry_id": "twbs_bootstrap:copyBootstrap", "language": "typescript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "bring dist output into another folder", "entry_id": "twbs_bootstrap:copyBootstrap", "language": "typescript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "build url slugs for a docs navigation tree", "entry_id": "twbs_bootstrap:getSlug", "language": "typescript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "derive ordered paths for sidebar entries", "entry_id": "twbs_bootstrap:getSlug", "language": "typescript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "build plugin that substitutes config placeholders", "entry_id": "twbs_bootstrap:stackblitzPlugin", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
+{"query": "replace tokens in a file at build time", "entry_id": "twbs_bootstrap:stackblitzPlugin", "language": "javascript", "source": "synthetic_assistant_authored", "generator": "assistant_authored"}
