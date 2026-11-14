@@ -20,6 +20,9 @@ response is the ``{"ok", "data", "error"}`` envelope.
     POST /api/v1/whiteboard/providers/<name>/key  person only: save an API key
     POST /api/v1/whiteboard/agent/run   person only: let Claude or DeepSeek work on the board
     GET  /api/v1/whiteboard/agent/runs[/<id>]     run status;  POST .../<id>/stop stops one
+    GET  /api/v1/whiteboard/agents/<name>/chat     ?since=N, the chat with one agent
+    POST /api/v1/whiteboard/agents/<name>/chat     {"message": "..."}, see agent_chat.py
+    DELETE /api/v1/whiteboard/agents/<name>/chat   forget that chat
 
 Every /api/v1/ request carries ``Authorization: Bearer <token>`` (see
 auth.py): the person's token from .plovane/server.json or the served page,
@@ -43,6 +46,7 @@ from typing import Any
 from flask import Flask, Response, g, jsonify, request, send_from_directory, stream_with_context
 
 from backend.whiteboard import llm_agent
+from backend.whiteboard.agent_chat import AgentChat
 from backend.whiteboard.auth import Auth, new_token, remove_server_file, write_server_file
 from backend.whiteboard.engine import USER, Workspace
 from backend.whiteboard.events import EventBus
@@ -66,18 +70,83 @@ def parse_model_json(text: str) -> Any:
     return json.loads(fenced.group(1) if fenced else text)
 
 
-# Input: workspace (Workspace), person_token (str | None), lock (threading.RLock | None)
+# Input: text (str)
+# Output: str
+# Processing: Drop a ```json ... ``` fence some models put around a JSON-only reply.
+# Changed by: Claude
+# Date: 2026-11-10
+def strip_fence(text: str) -> str:
+    body = text.strip()
+    if body.startswith("```"):
+        body = body.split("\n", 1)[1] if "\n" in body else ""
+        body = body.rsplit("```", 1)[0]
+    return body.strip()
+
+
+# Input: none
+# Output: list[dict[str, str]]
+# Processing: Every slash command with one example, for the planner's prompt.
+# Changed by: Claude
+# Date: 2026-11-10
+def command_reference() -> list[dict[str, str]]:
+    from backend.whiteboard.commands import COMMANDS
+    from backend.whiteboard.registry import OPERATIONS
+
+    return [{"command": "/" + c.phrase, "example": c.example, "does": OPERATIONS[c.op].summary}
+            for c in COMMANDS]
+
+
+# Input: text (str), recommendations (list[dict])
+# Output: tuple[str, list[str], str]
+# Processing: Parse a planner reply into (summary, commands, problem); problem is "" when it is valid.
+# Changed by: Claude
+# Date: 2026-11-10
+def check_plan(text: str, recommendations: list[dict[str, Any]]) -> tuple[str, list[str], str]:
+    from backend.whiteboard.commands import parse
+    from backend.whiteboard.registry import OPERATIONS, OpError
+
+    try:
+        plan = parse_model_json(text)
+    except json.JSONDecodeError:
+        return "", [], "the reply was not JSON"
+    if not isinstance(plan, dict):
+        return "", [], "the reply was not a JSON object"
+    commands = plan.get("commands")
+    summary = str(plan.get("summary", ""))
+    if not isinstance(commands, list) or not commands or any(not isinstance(c, str) for c in commands):
+        return summary, [], "commands must be a non-empty array of strings"
+    if len(commands) > 40:
+        return summary, [], "the plan has more than 40 commands"
+    bad = []
+    for command in commands:
+        try:
+            op, args = parse(command)
+        except OpError as exc:
+            bad.append(f"{command!r}: {exc.message}")
+            continue
+        if op not in OPERATIONS:
+            bad.append(f"{command!r}: unknown operation")
+        elif op == "library.insert" and args.get("entry") not in {r.get("block_id") for r in recommendations}:
+            bad.append(f"{command!r}: library inserts must use a listed library candidate")
+    if bad:
+        return summary, [], "invalid commands: " + "; ".join(bad[:8])
+    return summary, commands, ""
+
+
+# Input: workspace (Workspace), chat (AgentChat | None), person_token (str | None), lock (threading.RLock | None)
 # Output: Flask
-# Processing: Build the Flask app over one project's workspace; with a person token every API call needs a token.
+# Processing: Build the Flask app over one project's workspace; with a person token every API call needs a token; tests inject chat.
 # Changed by: Claude Code
-# Date: 2026-11-09
-def create_app(workspace: Workspace, *, person_token: str | None = None,
+# Date: 2026-11-14
+def create_app(workspace: Workspace, chat: AgentChat | None = None, *, person_token: str | None = None,
                lock: threading.RLock | None = None) -> Flask:
     app = Flask("plovane-whiteboard")
     lock = lock or threading.RLock()  # one operation at a time: the board is shared state
     frontend = Path(__file__).resolve().parents[2] / "frontend" / "whiteboard"
     cli_frontend = frontend.parent / "cli"
     prompt_plans: dict[str, dict[str, Any]] = {}
+    chat = chat or AgentChat(workspace, lock)
+    chat.lock = lock  # agent turns and HTTP requests must take the same board lock
     auth = Auth(workspace.store.dir, person_token) if person_token else None
     bus = EventBus()
     workspace.listeners.append(bus.publish)
@@ -273,13 +342,12 @@ def create_app(workspace: Workspace, *, person_token: str | None = None,
 
     # Input: none
     # Output: tuple
-    # Processing: Search verified code, ask Claude or DeepSeek for slash commands, and preview their effects.
+    # Processing: Search verified code, ask Claude, DeepSeek or OpenAI for slash commands (one retry), and preview them.
     # Changed by: Claude Code
-    # Date: 2026-11-09
+    # Date: 2026-11-14
     @app.post("/api/v1/whiteboard/prompt/plan")
     def prompt_plan():
-        from backend.whiteboard.commands import parse
-        from backend.whiteboard.registry import OPERATIONS, OpError
+        from backend.whiteboard.registry import OpError
 
         raw = body()
         prompt = raw.get("prompt")
@@ -290,7 +358,6 @@ def create_app(workspace: Workspace, *, person_token: str | None = None,
                 "PLOVANE_LLM_PROVIDER", "anthropic"))
         except llm_agent.AgentError as exc:
             return fail("INVALID_ARGS", str(exc))
-        label = {"anthropic": "Claude", "deepseek": "DeepSeek", "openai": "OpenAI"}[provider]
         try:
             with lock:
                 ranked = workspace.execute("library.rank", {"query": prompt, "k": 5}, actor=actor())
@@ -298,6 +365,7 @@ def create_app(workspace: Workspace, *, person_token: str | None = None,
             ranking = ranked["data"]["result"] if ranked["ok"] else {}
             recommendations = ranking.get("recommendations", []) if ranking.get("scores_calibrated") else []
             with lock:
+                workspace.sync()
                 board = workspace.board.to_dict()
             context = {
                 "request": prompt.strip(),
@@ -308,48 +376,50 @@ def create_app(workspace: Workspace, *, person_token: str | None = None,
                     for b in board.get("blocks", {}).values()
                 ],
                 "library_candidates": recommendations,
+                # The only commands that exist. Without this list models invent ones like /tree.
+                "command_reference": command_reference(),
             }
-            llm_reply = workspace.llm_result(
-                json.dumps(context, ensure_ascii=False),
-                system=("You are Plovane's whiteboard planner. The verified library was searched first. "
-                        "Only use a listed library candidate when it fits; insert it with /insert <id> --into <path>. "
-                        "Otherwise create new code using supported whiteboard slash commands. Prefer templates, "
-                        "presets, and relative placement. Use one /batch command per independent multi-step change. "
-                        "Return JSON only: {\"summary\": string, \"commands\": [slash-command strings]}. "
-                        "Commands must be valid Plovane commands. Never claim a write happened; this is a preview."),
-                provider=provider,
-            )
-            try:
-                plan_data = parse_model_json(llm_reply["text"])
-                commands = plan_data.get("commands")
-                summary = str(plan_data.get("summary", ""))
-                if not isinstance(commands, list) or not commands or any(not isinstance(c, str) for c in commands):
-                    raise ValueError("commands must be a non-empty array of strings")
-                if len(commands) > 40:
-                    raise ValueError("plan exceeds 40 operations")
-                for command in commands:
-                    op, args = parse(command)
-                    if op not in OPERATIONS:
-                        raise ValueError(f"unknown operation in {command}")
-                    if op == "library.insert" and args.get("entry") not in {
-                            item.get("block_id") for item in recommendations}:
-                        raise ValueError("library inserts must use a verified candidate returned by /rank")
-                batch_preview = workspace.execute("batch", {"commands": commands}, actor=actor(), dry_run=True)
+            system = ("You are Plovane's whiteboard planner. The verified library was searched first. "
+                      "Only use a listed library candidate when it fits; insert it with /insert <id> --into <path>. "
+                      "Otherwise create new code using whiteboard slash commands. Every command must start with "
+                      "one of the command names in command_reference and follow its example's syntax; never "
+                      "invent a command. Refer to existing blocks by their id. For drawing services, databases, "
+                      "queues, external APIs and the arrows between them, use ONE /sketch command with short "
+                      "lines separated by ';' (e.g. '/sketch service orders; database postgres; orders -> "
+                      "postgres'); it lays everything out itself, so never give coordinates. Return JSON only: {\"summary\": string, \"commands\": "
+                      "[slash-command strings]}. Never claim a write happened; this is a preview.")
+            usage: dict[str, Any] = {}
+            problem = ""
+            for _ in range(2):  # one retry, told exactly what was wrong
+                if problem:
+                    context["previous_plan_was_rejected"] = problem
+                llm_reply = workspace.llm_result(json.dumps(context, ensure_ascii=False), system=system,
+                                                 provider=provider)
+                for key, value in (llm_reply.get("usage") or {}).items():
+                    if isinstance(value, (int, float)):
+                        usage[key] = usage.get(key, 0) + value
+                summary, commands, problem = check_plan(llm_reply["text"], recommendations)
+                if problem:
+                    continue
+                with lock:
+                    batch_preview = workspace.execute("batch", {"commands": commands}, actor=actor(), dry_run=True)
                 if not batch_preview["ok"]:
-                    return send(batch_preview)
+                    problem = f"the plan failed its dry run: {batch_preview['error']['message']}"
+                    continue
                 plan_id = uuid.uuid4().hex
                 prompt_plans[plan_id] = {
-                    "prompt": prompt.strip(), "commands": commands, "tokens": llm_reply.get("usage", {}),
+                    "prompt": prompt.strip(), "commands": commands, "tokens": usage,
                     "actor": actor(), "ranked": recommendations,
                 }
                 return send({"ok": True, "error": None, "data": {
                     "plan_id": plan_id, "summary": summary, "commands": commands, "provider": provider,
                     "preview": batch_preview["data"], "library_candidates": recommendations,
-                    "tokens": llm_reply.get("usage", {}),
+                    "tokens": usage,
                 }})
-            except (ValueError, TypeError, KeyError) as exc:
-                return send({"ok": False, "data": None,
-                             "error": {"code": "INVALID_PLAN", "message": f"{label} returned an invalid command plan: {exc}"}})
+            return send({"ok": False, "data": None, "error": {
+                "code": "INVALID_PLAN",
+                "message": f"The planner could not produce a valid plan ({problem}). Try rephrasing, "
+                           "or use a / command directly."}})
         except OpError as exc:
             return send({"ok": False, "data": None, "error": {"code": exc.code, "message": exc.message}})
 
@@ -674,6 +744,46 @@ def create_app(workspace: Workspace, *, person_token: str | None = None,
             return fail("NOT_FOUND", f"no run {run_id!r}")
         record["_stop"].set()
         return send({"ok": True, "data": {"id": run_id, "stopping": record["status"] == "running"}, "error": None})
+
+    # Input: name (str)
+    # Output: tuple
+    # Processing: The chat with one agent: grants, running flag and events from ?since=N.
+    # Changed by: Claude
+    # Date: 2026-11-09
+    @app.get("/api/v1/whiteboard/agents/<name>/chat")
+    def agent_chat_read(name: str):
+        since = max(request.args.get("since", default=0, type=int), 0)
+        return send({"ok": True, "data": chat.snapshot(name, since), "error": None})
+
+    # Input: name (str)
+    # Output: tuple
+    # Processing: Send the agent a message; its reply arrives through the GET above.
+    # Changed by: Claude
+    # Date: 2026-11-09
+    @app.post("/api/v1/whiteboard/agents/<name>/chat")
+    def agent_chat_send(name: str):
+        message = body().get("message")
+        if not isinstance(message, str) or not message.strip():
+            return send({"ok": False, "data": None, "error": {"code": "INVALID_ARGS", "message": "message is required"}})
+        try:
+            return send({"ok": True, "data": chat.send(name, message.strip()), "error": None})
+        except LookupError as exc:
+            return send({"ok": False, "data": None, "error": {"code": "NOT_FOUND", "message": str(exc)}})
+        except RuntimeError as exc:
+            return send({"ok": False, "data": None, "error": {"code": "CONFLICT", "message": str(exc)}})
+
+    # Input: name (str)
+    # Output: tuple
+    # Processing: Forget the chat with one agent.
+    # Changed by: Claude
+    # Date: 2026-11-09
+    @app.delete("/api/v1/whiteboard/agents/<name>/chat")
+    def agent_chat_reset(name: str):
+        try:
+            chat.reset(name)
+        except RuntimeError as exc:
+            return send({"ok": False, "data": None, "error": {"code": "CONFLICT", "message": str(exc)}})
+        return send({"ok": True, "data": {"agent": name, "cleared": True}, "error": None})
 
     # Input: none
     # Output: tuple

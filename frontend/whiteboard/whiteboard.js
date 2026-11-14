@@ -805,5 +805,6 @@
    */
   async function autoImport(){const blocks=Object.values(state.data?.board?.blocks||{}),key=`plovane-imported:${state.data?.project||''}`;if(blocks.some(b=>['file','folder'].includes(b.kind))||localStorage.getItem(key))return false;localStorage.setItem(key,'1');try{const data=await request('command',{method:'POST',body:JSON.stringify({command:'/project import'})});toast(`Imported ${data.result?.files_found||0} project files.`);return true}catch(e){toast(e.message,true);return false}}
   const editorArea=$('#code-editor textarea');editorArea.addEventListener('input',syncGutter);editorArea.addEventListener('scroll',syncGutter);editorArea.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='s'){e.preventDefault();saveCode()}else if(e.key==='Escape'){e.preventDefault();closeEditor()}else if(e.key==='Tab'){e.preventDefault();editorArea.setRangeText('    ',editorArea.selectionStart,editorArea.selectionEnd,'end');syncGutter()}e.stopPropagation()});
-  window.PlovaneWhiteboard={request,refresh,runCommand,get board(){return state.data},get commands(){return state.commands}};
+  // Used by code-view.js (file panel, quick open) and agent-chat.js (chat with an agent).
+  window.PlovaneWhiteboard={request,refresh,runCommand,render,position,toast,flyTo,get board(){return state.data},get commands(){return state.commands},get view(){return{scale:state.scale,x:state.x,y:state.y}},setView(x,y,scale){state.x=x;state.y=y;state.scale=scale;applyTransform()}};
 })();

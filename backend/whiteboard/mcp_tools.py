@@ -108,7 +108,7 @@ def groups() -> dict[str, dict[str, str]]:
 
     found: dict[str, dict[str, str]] = defaultdict(dict)
     for spec in OPERATIONS.values():
-        if spec.agents:
+        if spec.agents and spec.group != "plovane_sketch":  # registered on its own, as plovane_sketch(script)
             found[spec.group][action_name(spec.group, spec.name)] = spec.name
     return dict(found)
 
@@ -156,12 +156,52 @@ def run(op: str, args: dict | None, confirm: bool, dry_run: bool, command: str |
 
 
 # Input: mcp (MCPServer)
+# Output: None
+# Processing: Register plovane_sketch and plovane_undo, the two tools an AI needs for drawing.
+# Changed by: Claude
+# Date: 2026-11-10
+def register_sketch(mcp: Any) -> None:
+    from backend.whiteboard.ops.sketch import HELP
+
+    # Input: script (str)
+    # Output: dict[str, Any]
+    # Processing: Run sketch lines on the services layer.
+    # Changed by: Claude
+    # Date: 2026-11-10
+    def plovane_sketch(script: str) -> dict[str, Any]:
+        return run("sketch", {"script": script}, False, False)
+
+    plovane_sketch.__doc__ = (
+        "Draw on the Plovane whiteboard with short lines, one change per line (or separated by ';'). "
+        "Use this for every drawing change; it writes no code and makes no stray blocks. "
+        f"{HELP}. Kinds: service, database (or db), queue, external, server. Names can be comma lists "
+        "('orders, payments -> postgres'); arrow types are picked for you. Repeating a line is harmless. "
+        "An unknown name is refused, so add blocks before linking them. Everything is laid out "
+        "automatically. 'show' lists what is on the board. All lines apply together or none do.")
+
+    # Input: none
+    # Output: dict[str, Any]
+    # Processing: Undo the last whiteboard change.
+    # Changed by: Claude
+    # Date: 2026-11-10
+    def plovane_undo() -> dict[str, Any]:
+        """Undo the last change on the Plovane whiteboard."""
+        return run("history.undo", {}, False, False)
+
+    mcp.tool()(plovane_sketch)
+    mcp.tool()(plovane_undo)
+
+
+# Input: mcp (MCPServer)
 # Output: list[str]
 # Processing: Register the grouped whiteboard tools and plovane_command on a server.
 # Changed by: Sourish
 # Date: 2026-10-22
 def register(mcp: Any) -> list[str]:
-    names = []
+    register_sketch(mcp)
+    if os.environ.get("PLOVANE_MCP_TOOLS", "all").lower() == "sketch":
+        return ["plovane_sketch", "plovane_undo"]
+    names = ["plovane_sketch", "plovane_undo"]
     for group, actions in sorted(groups().items()):
         # Input: actions (dict[str, str]), group (str)
         # Output: Callable

@@ -146,6 +146,14 @@ class Store:
         self.last_stamp = self.board_stamp()
 
     # Input: none
+    # Output: bool
+    # Processing: Whether another process has written board.json since this one read or wrote it.
+    # Changed by: Claude Code
+    # Date: 2026-11-14
+    def board_changed(self) -> bool:
+        return self.board_stamp() != self.last_stamp
+
+    # Input: none
     # Output: dict[str, list]
     # Processing: The undo and redo stacks.
     # Changed by: Sourish
