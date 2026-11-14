@@ -86,7 +86,7 @@ def ensure_base_encoder(manifest: dict) -> None:
 # Output: None
 # Processing: Write model.safetensors next to a verified pytorch_model.bin.
 # Changed by: Sourish
-# Date: 2026-10-18
+# Date: 2026-11-08
 def ensure_safetensors(weights: Path) -> None:
     """Write ``model.safetensors`` next to the verified ``.bin``.
 
@@ -103,7 +103,9 @@ def ensure_safetensors(weights: Path) -> None:
 
     state = torch.load(weights, map_location="cpu", weights_only=True)
     # clone(): tied weights share storage, which save_file rejects.
-    save_file({k: v.contiguous().clone() for k, v in state.items()}, str(target))
+    # metadata: transformers reads the "format" key and crashes when it is absent.
+    save_file({k: v.contiguous().clone() for k, v in state.items()}, str(target),
+              metadata={"format": "pt"})
     print(f"OK  converted         {target.relative_to(ROOT)} (for torch < 2.6)")
 
 

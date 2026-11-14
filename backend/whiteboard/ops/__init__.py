@@ -17,6 +17,7 @@ from backend.whiteboard.ops import (  # noqa: F401
     layers,
     library,
     placement,
+    sketch,
     project,
     style,
     templates,

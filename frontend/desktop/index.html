@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Plovane Desktop</title>
+  <link rel="stylesheet" href="./desktop.css">
+</head>
+<body>
+  <main class="connect-card">
+    <img src="../1770049027667.jpeg" alt="Plovane logo" class="logo">
+    <p class="eyebrow">PLOVANE DESKTOP</p>
+    <h1>Open a project</h1>
+    <p class="description">Choose a folder. Plovane will start its local whiteboard server and connect to your project.</p>
+    <button id="choose-project" class="choose-button">Choose project folder</button>
+    <div class="project-path" id="project-path">No project selected</div>
+    <div class="status" id="status" role="status"><span class="status-dot"></span><span id="status-text">Not connected</span></div>
+    <button id="open-whiteboard" class="open-button" hidden>Open whiteboard</button>
+  </main>
+  <script src="./desktop.js"></script>
+</body>
+</html>

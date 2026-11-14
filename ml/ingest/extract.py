@@ -804,7 +804,7 @@ def extract_braced(source: str, language: str, *, library_rules: bool = True) ->
     declaration = re.compile(
         r"^(?:export\s+)?(?:async\s+)?(?:function\s+(?P<fname>\w+)\s*\((?P<fargs>[^)]*)\)"
         r"|(?:__global__|__device__|inline|static|template\s*<[^>]*>)?\s*"
-        r"[\w:<>,\*&\s]+?\s+(?P<cname>\w+)\s*\((?P<cargs>[^)]*)\)\s*(?:const)?)\s*\{",
+        r"[\w:<>,\*&\s]+?\s+[\*&]*(?P<cname>(?:\w+::)*~?\w+)\s*\((?P<cargs>[^)]*)\)\s*(?:const)?)\s*\{",
         re.MULTILINE,
     )
     lines = source.splitlines()
@@ -837,7 +837,8 @@ def extract_braced(source: str, language: str, *, library_rules: bool = True) ->
         else:
             continue  # unbalanced: skip rather than guess
 
-        start_line = source[: match.start()].count("\n") + 1
+        text = match.group(0)
+        start_line = source[: match.start() + len(text) - len(text.lstrip())].count("\n") + 1  # skip blank lines above
         end_line = source[:index].count("\n") + 1
         if library_rules and not MIN_FUNCTION_LINES <= (end_line - start_line + 1) <= MAX_FUNCTION_LINES:
             continue

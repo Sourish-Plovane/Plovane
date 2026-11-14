@@ -54,6 +54,7 @@ class Store:
         self.root = root
         self.dir = root / STATE_DIR
         self.board_path = self.dir / "board.json"
+        self.board_seen: tuple[int, int] | None = None  # board.json as this process last read or wrote it
         self.history_path = self.dir / "history.json"
         self.log_path = self.dir / "log.jsonl"
         self.snapshots = self.dir / "snapshots"
@@ -78,20 +79,42 @@ class Store:
     # Changed by: Sourish
     # Date: 2026-10-22
     def load_board(self) -> Board:
+        self.board_seen = self.board_stamp()
         if self.board_path.exists():
             return Board.from_dict(json.loads(self.board_path.read_text(encoding="utf-8")))
         return default_board()
 
     # Input: board (Board)
     # Output: None
-    # Processing: Write board.json, atomically.
-    # Changed by: Sourish
-    # Date: 2026-10-22
+    # Processing: Write board.json, atomically, and remember the version written.
+    # Changed by: Claude
+    # Date: 2026-11-10
     def save_board(self, board: Board) -> None:
         self.ensure()
         temp = self.board_path.with_suffix(".tmp")
         temp.write_text(json.dumps(board.to_dict(), indent=1, sort_keys=True) + "\n", encoding="utf-8")
         temp.replace(self.board_path)
+        self.board_seen = self.board_stamp()
+
+    # Input: none
+    # Output: tuple[int, int] | None
+    # Processing: board.json's modification time and size, or None when it does not exist.
+    # Changed by: Claude
+    # Date: 2026-11-10
+    def board_stamp(self) -> tuple[int, int] | None:
+        try:
+            stat = self.board_path.stat()
+        except FileNotFoundError:
+            return None
+        return (stat.st_mtime_ns, stat.st_size)
+
+    # Input: none
+    # Output: bool
+    # Processing: Whether another process has written board.json since this one read or wrote it.
+    # Changed by: Claude
+    # Date: 2026-11-10
+    def board_changed(self) -> bool:
+        return self.board_stamp() != self.board_seen
 
     # Input: none
     # Output: dict[str, list]

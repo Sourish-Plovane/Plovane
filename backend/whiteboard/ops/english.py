@@ -123,16 +123,115 @@ def python_steps(function: ast.FunctionDef | ast.AsyncFunctionDef, detail: int) 
 
 # Input: lines (list[str]), start (int), end (int)
 # Output: list[dict[str, Any]]
-# Processing: One step per meaningful line of a non-Python function body.
-# Changed by: Sourish
-# Date: 2026-10-22
+# Processing: One plain-English step per statement of a C, C++, JavaScript or TypeScript function body.
+# Changed by: Claude
+# Date: 2026-11-10
 def line_steps(lines: list[str], start: int, end: int) -> list[dict[str, Any]]:
-    steps = []
+    steps, depth, braceless = [], 0, 0
     for number in range(start + 1, end):
-        text = lines[number - 1].strip()
-        if text and text not in ("{", "}", "};", "});") and not text.startswith(("//", "/*", "*")):
-            steps.append({"english": f"Run: {text.rstrip('{').strip()}", "lines": [number, number], "depth": 0})
+        raw = lines[number - 1]
+        text = re.sub(r"//.*$", "", raw).strip()
+        opens, closes = text.count("{"), text.count("}")
+        leading = len(text) - len(text.lstrip("}"))
+        body = text.strip("{} ;").strip()
+        if body and not body.startswith(("/*", "*")):
+            steps.append({"english": brace_sentence(body), "lines": [number, number],
+                          "depth": max(0, depth - leading) + braceless})
+            # "if (x)" with no brace controls just the next statement: indent that one.
+            braceless = 1 if re.match(r"^(?:\}\s*)?(?:if|else|for|while)\b", body) and \
+                not text.endswith(("{", ";")) and not after_condition(body) else 0
+        depth = max(0, depth + opens - closes)
     return steps
+
+
+# Input: text (str)
+# Output: str
+# Processing: Whatever follows the parenthesised condition of an if/for/while, e.g. "return 1".
+# Changed by: Claude
+# Date: 2026-11-10
+def after_condition(text: str) -> str:
+    start = text.find("(")
+    if start < 0:
+        return ""
+    depth = 0
+    for index in range(start, len(text)):
+        depth += {"(": 1, ")": -1}.get(text[index], 0)
+        if depth == 0:
+            return text[index + 1:].strip()
+    return ""
+
+
+BRACE_TYPES = r"(?:const\s+|static\s+|unsigned\s+|volatile\s+)*(?:auto|bool|char|int|long|short|float|double|byte|" \
+              r"size_t|String|let|var|const|u?int(?:8|16|32|64)_t|[A-Z]\w*)\b[*&\s]+"
+"""Leading declaration words dropped when wording "int x = 5" as "Set x to 5"."""
+
+
+# Input: text (str)
+# Output: str
+# Processing: One C-like statement as a plain-English sentence.
+# Changed by: Claude
+# Date: 2026-11-10
+def brace_sentence(text: str) -> str:
+    cut = lambda value: value if len(value) <= MAX_SHOWN else value[: MAX_SHOWN - 1] + "…"  # noqa: E731
+    text = re.sub(r"\s+", " ", text)
+    text = re.sub(r"(^|[(\s&|])!(?!=)", r"\1not ", text)
+    if m := re.match(r"^delete(?:\[\])?\s+(.+)$", text):
+        return f"Remove {cut(m.group(1))}"
+    if m := re.match(r"^(?:\}\s*)?else\s+if\s*\((.*)\)$", text):
+        return f"Otherwise, if {cut(m.group(1))}"
+    if re.match(r"^(?:\}\s*)?else$", text):
+        return "Otherwise"
+    if m := re.match(r"^if\s*\((.*)\)\s*(.*)$", text):
+        then = f", then {brace_sentence(m.group(2).strip('{} ;'))[0].lower()}{brace_sentence(m.group(2).strip('{} ;'))[1:]}" \
+            if m.group(2).strip("{} ;") else ""
+        return f"If {cut(m.group(1))}{then}"
+    if m := re.match(r"^for\s*\((.*)\)$", text):
+        parts = [p.strip() for p in m.group(1).split(";")]
+        if len(parts) == 3 and (r := re.match(r"^(?:\w+\s+)?(\w+)\s*=\s*(.+)$", parts[0])) and \
+                (c := re.match(rf"^{r.group(1)}\s*(<=?|>=?)\s*(.+)$", parts[1])):
+            return f"Repeat for each {r.group(1)} from {cut(r.group(2))} {'up to' if '<' in c.group(1) else 'down to'} " \
+                   f"{cut(c.group(2))}"
+        if (r := re.match(r"^(?:\w+\s+)*(\w+)\s+(?:of|in|:)\s+(.+)$", m.group(1))):
+            return f"For each {r.group(1)} in {cut(r.group(2))}"
+        return f"Repeat: {cut(m.group(1))}"
+    if m := re.match(r"^while\s*\((.*)\)$", text):
+        return f"Repeat while {cut(m.group(1))}"
+    if text == "do":
+        return "Repeat the following"
+    if m := re.match(r"^switch\s*\((.*)\)$", text):
+        return f"Choose based on {cut(m.group(1))}"
+    if m := re.match(r"^case\s+(.+?):?$", text):
+        return f"When it is {cut(m.group(1))}"
+    if text.rstrip(":") == "default":
+        return "In any other case"
+    if text == "break":
+        return "Stop here"
+    if text == "continue":
+        return "Skip to the next round"
+    if m := re.match(r"^return\b\s*(.*)$", text):
+        return f"Give back {cut(m.group(1))}" if m.group(1) else "Finish"
+    if m := re.match(r"^(?:try)$", text):
+        return "Try the following"
+    if m := re.match(r"^catch\s*\((.*)\)$", text):
+        return f"If that fails with {cut(m.group(1))}"
+    if m := re.match(r"^throw\s+(.+)$", text):
+        return f"Stop with the error {cut(m.group(1))}"
+    if m := re.match(r"^(\w[\w.\[\]>-]*)\s*\+\+$|^\+\+\s*(\w[\w.\[\]>-]*)$", text):
+        return f"Add 1 to {m.group(1) or m.group(2)}"
+    if m := re.match(r"^(\w[\w.\[\]>-]*)\s*--$|^--\s*(\w[\w.\[\]>-]*)$", text):
+        return f"Subtract 1 from {m.group(1) or m.group(2)}"
+    if m := re.match(r"^(\w[\w.\[\]>-]*)\s*([+\-*/|&])=\s*(.+)$", text):
+        verb = {"+": "Add {v} to {t}", "-": "Subtract {v} from {t}", "*": "Multiply {t} by {v}",
+                "/": "Divide {t} by {v}"}.get(m.group(2), "Update {t} with {v}")
+        return verb.format(t=m.group(1), v=cut(m.group(3)))
+    declared = re.sub(rf"^{BRACE_TYPES}", "", text)
+    if m := re.match(r"^([\w.\[\]>*-]+)\s*=\s*(.+)$", declared):
+        return f"Set {m.group(1).lstrip('*')} to {cut(m.group(2))}"
+    if declared != text and re.match(r"^[\w\[\]]+$", declared):
+        return f"Create {declared}"
+    if m := re.match(r"^(?:await\s+)?([\w.:>-]+)\s*\((.*)\)$", text):
+        return f"Call {m.group(1)}" + (f" with {cut(m.group(2))}" if m.group(2).strip() else "")
+    return f"Run: {cut(text)}"
 
 
 # Input: ctx (Context), steps (list[dict]), code (str), language (str)
@@ -159,6 +258,27 @@ def reword(ctx: Context, steps: list[dict[str, Any]], code: str, language: str) 
             step["english"] = str(text).strip()
 
 
+STEPS_LAYER = 4
+"""Step blocks live on the English steps layer, between the Files layer and the Code layer."""
+
+
+# Input: ctx (Context), file (str)
+# Output: str
+# Processing: A project-relative path from "src/a.py", "/src/a.py" or an absolute path inside the project.
+# Changed by: Claude
+# Date: 2026-11-10
+def project_path(ctx: Context, file: str) -> str:
+    from pathlib import Path
+
+    raw = file.strip()
+    if raw.startswith("/"):
+        try:
+            return Path(raw).resolve().relative_to(ctx.fs.root).as_posix()
+        except ValueError:
+            pass  # not inside the project: read it as relative to the project root
+    return raw.strip("/")
+
+
 # Input: ctx (Context), file (str), detail (Any), ai (Any), discard (Any)
 # Output: dict[str, Any]
 # Processing: Show a code file as plain-English step blocks.
@@ -167,7 +287,7 @@ def reword(ctx: Context, steps: list[dict[str, Any]], code: str, language: str) 
 @operation("file.blocks", command="/blocks view", tool="plovane_file_blocks", group="plovane_compile")
 def view(ctx: Context, file: str, detail: Any = 2, ai: Any = False, discard: Any = False) -> dict[str, Any]:
     """Shows a code file as plain-English step blocks at the chosen detail level."""
-    path = file.strip("/")
+    path = project_path(ctx, file)
     ctx.require(path, "read")
     level = integer(detail, "detail")
     if level not in (1, 2, 3):
@@ -207,6 +327,7 @@ def view(ctx: Context, file: str, detail: Any = 2, ai: Any = False, discard: Any
             reword(ctx, steps, text, language)
         for index, step in enumerate(steps, start=1):
             block = ctx.new_block("step", step["english"][:120], parent=function.id, symbol=unit.qualname,
+                                  layer=STEPS_LAYER,
                                   id_hint=f"{function.id}-step-{index}",
                                   meta={"file": path, "function": unit.qualname, "lines": step["lines"],
                                         "english": step["english"], "original": step["english"],

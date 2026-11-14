@@ -56,6 +56,9 @@ def _edges(*names: str) -> dict[str, tuple[str, str]]:
 
 
 COMMANDS: tuple[Command, ...] = (
+    # Sketch: the short lines an AI should write (see ops/sketch.py)
+    Command("sketch", "sketch", ("script",), rest=True,
+            example='/sketch service orders; database postgres; orders -> postgres "reads"'),
     # Layers and zoom
     Command("layer define", "layer.define", ("number",), example="/layer define 1 --zoom 10-20 --show services"),
     Command("layer edit", "layer.edit", ("number",), example="/layer edit 2 --zoom 20-40"),
@@ -70,6 +73,8 @@ COMMANDS: tuple[Command, ...] = (
     Command("file create", "file.create", ("path",),
             example="/file create src/payments/charge.py --template python-module"),
     Command("folder delete", "folder.delete", ("path",), example="/folder delete src/old-cache"),
+    Command("file save", "file.save", ("path",), example="/file save src/app.py --content \"...\" --base 1a2b3c"),
+    Command("files", "file.list", ("under",), example="/files  or  /files src"),
     Command("project import", "project.import", ("path",), example="/project import"),
     # Blocks
     Command("block add", "block.add", ("kind", "name"), example='/block add service "auth" --layer 1'),
@@ -83,6 +88,7 @@ COMMANDS: tuple[Command, ...] = (
     Command("block info", "block.info", ("block",), example="/block info checkout"),
     # English blocks and compile
     Command("blocks view", "file.blocks", ("file",), example="/blocks view src/orders.py --detail 2"),
+    Command("blocks", "file.blocks", ("file",), example="/blocks src/orders.py"),
     Command("block edit", "block.edit_text", ("block", "text"), rest=True,
             example='/block edit step-3 "Charge the card, retry twice on failure"'),
     Command("block replace", "block.replace", ("block",), aliases={"with": "entry"}, extras="params",
@@ -91,6 +97,7 @@ COMMANDS: tuple[Command, ...] = (
     Command("compile", "compile", ("direction", "target"), example="/compile blocks-to-code src/orders.py --preview"),
     # Placement and coordinates
     Command("place", "place", ("block",), example="/place auth --at 200,120  or  /place billing --right-of auth --gap 80"),
+    Command("place relative", "place", ("block",), example="/place relative billing --right-of auth --gap 80"),
     Command("align", "align", ("blocks",), choices=_edges("top", "bottom", "left", "right", "center"),
             example="/align auth,users,billing --top"),
     Command("distribute", "distribute", ("blocks",),
@@ -101,6 +108,7 @@ COMMANDS: tuple[Command, ...] = (
     Command("size", "size", ("block", "size"), example="/size auth 240x120  or  /size auth --fit"),
     # Style
     Command("style", "style", ("block",), example="/style auth --preset service"),
+    Command("style --preset", "style", ("block", "preset"), example="/style --preset auth service"),
     Command("preset define", "preset.define", ("name",),
             example="/preset define service --fill #E8F0FE --border #1A73E8 --radius 12 --icon server"),
     Command("theme", "theme", ("name",), example="/theme dark"),
@@ -220,6 +228,8 @@ def parse(text: str) -> tuple[str, dict[str, Any]]:
         raise OpError("INVALID_COMMAND", "empty command")
     body = stripped[1:] if stripped.startswith("/") else stripped
     first_line, _, remainder = body.partition("\n")
+    if first_line.strip().split(" ", 1)[0] == "sketch":
+        return "sketch", {"script": [first_line.strip()[len("sketch"):].strip(), *remainder.splitlines()]}
     if first_line.strip().split(" ", 1)[0] == "batch":
         lines = [first_line.strip()[len("batch"):].strip(), *remainder.splitlines()]
         return "batch", {"commands": [line.strip() for line in lines if line.strip()]}

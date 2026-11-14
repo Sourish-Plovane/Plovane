@@ -5,6 +5,32 @@ by running the same slash commands. Each visual change also changes the
 project itself: folders, files, imports, route handlers and client calls.
 Every change can be undone and is logged.
 
+## Sketch: short lines for AI agents
+
+An AI should draw with `/sketch` (MCP: `plovane_sketch(script)`), not with the
+detailed commands below. One plain line per change, or several separated by `;`:
+
+```
+service orders, payments
+database postgres
+queue order-events
+external stripe
+orders -> payments "POST /charge"
+orders, payments -> postgres
+rename orders "order service"
+unlink orders -> postgres
+remove drivers
+show
+```
+
+Each line is one small function in `ops/sketch.py`. Sketch only draws: it writes
+no files and generates no endpoints, so nothing shows up on other layers. Names
+are matched to existing blocks, so repeating a line changes nothing, and linking
+a name that doesn't exist is refused with the closest match. The services layer
+is laid out in columns after every change. All lines apply together, as one undo
+step. Start the MCP server with `PLOVANE_MCP_TOOLS=sketch` to give an agent only
+`plovane_sketch` and `plovane_undo`.
+
 ## Layout
 
 ```
@@ -186,6 +212,7 @@ command answers `needs_confirmation` first.
 
 | Command | Operation | MCP tool | Confirms | What it does | Example |
 |---|---|---|---|---|---|
+| `/sketch` | `sketch` | `plovane_sketch` |  | Draws with short lines (service orders | a -> b "label" | remove a); all apply or none do. | `/sketch service orders; database postgres; orders -> postgres "reads"` |
 | `/layer define` | `layer.define` | `plovane_layer` |  | Creates a layer with its zoom range and the block types it shows. | `/layer define 1 --zoom 10-20 --show services` |
 | `/layer edit` | `layer.edit` | `plovane_layer` |  | Changes a layer's zoom range or contents. | `/layer edit 2 --zoom 20-40` |
 | `/layer list` | `layer.list` | `plovane_layer` |  | Shows all layers with their ranges and contents. | `/layer list` |
@@ -197,6 +224,8 @@ command answers `needs_confirmation` first.
 | `/folder create` | `folder.create` | `plovane_project` |  | Creates a real folder in the project and its block on the whiteboard. | `/folder create src/payments --right-of src/auth` |
 | `/file create` | `file.create` | `plovane_project` |  | Creates a real file, optionally from a starter template. | `/file create src/payments/charge.py --template python-module` |
 | `/folder delete` | `folder.delete` | `plovane_project` | yes | Deletes a folder after showing what depends on it. | `/folder delete src/old-cache` |
+| `/file save` | `file.save` | `plovane_project` |  | Saves edited text to a file; refuses if it changed on disk since it was opened (base). | `/file save src/app.py --content "..." --base 1a2b3c` |
+| `/files` | `file.list` | `plovane_project` |  | Lists the project's files (skipping .git, node_modules and virtual environments). | `/files  or  /files src` |
 | `/project import` | `project.import` | `plovane_project` |  | Maps existing folders, files and imports onto blocks; Git stays the source of truth. | `/project import` |
 | `/block add` | `block.add` | `plovane_block` |  | Adds a block to a layer. | `/block add service "auth" --layer 1` |
 | `/block move` | `block.move` | `plovane_block` |  | Moves a block on the canvas or into a group; moving a file block moves the real file. | `/block move auth --into backend` |
@@ -207,17 +236,20 @@ command answers `needs_confirmation` first.
 | `/block delete` | `block.delete` | `plovane_block` | yes | Removes a block and its code after showing dependents. | `/block delete old-cache` |
 | `/block info` | `block.info` | `plovane_block` |  | Shows a block's code, connections, and source. | `/block info checkout` |
 | `/blocks view` | `file.blocks` | `plovane_compile` |  | Shows a code file as plain-English step blocks at the chosen detail level. | `/blocks view src/orders.py --detail 2` |
+| `/blocks` | `file.blocks` | `plovane_compile` |  | Shows a code file as plain-English step blocks at the chosen detail level. | `/blocks src/orders.py` |
 | `/block edit` | `block.edit_text` | `plovane_compile` |  | Rewrites an English block; the AI regenerates the code underneath as a reviewable diff. | `/block edit step-3 "Charge the card, retry twice on failure"` |
 | `/block replace` | `block.replace` | `plovane_compile` |  | Replaces a block with a verified palette block. | `/block replace step-3 --with retry_request --times 3` |
 | `/compile apply` | `compile.apply` | `plovane_compile` | yes | Applies a previewed compile after tests pass. | `/compile apply c_102` |
 | `/compile` | `compile` | `plovane_compile` | sometimes | Compiles changed blocks to code (or code to blocks), shows a diff, and runs affected tests. | `/compile blocks-to-code src/orders.py --preview` |
 | `/place` | `place` | `plovane_place` |  | Places a block at exact coordinates, or relative to another block. | `/place auth --at 200,120  or  /place billing --right-of auth --gap 80` |
+| `/place relative` | `place` | `plovane_place` |  | Places a block at exact coordinates, or relative to another block. | `/place relative billing --right-of auth --gap 80` |
 | `/align` | `align` | `plovane_place` |  | Aligns blocks along an edge or center. | `/align auth,users,billing --top` |
 | `/distribute` | `distribute` | `plovane_place` |  | Spaces blocks evenly. | `/distribute auth,users,billing --horizontal --gap 60` |
 | `/grid` | `grid` | `plovane_place` |  | Sets grid size and snapping. | `/grid 20 --snap on` |
 | `/coords` | `coords` | `plovane_place` |  | Shows a block's position and size. | `/coords auth` |
 | `/size` | `size` | `plovane_place` |  | Sets a block's width and height, or fits it to its contents. | `/size auth 240x120  or  /size auth --fit` |
 | `/style` | `style` | `plovane_style` |  | Sets visual properties on a block, or applies a saved preset. | `/style auth --preset service` |
+| `/style --preset` | `style` | `plovane_style` |  | Sets visual properties on a block, or applies a saved preset. | `/style --preset auth service` |
 | `/preset define` | `preset.define` | `plovane_style` |  | Saves a named style for reuse. | `/preset define service --fill #E8F0FE --border #1A73E8 --radius 12 --icon server` |
 | `/theme` | `theme` | `plovane_style` |  | Changes all colors at once. | `/theme dark` |
 | `/connect` | `connect` | `plovane_connect` |  | Draws a typed arrow; creates or links real code. Unbuilt endpoints show as dashed "planned". | `/connect checkout -> payments --type api --endpoint "POST /charge"` |
@@ -277,3 +309,4 @@ command answers `needs_confirmation` first.
 | `/layout` | `view.layout` | `plovane_view` |  | Rearranges the canvas automatically. | `/layout left-to-right` |
 | `/filter` | `view.filter` | `plovane_view` |  | Shows only certain block or arrow types. | `/filter --arrows api` |
 | `/board` | `board.read` | `plovane_view` |  | Reads the whiteboard: blocks, arrows, endpoints and status, for an AI to get the picture first. | `/board  or  /board --layer 3  or  /board --block payments` |
+

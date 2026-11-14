@@ -16,7 +16,7 @@ from backend.whiteboard import codegen
 from backend.whiteboard.refactor import resolve_from
 from backend.whiteboard.engine import Context
 from backend.whiteboard.model import Block
-from backend.whiteboard.ops.placement import apply_position, grow_to_fit
+from backend.whiteboard.ops.placement import apply_position
 from backend.whiteboard.registry import OpError, flag, operation
 
 JS_IMPORT = re.compile(r"""(?:from\s+|require\(\s*|import\s+)['"](\.{1,2}/[^'"]+)['"]""")
@@ -181,6 +181,62 @@ def create_file(ctx: Context, path: str, template: str | None = None, at: Any = 
     return {"block": block.id, "path": file, "template": template, "layer": block.layer}
 
 
+# Input: ctx (Context), path (str), content (str), base (str | None)
+# Output: dict[str, Any]
+# Processing: Write new text to an existing file, refusing if it changed since it was opened, and refresh its blocks.
+# Changed by: Claude
+# Date: 2026-11-10
+@operation("file.save", command="/file save", tool="plovane_file_save", group="plovane_project")
+def save_file(ctx: Context, path: str, content: str, base: str | None = None) -> dict[str, Any]:
+    """Saves edited text to a file; refuses if it changed on disk since it was opened (base)."""
+    from backend.whiteboard.ops.code import version_of
+
+    file = path.strip("/")
+    ctx.require(file)
+    if not ctx.fs.exists(file) or ctx.fs.is_dir(file):
+        raise OpError("NOT_FOUND", f"no file {file}; create it with /file create")
+    if not isinstance(content, str):
+        raise OpError("INVALID_ARGS", "content must be the file's full text")
+    current = ctx.fs.read(file)
+    if base and version_of(current) != base:
+        raise OpError("CONFLICT", f"{file} changed on disk after it was opened; reload it before saving")
+    if content == current:
+        return {"path": file, "saved": False, "version": version_of(current)}
+    ctx.fs.write(file, content)
+    refreshed = False
+    steps = [b for b in ctx.board.blocks.values() if b.kind == "step" and b.meta.get("file") == file]
+    if steps and not any(b.meta.get("changed") for b in steps):
+        try:
+            ctx.execute("file.blocks", {"file": file, "detail": steps[0].meta.get("detail", 2)})
+            refreshed = True
+        except OpError as exc:
+            ctx.notes.append(f"saved, but the plain-English blocks could not be rebuilt: {exc.message}")
+    return {"path": file, "saved": True, "version": version_of(content),
+            "lines": content.count("\n") + (not content.endswith("\n")), "blocks_refreshed": refreshed}
+
+
+# Input: ctx (Context), under (str)
+# Output: dict[str, Any]
+# Processing: Every file in the project, or under one folder, for opening.
+# Changed by: Claude
+# Date: 2026-11-10
+@operation("file.list", command="/files", tool="plovane_file_list", group="plovane_project", mutates=False)
+def list_files(ctx: Context, under: str = "") -> dict[str, Any]:
+    """Lists the project's files (skipping .git, node_modules and virtual environments)."""
+    base = under.strip("/")
+    ctx.require(base or None, "read")
+    if base and not ctx.fs.is_dir(base):
+        raise OpError("NOT_FOUND", f"no folder {base}")
+    files = ctx.fs.files_under(base)
+    return {"under": base, "count": len(files), "truncated": len(files) > MAX_LISTED,
+            "files": [{"path": f, "language": codegen.language_of(f), "on_board": ctx.board.block_for_path(f) is not None}
+                      for f in files[:MAX_LISTED]]}
+
+
+MAX_LISTED = 5000
+"""Most files /files returns; a bigger project is listed folder by folder."""
+
+
 # Input: ctx (Context), path (str)
 # Output: dict[str, Any]
 # Processing: Delete a folder after listing what depends on it.
@@ -205,6 +261,69 @@ def delete_folder(ctx: Context, path: str) -> dict[str, Any]:
         ctx.notes.append(f"these files import from {folder} and will break: {importers}")
     return {"deleted": folder, "files": files, "importers": importers, "incoming_arrows": incoming,
             "removed": removed}
+
+
+PACK_GAP, PACK_PAD, PACK_HEAD = 24, 20, 48
+"""Space between packed blocks, around them inside a folder, and above them for the folder's title."""
+
+
+# Input: children (list[Block]), origin (tuple[float, float]), ratio (float)
+# Output: tuple[float, float]
+# Processing: Lay blocks out left to right in rows of a roughly fixed width; return the size used.
+# Changed by: Claude
+# Date: 2026-11-10
+def pack_rows(children: list[Block], origin: tuple[float, float], ratio: float) -> tuple[float, float]:
+    area = sum((b.w + PACK_GAP) * (b.h + PACK_GAP) for b in children)
+    limit = max(max(b.w for b in children), (area * ratio) ** 0.5)
+    x, y, row_h, used_w = 0.0, 0.0, 0.0, 0.0
+    for block in children:
+        if x and x + block.w > limit:
+            x, y, row_h = 0.0, y + row_h + PACK_GAP, 0.0
+        block.x, block.y = origin[0] + x, origin[1] + y
+        x += block.w + PACK_GAP
+        row_h = max(row_h, block.h)
+        used_w = max(used_w, x - PACK_GAP)
+    return used_w, y + row_h
+
+
+# Input: ctx (Context), added (list[str])
+# Output: None
+# Processing: Pack each imported folder tree bottom-up so nothing overlaps, then lay out the top-level folders.
+# Changed by: Claude
+# Date: 2026-11-10
+def pack_tree(ctx: Context, added: list[str]) -> None:
+    """Folders first, then files, by name. Each folder is sized to hold its packed children
+    below its title, so zooming into it shows them inside it."""
+    blocks = ctx.board.blocks
+    order = lambda b: (b.kind != "folder", b.name.lower())  # noqa: E731
+
+    # Input: block (Block)
+    # Output: None
+    # Processing: Pack one folder's children (after packing theirs) and size the folder to fit.
+    # Changed by: Claude
+    # Date: 2026-11-10
+    def pack(block: Block) -> None:
+        children = sorted((b for b in blocks.values() if b.parent == block.id and b.kind in ("folder", "file")),
+                          key=order)
+        if not children:
+            return
+        for child in children:
+            pack(child)
+        w, h = pack_rows(children, (PACK_PAD, PACK_HEAD), ratio=1.8)
+        block.w, block.h = max(block.w, w + 2 * PACK_PAD), max(block.h, h + PACK_HEAD + PACK_PAD)
+
+    roots = []
+    for block_id in added:
+        block = blocks.get(block_id)
+        while block is not None and block.parent in blocks:
+            block = blocks[block.parent]
+        if block is not None and block not in roots:
+            roots.append(block)
+    for root in roots:
+        pack(root)
+    top = sorted((b for b in blocks.values() if b.parent is None and b.kind in ("folder", "file")), key=order)
+    if top:
+        pack_rows(top, (40, 40), ratio=2.4)
 
 
 # Input: ctx (Context), path (str), arrows (Any)
@@ -242,8 +361,7 @@ def import_project(ctx: Context, path: str = "", arrows: Any = True) -> dict[str
                         a.source == source.id and a.target == target.id and a.type == "import"
                         for a in ctx.board.arrows.values()):
                     added_arrows.append(new_arrow(ctx, source, target, "import").id)
-    for block in ctx.board.blocks.values():
-        if block.kind == "folder":
-            grow_to_fit(ctx, block)
+    if added_blocks:
+        pack_tree(ctx, added_blocks)
     return {"files_found": len(files), "blocks_added": added_blocks, "import_arrows_added": added_arrows,
             "missing_on_disk": missing}

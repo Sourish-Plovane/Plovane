@@ -53,3 +53,6 @@ ml/artifacts/*.pt
 ml/artifacts/*.log
 ml/artifacts/*.jsonl
 ml/artifacts/smoke/
+
+# JavaScript dependencies. Installed by `npm install`, never committed.
+node_modules/
