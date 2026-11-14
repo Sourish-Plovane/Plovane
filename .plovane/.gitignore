@@ -4,3 +4,7 @@ log.jsonl
 compile/
 monitor/
 submissions.jsonl
+server.json
+agent_tokens.json
+lock
+*.tmp

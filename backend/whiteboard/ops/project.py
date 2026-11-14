@@ -181,6 +181,38 @@ def create_file(ctx: Context, path: str, template: str | None = None, at: Any = 
     return {"block": block.id, "path": file, "template": template, "layer": block.layer}
 
 
+# Input: ctx (Context), path (str), content (str), base (str | None)
+# Output: dict[str, Any]
+# Processing: Write new text to an existing file (refusing if it changed since it was read) and refresh line numbers.
+# Changed by: Claude Code
+# Date: 2026-11-09
+@operation("file.save", command="/file save", tool="plovane_file_save", group="plovane_project")
+def save_file(ctx: Context, path: str, content: str, base: str | None = None) -> dict[str, Any]:
+    """Saves edited text to an existing file; undo restores the old text."""
+    from backend.whiteboard.ops.blocks import symbol_blocks  # blocks imports this module
+
+    file = path.strip("/")
+    ctx.require(file)
+    if ctx.fs.is_dir(file) or not ctx.fs.exists(file):
+        raise OpError("NOT_FOUND", f"no file {file!r}")
+    before = ctx.fs.read(file)
+    if base is not None and base != before:
+        raise OpError("CONFLICT", f"{file} changed on disk since it was opened; reopen it and edit again")
+    if content == before:
+        return {"path": file, "changed": False, "lines": len(content.splitlines())}
+    ctx.fs.write(file, content)
+    owner = ctx.board.block_for_path(file)
+    if owner is not None and codegen.language_of(file):
+        if any(b.kind in ("function", "class") and b.meta.get("file") == file for b in ctx.board.blocks.values()):
+            try:
+                symbol_blocks(ctx, owner)
+            except SyntaxError:
+                ctx.notes.append(f"{file} does not parse now; function blocks keep their old line numbers")
+        if any(b.meta.get("source") == "ai" and b.meta.get("file") == file for b in ctx.board.blocks.values()):
+            ctx.notes.append(f"the AI blocks of {file} may point at old lines; run /blocks generate {file} to redo them")
+    return {"path": file, "changed": True, "lines": len(content.splitlines())}
+
+
 # Input: ctx (Context), path (str)
 # Output: dict[str, Any]
 # Processing: Delete a folder after listing what depends on it.

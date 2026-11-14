@@ -1,3 +1,11 @@
+/*
+Input: CLI page structure and state classes
+Output: Terminal colors, spacing, and responsive layout
+Processing: Defines the visual styles for the embedded command line
+Changed by: Aarav
+Date: 2026-11-14
+*/
+
 :root {
   color-scheme: light;
   font: 12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -173,6 +181,11 @@ body[data-theme="dark"] {
   --terminal-ink: #e4e6ed;
   --terminal-muted: #9299a7;
   --terminal-line: #393d48;
+}
+
+body[data-theme="dark"] .terminal-output,
+body[data-theme="dark"] .terminal-output .terminal-line {
+  color: #fff;
 }
 
 @media (max-width: 620px) {

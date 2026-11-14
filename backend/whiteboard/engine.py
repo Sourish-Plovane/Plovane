@@ -25,7 +25,7 @@ import inspect
 import os
 import subprocess
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from backend.whiteboard.model import DEFAULT_SIZE, LAYER_FOR_KIND, Block, Board
 from backend.whiteboard.registry import OPERATIONS, OpError, OpSpec
@@ -305,6 +305,35 @@ class Workspace:
         self._llm = llm
         self.prompt_context: dict[str, Any] | None = None
         self.processes: dict[str, subprocess.Popen] = {}
+        self.listeners: list[Callable[[dict[str, Any]], None]] = []
+        """Called with one event per change: the server turns them into live updates."""
+        self.current_command: str | None = None
+        """The slash command being run, as typed, so its event can show it."""
+
+    # Input: none
+    # Output: bool
+    # Processing: Reload board.json when another process changed it since this one last read or wrote it.
+    # Changed by: Claude Code
+    # Date: 2026-11-09
+    def sync(self) -> bool:
+        if self.store.board_stamp() == self.store.last_stamp:
+            return False
+        self.board = self.store.load_board()
+        self.emit({"kind": "external", "actor": None, "op": None, "command": None, "changes": {}})
+        return True
+
+    # Input: event (dict[str, Any])
+    # Output: None
+    # Processing: Hand one change event to every listener; a failing listener never breaks the operation.
+    # Changed by: Claude Code
+    # Date: 2026-11-09
+    def emit(self, event: dict[str, Any]) -> None:
+        event = {"at": now(), **event}
+        for listener in list(self.listeners):
+            try:
+                listener(event)
+            except Exception:  # noqa: BLE001  (a closed stream must not undo a change)
+                pass
 
     # Input: none
     # Output: Any
@@ -332,19 +361,23 @@ class Workspace:
             raise OpError("LLM_UNAVAILABLE", reply["error"])
         return reply["text"]
 
-    # Input: prompt (str), system (str | None)
+    # Input: prompt (str), system (str | None), provider (str | None)
     # Output: dict[str, Any]
-    # Processing: Ask the configured provider and retain its token usage.
-    # Changed by: Codex
-    # Date: 2026-11-07
+    # Processing: Ask Claude, DeepSeek or OpenAI and keep its token usage; a missing key says how to add one.
+    # Changed by: Claude Code
+    # Date: 2026-11-09
     def llm_result(self, prompt: str, system: str | None = None, *, provider: str | None = None) -> dict[str, Any]:
         if self._llm is not None:
             return {"text": self._llm(prompt, system), "usage": {}}
         from ml.serving import llm
 
-        reply = llm.ask(prompt, provider=provider or os.environ.get("PLOVANE_LLM_PROVIDER", "anthropic"),
-                        system=system, max_tokens=4096)
+        provider = provider or os.environ.get("PLOVANE_LLM_PROVIDER", "anthropic")
+        reply = llm.ask(prompt, provider=provider, system=system, max_tokens=4096)
         if "error" in reply:
+            if "is not set" in reply["error"]:
+                name = {"anthropic": "claude"}.get(provider, provider)
+                raise OpError("LLM_UNAVAILABLE", f"no API key for {name}: add one under AI providers "
+                                                 f"(the A button, top right) or run 'plovane connect {name}'")
             raise OpError("LLM_UNAVAILABLE", reply["error"])
         return reply
 
@@ -374,10 +407,23 @@ class Workspace:
 
     # Input: op (str), args (dict | None), actor (str), confirm (bool), dry_run (bool)
     # Output: dict[str, Any]
-    # Processing: Run one operation and answer in the §4.1 envelope.
-    # Changed by: Sourish
-    # Date: 2026-10-22
+    # Processing: Run one operation under the project lock, after picking up other processes' changes.
+    # Changed by: Claude Code
+    # Date: 2026-11-09
     def execute(
+        self, op: str, args: dict[str, Any] | None = None, *, actor: str = USER,
+        confirm: bool = False, dry_run: bool = False,
+    ) -> dict[str, Any]:
+        with self.store.locked():
+            self.sync()
+            return self._execute(op, args, actor=actor, confirm=confirm, dry_run=dry_run)
+
+    # Input: op (str), args (dict | None), actor (str), confirm (bool), dry_run (bool)
+    # Output: dict[str, Any]
+    # Processing: Run one operation with the project lock held and the board current.
+    # Changed by: Claude Code
+    # Date: 2026-11-09
+    def _execute(
         self, op: str, args: dict[str, Any] | None = None, *, actor: str = USER,
         confirm: bool = False, dry_run: bool = False,
     ) -> dict[str, Any]:
@@ -485,6 +531,9 @@ class Workspace:
         if after != before:
             self.store.save_board(self.board)
         self._log(spec.name, args, actor, ok=True, detail=summary)
+        if summary and spec.name not in ("history.undo", "history.redo"):
+            self.emit({"kind": "change", "actor": actor, "op": spec.name,
+                       "command": self.current_command, "changes": summary})
         return out
 
     # Input: op (str), args (dict), actor (str), ok (bool), detail (Any)
@@ -498,9 +547,9 @@ class Workspace:
 
     # Input: direction (str), actor (str)
     # Output: dict[str, Any]
-    # Processing: Undo or redo the newest entry, refusing if files changed since.
-    # Changed by: Sourish
-    # Date: 2026-10-22
+    # Processing: Undo or redo the newest entry, refusing if files changed since, and announce it.
+    # Changed by: Claude Code
+    # Date: 2026-11-09
     def step_history(self, direction: str, actor: str = USER) -> dict[str, Any]:
         history = self.store.load_history()
         source, target = ("undo", "redo") if direction == "undo" else ("redo", "undo")
@@ -527,6 +576,8 @@ class Workspace:
         self.store.save_history(history)
         self.store.save_board(self.board)
         self._log(f"history.{direction}", {}, actor, ok=True, detail=entry["op"])
+        self.emit({"kind": "change", "actor": actor, "op": f"history.{direction}",
+                   "command": f"/{direction}", "changes": {"undone" if direction == "undo" else "redone": entry["op"]}})
         return {"action": direction, "op": entry["op"], "at": entry["at"],
                 "files": sorted(entry["files"]["files"])}
 

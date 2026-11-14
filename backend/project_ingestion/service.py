@@ -10,13 +10,28 @@ is testable before Sourish ships B10. B11 is already built; we import it.
 
 from __future__ import annotations
 
+import os
 import uuid
 from typing import Any
 
-from backend.project_ingestion.diagram_client import DiagramClient, StubDiagramClient
+from backend.project_ingestion.diagram_client import (
+    DiagramClient,
+    HttpDiagramClient,
+    StubDiagramClient,
+)
 from backend.project_ingestion.language import detect_language
 from backend.project_ingestion.store import InMemoryStore, ProjectStore
 from backend.validator.diagram import validate_diagram
+
+
+# Input: none
+# Output: DiagramClient
+# Processing: HttpDiagramClient when PLOVANE_B10_URL is set, else the stub.
+# Changed by: Sourish
+# Date: 2026-10-31
+def default_diagram_client() -> DiagramClient:
+    url = os.environ.get("PLOVANE_B10_URL")
+    return HttpDiagramClient(url) if url else StubDiagramClient()
 
 
 # Input: message (str), code (str)
@@ -104,7 +119,7 @@ class IngestionService:
     # Date: 2026-10-31
     def __init__(self, diagram_client: DiagramClient | None = None,
                  store: ProjectStore | None = None) -> None:
-        self.diagram_client = diagram_client or StubDiagramClient()
+        self.diagram_client = diagram_client or default_diagram_client()
         self.store = store or InMemoryStore()
 
     # Input: raw (Any)

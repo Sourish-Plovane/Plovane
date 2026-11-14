@@ -19,13 +19,17 @@ whiteboard/
 ├── codegen.py       the code the whiteboard writes (handlers, client calls, imports, file templates)
 ├── refactor.py      safe code changes: symbols, real references, imports that follow a move
 ├── sandbox.py       runs the affected tests on a temporary copy of the project before code is written
-├── server.py        local HTTP API for the desktop app and CLI (127.0.0.1:8700)
-├── mcp_tools.py     grouped MCP tools for AI agents (registered by backend/mcp_server/)
+├── server.py        local HTTP API for the desktop app and CLI (127.0.0.1:8700), live events, AI runs
+├── auth.py          person and agent tokens: who is calling the server
+├── events.py        live change events, streamed to the whiteboard as Server-Sent Events
+├── llm_agent.py     drives the whiteboard with Claude, DeepSeek or OpenAI over the API (tool-use loop)
+├── mcp_tools.py     grouped MCP tools for AI agents (registered by backend/mcp_server/); forward to the running server
 └── ops/             one module per command category
     ├── layers.py      layers and zoom
-    ├── project.py     real folders and files, /project import
+    ├── project.py     real folders and files, /project import, /file save
     ├── blocks.py      add, move, group, split, merge, rename, delete, info
     ├── english.py     English step blocks, /compile, /block replace
+    ├── outline.py     /blocks generate: Claude or DeepSeek groups a file's code into nested blocks
     ├── placement.py   coordinates, relative placement, align, distribute, grid, size
     ├── style.py       styles, presets, themes
     ├── arrows.py      connections, trace, dependencies
@@ -43,10 +47,29 @@ whiteboard/
 
 ## Running it
 
+The easy way is the CLI (`pip install -e .` once, from the repository root):
+
+```sh
+plovane open                       # open the whiteboard for this folder; launches the desktop app if needed
+plovane wb "/block add service payments"   # run one command; it shows up live in the open window
+plovane serve --headless           # server only, no window (CI, SSH)
+```
+
+`plovane open`, `wb`, `mcp` and `agent` start the desktop app first when
+nothing is running for the folder, the way `docker` starts Docker Desktop.
+Without Electron they fall back to a headless server and the browser.
+
+Directly:
+
 ```sh
 python -m backend.whiteboard.server --project /path/to/project     # HTTP API for the frontend
-python -m backend.mcp_server                                    # MCP tools; set PLOVANE_PROJECT to the project
 ```
+
+On start the server writes `.plovane/server.json` (URL, pid and the person's
+token, mode 600). It is the only owner of the board: before each operation it
+reloads `board.json` if another process changed it, a background watcher
+does the same while idle, and every operation takes `.plovane/lock`, so two
+processes never interleave or overwrite each other.
 
 The board is saved in the project as `.plovane/board.json` and committed with
 the code. The code in Git is the source of truth: the board stores only what
@@ -101,6 +124,69 @@ arrows with the style that matches their type and status:
 `GET /api/v1/whiteboard/commands` lists every command with an example, which
 you can use for autocomplete.
 
+**Tokens.** Every `/api/v1/` request needs `Authorization: Bearer <token>`,
+or it gets 401 `UNAUTHENTICATED`. The person's token is new each time the
+server starts: it is in `.plovane/server.json` and in a
+`<meta name="plovane-token">` tag on the page the server serves. Agent tokens
+are described below. The API also refuses any `Host` other than 127.0.0.1 or
+localhost, so a web page cannot reach it through DNS rebinding.
+
+**Live updates.** `GET /api/v1/whiteboard/events` is a Server-Sent Events
+stream (`?token=` works there, because `EventSource` cannot send headers).
+Each change is one event naming who made it and the command typed:
+
+```
+id: 12
+event: change
+data: {"seq": 12, "kind": "change", "actor": "claude", "op": "block.add",
+       "command": "/block add service payments", "changes": {"blocks": {"added": ["payments"], ...}}}
+```
+
+`kind` is `change`, `external` (board.json changed under the server),
+`agent` (an AI run's steps: `started`, `thought`, `command`, `finished`) or
+`hello`. Reconnecting with `Last-Event-ID` resumes where it left off.
+`GET /events/recent?after=SEQ` returns the same events as JSON.
+
+## Zooming into code
+
+The whiteboard draws the project as boxes inside boxes. The top level shows
+the services and top-level folders. Zooming into a box (scroll over it, or
+double-click it) makes it fill the canvas and shows the boxes inside it:
+folders hold files, and a file holds the blocks that say what its code does.
+A block with nothing inside it shows its own lines of code. Zooming out, the
+↑ Up button or Esc goes back up a level, and the breadcrumbs jump to any
+level.
+
+The blocks inside a file come from one of three places:
+
+| How | Who writes them | Needs |
+|---|---|---|
+| `/blocks generate <file or folder> --provider claude\|deepseek` | that AI reads the file and groups the code by what it does, nesting deeper for complex parts (`--depth`, default 3) | an API key (`plovane connect deepseek`) |
+| `plovane_compile` with action `blocks_generate` and `blocks` (MCP) | the connected AI (for example Claude Code on a subscription) writes the tree itself and passes it in | no key; the AI is already running |
+| `/blocks view <file> --detail 2` (the ƒ Functions button) | the parser: one block per function, its statements inside | nothing |
+
+The tree an AI passes or returns looks like this:
+
+```json
+[{"name": "Charge a card", "summary": "Checks the amount and charges it.", "lines": [5, 11],
+  "children": [{"name": "Check the amount", "lines": [6, 7]}]}]
+```
+
+It's checked against the file before anything is drawn:
+- line ranges are clamped to the file and to their parent
+- a block that overlaps the one before it is dropped, with a note
+- running it again replaces that file's old AI blocks
+- function, class and step blocks are left alone; the whiteboard shows the
+  AI blocks in their place
+
+`/file save <path> --content "..."` (the ✎ Edit code editor, ⌘S) writes the
+file. It's refused when the file changed on disk after it was opened, and
+undo puts the old text back. Function blocks get their new line numbers.
+AI blocks keep their old ones until `/blocks generate` runs again.
+
+When the whiteboard opens on a board with no files, it runs `/project import`
+once, so the real folders and files are there from the start.
+
 ## AI agents
 
 Agents use the same operations through MCP, grouped into 15 tools by noun
@@ -117,9 +203,56 @@ Agents are held to their grants:
 - `/agent grant NAME PATH --mode read|read-write` gives access by path, and the most specific grant wins.
 - `/agent region` gives access to the blocks inside a canvas rectangle.
 
-An MCP agent is named by `PLOVANE_AGENT`; an HTTP caller sends the
-`X-Plovane-Agent` header. Only a person can add agents or change access:
-those commands are left out of MCP and refused when an agent sends them.
+Only a person can add agents or change access: those commands are left out
+of MCP and refused when an agent sends them. **Agents are added in the
+Plovane CLI**: `plovane agent add NAME [--access read-write]` in a terminal,
+or `/agent add NAME` in the whiteboard's CLI panel. The whiteboard's buttons
+open the CLI panel for it, and `POST agent/run` refuses an agent that was not
+added first.
+
+### Connecting an AI
+
+| Way | For | How |
+|---|---|---|
+| MCP | Claude Code, Claude Desktop, Cursor | `claude mcp add plovane -- plovane mcp --dir /path/to/project --agent claude` |
+| API run | Claude, DeepSeek, OpenAI (or any compatible endpoint) | `plovane agent run "add a payments service" --provider deepseek`, or ✦ AI agent in the whiteboard |
+| HTTP | your own scripts and agents | an agent token, sent as `Authorization: Bearer plv_…` |
+
+Each of these acts as a named **agent**, never as the person, and every
+change it makes shows up live in the open whiteboard.
+
+- **MCP.** `plovane mcp` opens the whiteboard if needed, gets a token for the
+  agent, and serves the MCP tools over stdio. Each tool call is forwarded to
+  the server with that token (`PLOVANE_URL`, `PLOVANE_AGENT_TOKEN`). Add
+  `--access read-write` to grant the agent the whole project on connect;
+  otherwise grant access in the Agents tab. Without a running server
+  (`--no-launch`), the tools edit the project in-process as `PLOVANE_AGENT`
+  (default `claude`). An agent nobody added can do nothing.
+- **API runs.** `llm_agent.py` gives the model three tools: `run_command`,
+  `get_board` and `list_commands`. It loops until the model answers in text.
+  `anthropic` uses Messages API tool use; `deepseek` and `openai` use
+  chat-completions function calling. Keys come from `ANTHROPIC_API_KEY` /
+  `DEEPSEEK_API_KEY` / `OPENAI_API_KEY`, or from `~/.plovane/keys.json`
+  (mode 600), which `plovane connect <provider>` and the whiteboard's AI
+  providers dialog write. `PLOVANE_<PROVIDER>_BASE_URL` and
+  `PLOVANE_<PROVIDER>_MODEL` point a provider at another endpoint or model.
+  Plain-English prompts in the whiteboard (`/prompt/plan`) take the same
+  `provider`.
+- **Agent tokens.** A person runs `plovane agent token NAME [--access read-write]`
+  or presses Connect on the agent in the Agents tab. Only the token's SHA-256
+  is stored, in `.plovane/agent_tokens.json`.
+
+Endpoints, all under `/api/v1/whiteboard/`:
+
+| Endpoint | Who | What |
+|---|---|---|
+| `POST agents/<name>/token` `{"access"?, "path"?}` | person | add the agent if new, optionally grant access, return a new token (shown once) |
+| `DELETE agents/<name>/token` | person | revoke it |
+| `GET providers` | anyone | Claude / DeepSeek / OpenAI, whether each has a key, and the model |
+| `POST providers/<name>/key` `{"key"}` | person | save a key |
+| `POST agent/run` `{"prompt", "provider", "model"?, "agent"?, "access"?, "max_steps"?}` | person | start a run in the background |
+| `GET agent/runs`, `GET agent/runs/<id>` | anyone | run status, steps and result |
+| `POST agent/runs/<id>/stop` | person | stop after the current step |
 
 ## What it writes into a project
 
@@ -162,8 +295,8 @@ and undoing all of it restored every file.
 
 ## Limits
 
-- `/block edit`, `/compile blocks-to-code` and `/explain` with AI need an LLM
-  key: `ANTHROPIC_API_KEY`, or `OPENAI_API_KEY` / `DEEPSEEK_API_KEY` with
+- `/block edit`, `/compile blocks-to-code`, `/blocks generate --provider` and `/explain` with AI need an LLM
+  key (MCP agents can pass their own outline to `/blocks generate` instead): `ANTHROPIC_API_KEY`, or `OPENAI_API_KEY` / `DEEPSEEK_API_KEY` with
   `PLOVANE_LLM_PROVIDER=openai` / `deepseek`.
   Without a key, the edit is kept and `/explain` gives a structural summary.
   Compiling English back to code hasn't been tried with a real LLM yet.
@@ -178,6 +311,11 @@ and undoing all of it restored every file.
   joins the library only after the verification pipeline (B12 to B14), which
   isn't built yet.
 - `/monitor` follows processes started by the same running server.
+- `/blocks generate` reads at most 4000 lines per file and 25 files per folder.
+  It hasn't been run against the real Claude or DeepSeek API yet; it has been tested
+  with outlines passed in and with scripted replies.
+- The nested canvas no longer draws agent regions; agent access is listed in the
+  Agents tab.
 
 ## Command reference
 
@@ -196,6 +334,7 @@ command answers `needs_confirmation` first.
 | `/zoom` | `view.zoom` | `plovane_view` |  | Jumps to a zoom level or a layer. | `/zoom 15  or  /zoom layer 2` |
 | `/folder create` | `folder.create` | `plovane_project` |  | Creates a real folder in the project and its block on the whiteboard. | `/folder create src/payments --right-of src/auth` |
 | `/file create` | `file.create` | `plovane_project` |  | Creates a real file, optionally from a starter template. | `/file create src/payments/charge.py --template python-module` |
+| `/file save` | `file.save` | `plovane_project` |  | Saves edited text to an existing file; undo restores the old text. | `/file save src/app.py --content "..."` |
 | `/folder delete` | `folder.delete` | `plovane_project` | yes | Deletes a folder after showing what depends on it. | `/folder delete src/old-cache` |
 | `/project import` | `project.import` | `plovane_project` |  | Maps existing folders, files and imports onto blocks; Git stays the source of truth. | `/project import` |
 | `/block add` | `block.add` | `plovane_block` |  | Adds a block to a layer. | `/block add service "auth" --layer 1` |
@@ -207,6 +346,7 @@ command answers `needs_confirmation` first.
 | `/block delete` | `block.delete` | `plovane_block` | yes | Removes a block and its code after showing dependents. | `/block delete old-cache` |
 | `/block info` | `block.info` | `plovane_block` |  | Shows a block's code, connections, and source. | `/block info checkout` |
 | `/blocks view` | `file.blocks` | `plovane_compile` |  | Shows a code file as plain-English step blocks at the chosen detail level. | `/blocks view src/orders.py --detail 2` |
+| `/blocks generate` | `blocks.generate` | `plovane_compile` |  | Groups a file's code into nested blocks by what it does: pass blocks=[{name, summary, lines: [start, end], children: [...]}] you wrote, or provider=claude or deepseek to have that AI write them. | `/blocks generate src/payments/billing.py --provider deepseek --depth 3` |
 | `/block edit` | `block.edit_text` | `plovane_compile` |  | Rewrites an English block; the AI regenerates the code underneath as a reviewable diff. | `/block edit step-3 "Charge the card, retry twice on failure"` |
 | `/block replace` | `block.replace` | `plovane_compile` |  | Replaces a block with a verified palette block. | `/block replace step-3 --with retry_request --times 3` |
 | `/compile apply` | `compile.apply` | `plovane_compile` | yes | Applies a previewed compile after tests pass. | `/compile apply c_102` |

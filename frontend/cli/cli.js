@@ -1,3 +1,11 @@
+/*
+Input: Typed commands and terminal actions
+Output: Command results, suggestions, and connection status
+Processing: Sends commands to the whiteboard API and updates the terminal
+Changed by: Aarav
+Date: 2026-11-14
+*/
+
 (() => {
   const API = '/api/v1/whiteboard';
   const output = document.querySelector('#terminal-output');
@@ -19,10 +27,21 @@
     output.scrollTop = output.scrollHeight;
   }
 
+  // The server puts the person's token in the page; every API call needs it.
+  const TOKEN = document.querySelector('meta[name="plovane-token"]')?.content || '';
+
+  /**
+   * Input: path (string), options (RequestInit)
+   * Output: Promise<object>
+   * Processing: Call the whiteboard API with the person token and return the envelope's data.
+   * Changed by: Claude Code
+   * Date: 2026-11-09
+   */
   async function request(path, options) {
     const response = await fetch(`${API}/${path}`, {
       ...options,
-      headers: { 'Content-Type': 'application/json', ...(options?.headers || {}) },
+      headers: { 'Content-Type': 'application/json', ...(TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {}),
+        ...(options?.headers || {}) },
     });
     const envelope = await response.json();
     if (!response.ok || !envelope.ok) {
@@ -198,6 +217,8 @@
   document.querySelector('#clear-terminal').addEventListener('click', () => output.replaceChildren());
   window.addEventListener('message', event => {
     if (event.origin !== location.origin || event.data?.type !== 'plovane-cli-focus') return;
+    // The whiteboard sends text to prefill, e.g. "/agent add " (agents are added here, in the CLI).
+    if (typeof event.data.text === 'string') input.value = event.data.text;
     input.focus();
   });
   new MutationObserver(updateTheme).observe(parent.document.body, { attributes: true, attributeFilter: ['data-theme'] });

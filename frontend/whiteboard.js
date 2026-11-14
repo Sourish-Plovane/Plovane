@@ -1,3 +1,11 @@
+/*
+Input: Whiteboard page elements and user actions
+Output: Shared project state and whiteboard interactions
+Processing: Connects page controls to whiteboard API operations
+Changed by: Aarav
+Date: 2026-11-14
+*/
+
 /* Shared local whiteboard client for the five layout prototypes. */
 (() => {
     const API = `${window.PLOVANE_API_ORIGIN || 'http://127.0.0.1:8700'}/api/v1/whiteboard`;

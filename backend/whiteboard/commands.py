@@ -69,6 +69,7 @@ COMMANDS: tuple[Command, ...] = (
     Command("folder create", "folder.create", ("path",), example="/folder create src/payments --right-of src/auth"),
     Command("file create", "file.create", ("path",),
             example="/file create src/payments/charge.py --template python-module"),
+    Command("file save", "file.save", ("path",), example="/file save src/app.py --content \"...\""),
     Command("folder delete", "folder.delete", ("path",), example="/folder delete src/old-cache"),
     Command("project import", "project.import", ("path",), example="/project import"),
     # Blocks
@@ -83,6 +84,8 @@ COMMANDS: tuple[Command, ...] = (
     Command("block info", "block.info", ("block",), example="/block info checkout"),
     # English blocks and compile
     Command("blocks view", "file.blocks", ("file",), example="/blocks view src/orders.py --detail 2"),
+    Command("blocks generate", "blocks.generate", ("target",),
+            example="/blocks generate src/payments/billing.py --provider deepseek --depth 3"),
     Command("block edit", "block.edit_text", ("block", "text"), rest=True,
             example='/block edit step-3 "Charge the card, retry twice on failure"'),
     Command("block replace", "block.replace", ("block",), aliases={"with": "entry"}, extras="params",

@@ -9,6 +9,9 @@ Inside the project, under ``.plovane/``:
     compile/          code previews waiting for /compile apply. Local.
     monitor/          output of processes started by /monitor. Local.
     submissions.jsonl blocks queued for the library by /save. Local.
+    server.json       the running server's port, pid and person token. Local, mode 600.
+    agent_tokens.json hashes of the agents' API tokens. Local, mode 600.
+    lock              held while an operation runs, so two processes never interleave.
 
 The code itself stays where it is: Git is the source of truth, and the board
 only maps onto it.
@@ -17,6 +20,7 @@ only maps onto it.
 from __future__ import annotations
 
 import base64
+import contextlib
 import json
 import shutil
 from datetime import datetime, timezone
@@ -28,7 +32,8 @@ from backend.whiteboard.registry import OpError
 
 STATE_DIR = ".plovane"
 HISTORY_LIMIT = 50
-IGNORED = ("history.json", "log.jsonl", "compile/", "monitor/", "submissions.jsonl")
+IGNORED = ("history.json", "log.jsonl", "compile/", "monitor/", "submissions.jsonl",
+           "server.json", "agent_tokens.json", "lock", "*.tmp")
 PROTECTED = (".git", STATE_DIR)
 """Paths no operation may write to through the file journal."""
 
@@ -56,42 +61,83 @@ class Store:
         self.board_path = self.dir / "board.json"
         self.history_path = self.dir / "history.json"
         self.log_path = self.dir / "log.jsonl"
+        self.last_stamp: tuple[int, int] | None = None
         self.snapshots = self.dir / "snapshots"
         self.monitor_dir = self.dir / "monitor"
         self.submissions = self.dir / "submissions.jsonl"
 
     # Input: none
     # Output: None
-    # Processing: Create .plovane/ with its gitignore on first use.
-    # Changed by: Sourish
-    # Date: 2026-10-22
+    # Processing: Create .plovane/ with its gitignore, adding any ignore entry an older one lacks.
+    # Changed by: Claude Code
+    # Date: 2026-11-09
     def ensure(self) -> None:
         self.dir.mkdir(exist_ok=True)
         ignore = self.dir / ".gitignore"
         if not ignore.exists():
             ignore.write_text("# Local whiteboard state; board.json and snapshots/ are shared.\n"
                               + "\n".join(IGNORED) + "\n")
+            return
+        present = set(ignore.read_text(encoding="utf-8").splitlines())
+        missing = [entry for entry in IGNORED if entry not in present]
+        if missing:
+            with ignore.open("a", encoding="utf-8") as handle:
+                handle.write("\n".join(missing) + "\n")
+
+    # Input: none
+    # Output: tuple[int, int] | None
+    # Processing: board.json's modification time and size, or None when it does not exist.
+    # Changed by: Claude Code
+    # Date: 2026-11-09
+    def board_stamp(self) -> tuple[int, int] | None:
+        try:
+            info = self.board_path.stat()
+        except FileNotFoundError:
+            return None
+        return (info.st_mtime_ns, info.st_size)
+
+    # Input: none
+    # Output: Iterator[None]
+    # Processing: Hold an exclusive lock on .plovane/lock so two processes never run an operation at once.
+    # Changed by: Claude Code
+    # Date: 2026-11-09
+    @contextlib.contextmanager
+    def locked(self):
+        self.ensure()
+        try:
+            import fcntl
+        except ImportError:  # Windows: no flock; the server's own lock still serialises it
+            yield
+            return
+        with (self.dir / "lock").open("a") as handle:
+            fcntl.flock(handle, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(handle, fcntl.LOCK_UN)
 
     # Input: none
     # Output: Board
-    # Processing: The saved board, or a default one for a new project.
-    # Changed by: Sourish
-    # Date: 2026-10-22
+    # Processing: The saved board, or a default one for a new project; remembers its stamp.
+    # Changed by: Claude Code
+    # Date: 2026-11-09
     def load_board(self) -> Board:
+        self.last_stamp = self.board_stamp()
         if self.board_path.exists():
             return Board.from_dict(json.loads(self.board_path.read_text(encoding="utf-8")))
         return default_board()
 
     # Input: board (Board)
     # Output: None
-    # Processing: Write board.json, atomically.
-    # Changed by: Sourish
-    # Date: 2026-10-22
+    # Processing: Write board.json atomically and remember its new stamp.
+    # Changed by: Claude Code
+    # Date: 2026-11-09
     def save_board(self, board: Board) -> None:
         self.ensure()
         temp = self.board_path.with_suffix(".tmp")
         temp.write_text(json.dumps(board.to_dict(), indent=1, sort_keys=True) + "\n", encoding="utf-8")
         temp.replace(self.board_path)
+        self.last_stamp = self.board_stamp()
 
     # Input: none
     # Output: dict[str, list]
