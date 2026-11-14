@@ -334,13 +334,21 @@
     if(dir<0&&nest.stack.length>1&&top.w*state.scale<LEAVE_AT*v.w&&(top.leaf||top.h*state.scale<LEAVE_AT*v.h)){leave();return}
     if(dir>0){const wx=(ax-state.x)/state.scale,wy=(ay-state.y)/state.scale;for(const [id,it] of nest.items){const r=it.rect;if(it.level!==1||wx<r.x||wy<r.y||wx>r.x+r.w||wy>r.y+r.h||!enterable(id))continue;if(r.w*state.scale>ENTER_AT*v.w||r.h*state.scale>ENTER_AT*v.h)enter(id,r);return}}}
   /**
+   * Input: none
+   * Output: boolean
+   * Processing: Whether the system asks for less motion (then zoom jumps instead of easing).
+   * Changed by: Claude Code
+   * Date: 2026-11-13
+   */
+  function reducedMotion(){return !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches}
+  /**
    * Input: next (number), cx (number | undefined), cy (number | undefined), smooth (boolean)
    * Output: void
    * Processing: Zoom around a screen point, eased over a few frames, entering or leaving blocks on the way.
    * Changed by: Claude Code
    * Date: 2026-11-10
    */
-  function zoomAt(next,cx,cy,smooth=true){const v=viewSize(),px=cx??v.w/2,py=cy??v.h/2,base=nest.target||{x:state.x,y:state.y,scale:state.scale},s=clampScale(next/state.scale*base.scale),wx=(px-base.x)/base.scale,wy=(py-base.y)/base.scale;
+  function zoomAt(next,cx,cy,smooth=!reducedMotion()){const v=viewSize(),px=cx??v.w/2,py=cy??v.h/2,base=nest.target||{x:state.x,y:state.y,scale:state.scale},s=clampScale(next/state.scale*base.scale),wx=(px-base.x)/base.scale,wy=(py-base.y)/base.scale;
     nest.target={x:px-wx*s,y:py-wy*s,scale:s};nest.lastAnchor=[px,py];if(!smooth){Object.assign(state,nest.target);nest.target=null;applyCamera();checkDepth(Math.sign(s-base.scale),px,py);return}if(!nest.anim)nest.anim=requestAnimationFrame(stepCamera)}
   /**
    * Input: none
@@ -358,7 +366,7 @@
    * Changed by: Claude Code
    * Date: 2026-11-10
    */
-  function fit(animate=false){if(!state.data)return;const top=focusEntry(),v=viewSize(),head=104,room={w:v.w-24,h:Math.max(120,v.h-head-16)},visibleH=top.leaf?Math.min(top.h,top.w*room.h/room.w):top.h,s=Math.min(room.w/top.w,room.h/visibleH),goal={scale:s,x:(v.w-top.w*s)/2,y:head+(top.leaf?0:(room.h-top.h*s)/2)};
+  function fit(animate=false){if(!state.data)return;if(reducedMotion())animate=false;const top=focusEntry(),v=viewSize(),head=104,room={w:v.w-24,h:Math.max(120,v.h-head-16)},visibleH=top.leaf?Math.min(top.h,top.w*room.h/room.w):top.h,s=Math.min(room.w/top.w,room.h/visibleH),goal={scale:s,x:(v.w-top.w*s)/2,y:head+(top.leaf?0:(room.h-top.h*s)/2)};
     if(animate){nest.target=goal;nest.lastAnchor=null;if(!nest.anim)nest.anim=requestAnimationFrame(stepCamera)}else{nest.target=null;Object.assign(state,goal);applyCamera()}}
   /**
    * Input: id (string)
@@ -367,7 +375,7 @@
    * Changed by: Claude Code
    * Date: 2026-11-10
    */
-  function flyInto(id){const it=nest.items.get(id);if(!it||!enterable(id)){openBlock(id);return}if(it.level!==1){flyTo(id);return}const v=viewSize(),r=it.rect,head=104,rh=Math.max(120,v.h-head-16),s=clampScale(Math.min((v.w-24)/r.w,rh/r.h));nest.target={scale:s,x:v.w/2-(r.x+r.w/2)*s,y:head+rh/2-(r.y+r.h/2)*s};nest.lastAnchor=[v.w/2,head+rh/2];nest.pendingEnter=id;if(!nest.anim)nest.anim=requestAnimationFrame(stepCamera)}
+  function flyInto(id){const it=nest.items.get(id);if(reducedMotion()&&it&&it.level===1&&enterable(id)){enter(id,it.rect);fit();return}if(!it||!enterable(id)){openBlock(id);return}if(it.level!==1){flyTo(id);return}const v=viewSize(),r=it.rect,head=104,rh=Math.max(120,v.h-head-16),s=clampScale(Math.min((v.w-24)/r.w,rh/r.h));nest.target={scale:s,x:v.w/2-(r.x+r.w/2)*s,y:head+rh/2-(r.y+r.h/2)*s};nest.lastAnchor=[v.w/2,head+rh/2];nest.pendingEnter=id;if(!nest.anim)nest.anim=requestAnimationFrame(stepCamera)}
   /**
    * Input: id (string)
    * Output: void

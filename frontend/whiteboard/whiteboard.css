@@ -1737,3 +1737,4 @@ body[data-theme="dark"] .folder-tile { background:#33302a; border-color:#474133;
 body[data-theme="dark"] .nest-code, body[data-theme="dark"] .code-editor textarea { background:#1b1e24; color:#d8dbe2; border-color:#323642; }
 body[data-theme="dark"] .focus-bar, body[data-theme="dark"] .code-editor, body[data-theme="dark"] .focus-bar button, body[data-theme="dark"] .editor-gutter { background:#22252d; color:#e5e7ee; border-color:#383c47; }
 body[data-theme="dark"] .breadcrumbs .crumb.current { color:#e5e7ee; }
+@media (prefers-reduced-motion: reduce) { #blocks.nest-fade > * { animation:none; } .nest-card { transition:none; } }
