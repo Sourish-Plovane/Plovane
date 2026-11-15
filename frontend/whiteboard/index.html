@@ -14,7 +14,7 @@ Date: 2026-11-14
   <script>
     // Served by the whiteboard server under /whiteboard/, or opened straight from disk (file://).
     const whiteboardAssetRoot = location.protocol === 'file:' ? './' : '/whiteboard/';
-    for (const name of ['whiteboard', 'agent-chat', 'code-view', 'workbench', 'agent-studio']) {
+    for (const name of ['whiteboard', 'agent-chat', 'code-view', 'workbench', 'agent-studio', 'library']) {
       const sheet = document.createElement('link');
       sheet.rel = 'stylesheet';
       sheet.href = `${whiteboardAssetRoot}${name}.css`;
@@ -42,7 +42,7 @@ Date: 2026-11-14
       <div class="sidebar-heading"><div><span class="eyebrow">Workspace</span><strong id="workspace-name" contenteditable="true" role="textbox" aria-label="Workspace name" spellcheck="false">Payments API</strong><small class="workspace-name-note">Changing workspace name does not change repository name</small></div><button class="icon-btn" data-action="sidebar-menu" aria-label="Workspace options">···</button></div>
       <div class="sidebar-tabs" role="tablist"><button class="side-tab active" data-tab="files">▤<span>Files</span></button><button class="side-tab" data-tab="agents">◉<span>Agents</span></button><button class="side-tab" data-tab="services">⬡<span>Services</span></button><button class="side-tab" data-tab="code">⌘<span>Code</span></button><button class="side-tab" data-tab="activity">◷<span>Activity</span><i id="activity-badge" class="tab-badge" hidden></i></button></div>
       <section class="sidebar-content" id="sidebar-content"></section>
-      <div class="sidebar-bottom"><button class="github-card" data-action="github" title="Git status"><span class="github-icon">◉</span><div><b>Git</b><small>Checking…</small></div></button><button class="library-link" data-command="/palette --limit 50">Verified library <span class="link-arrow">↗</span></button></div>
+      <div class="sidebar-bottom"><button class="github-card" data-action="github" title="Git status"><span class="github-icon">◉</span><div><b>Git</b><small>Checking…</small></div></button><button class="library-link" data-action="library" title="Search every verified function (⌘K)">Verified library <span class="link-arrow">⌕</span></button></div>
     </aside>
     <section class="canvas-area">
       <!-- Server project graph -->
@@ -79,7 +79,7 @@ Date: 2026-11-14
   <dialog id="modal" class="modal"><div class="modal-head"><div><span class="eyebrow" id="modal-eyebrow">PLOVANE</span><h2 id="modal-title">Details</h2></div><button class="icon-btn" data-action="close-modal" aria-label="Close">×</button></div><div id="modal-body" class="modal-body"></div></dialog>
   <script>
     // whiteboard.js first: the others use the window.PlovaneWhiteboard API it defines.
-    for (const name of ['whiteboard', 'code-view', 'workbench', 'agent-studio', 'agent-chat']) {
+    for (const name of ['whiteboard', 'code-view', 'workbench', 'agent-studio', 'agent-chat', 'library']) {
       const script = document.createElement('script');
       script.src = `${whiteboardAssetRoot}${name}.js`;
       script.async = false; // run in this order

@@ -768,6 +768,7 @@ Date: 2026-11-14
    * Date: 2026-11-09
    */
   function extraAction(node){const a=node.dataset.action,d=node.dataset;if(!a)return false;
+    if(a==='library'&&window.PlovaneLibrary){window.PlovaneLibrary.open();return true}
     if(a==='ai-run'){showRunDialog();return true}
     if(a==='ai-run-start'){startRun();return true}
     if(a==='connections'){showConnections();return true}

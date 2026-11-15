@@ -346,6 +346,26 @@ def test_library_rank_insert_palette_cite(tmp_path):
 
 # Input: tmp_path
 # Output: None
+# Processing: Check that /library lists every function with filters and counts, and /library show gives the code.
+# Changed by: Claude Code
+# Date: 2026-11-15
+def test_library_browse_and_show(tmp_path):
+    ws = project(tmp_path, {"lib/__init__.py": ""})
+    everything = ok(ws, "/library")
+    assert everything["total"] == everything["matched"] == 2
+    assert [r["name"] for r in everything["entries"]] == ["retry_request", "slugify"]
+    assert everything["categories"] == {"networking": 1, "text": 1} and everything["languages"] == {"python": 2}
+    assert "code" not in everything["entries"][0]
+    assert [r["name"] for r in ok(ws, "/library url slug")["entries"]] == ["slugify"]
+    assert ok(ws, "/library --category networking")["matched"] == 1
+    assert ok(ws, "/library --language javascript")["matched"] == 0
+    shown = ok(ws, "/library show demo:slugify")
+    assert "def slugify" in shown["code"] and shown["license"] == "MIT"
+    assert fails(ws, "/library show demo:nope") == "NOT_FOUND"
+
+
+# Input: tmp_path
+# Output: None
 # Processing: Check that suggest and save.
 # Changed by: Sourish
 # Date: 2026-10-22
@@ -579,3 +599,18 @@ def test_board_read_gives_the_picture(tmp_path):
     ok(ws, "/agent grant bot web --mode read", confirm=True)
     seen = {b["id"] for b in ok(ws, "/board", actor="bot")["blocks"]}
     assert "checkout-py" in seen and "keys-py" not in seen
+
+
+# Input: none
+# Output: None
+# Processing: Check that imports from a function's own source project are flagged for the library browser.
+# Changed by: Claude Code
+# Date: 2026-11-15
+def test_library_flags_project_local_imports():
+    from types import SimpleNamespace
+
+    from backend.whiteboard.ops.library import local_imports
+
+    code = "from .recipes import take\nfrom functools import partial\nconst a = require('./utils')\n"
+    assert local_imports(SimpleNamespace(code=code)) == ["from .recipes import take", "const a = require('./utils')"]
+    assert local_imports(SimpleNamespace(code="import os\n")) == []

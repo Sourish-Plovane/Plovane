@@ -168,6 +168,8 @@ COMMANDS: tuple[Command, ...] = (
     Command("rank", "library.rank", ("query",), rest=True, example='/rank "retry failed HTTP requests" --k 10'),
     Command("insert", "library.insert", ("entry",), example="/insert hf_0412 --into data/"),
     Command("palette", "library.palette", ("category",), example="/palette ui-components"),
+    Command("library show", "library.show", ("entry",), example="/library show ramda_ramda:curryN"),
+    Command("library", "library.browse", ("query",), rest=True, example='/library chunk --language python'),
     Command("suggest", "library.suggest", ("target",), example="/suggest checkout"),
     Command("save", "library.save", ("block",), example="/save normalize_batch --private"),
     Command("cite", "library.cite", ("block",), example="/cite checkout"),

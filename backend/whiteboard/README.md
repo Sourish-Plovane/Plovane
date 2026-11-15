@@ -429,6 +429,8 @@ command answers `needs_confirmation` first.
 | `/rank` | `library.rank` | `plovane_library` |  | Searches the verified library for a task and returns ranked slim cards. | `/rank "retry failed HTTP requests" --k 10` |
 | `/insert` | `library.insert` | `plovane_library` |  | Inserts a library entry as a block, copying the exact tested code. | `/insert hf_0412 --into data/` |
 | `/palette` | `library.palette` | `plovane_library` |  | Opens a palette of verified blocks for a category. | `/palette ui-components` |
+| `/library show` | `library.show` | `plovane_library` |  | Shows one verified function's code, licence and source. | `/library show ramda_ramda:curryN` |
+| `/library` | `library.browse` | `plovane_library` |  | Lists every verified function in the library, filtered by words in its name or description, language and category. | `/library chunk --language python` |
 | `/suggest` | `library.suggest` | `plovane_library` |  | Runs the reusability model on a block or file. | `/suggest checkout` |
 | `/save` | `library.save` | `plovane_library` |  | Saves a block to the library after naming, tests, and verification. | `/save normalize_batch --private` |
 | `/cite` | `library.cite` | `plovane_library` |  | Shows which library entries a block uses. | `/cite checkout` |

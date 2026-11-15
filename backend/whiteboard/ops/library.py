@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections import Counter
 from typing import Any
 
 from ml.ingest.extract import extract
@@ -130,6 +131,76 @@ def palette(ctx: Context, category: str | None = None, language: str | None = No
     return {"category": category, "total": len(entries), "entries": [
         {"block_id": e.id, "name": e.name, "language": e.language, "signature": e.signature,
          "description": e.description, "license": e.license} for e in entries[: integer(limit, "limit")]]}
+
+
+# Input: entry (Any)
+# Output: dict[str, Any]
+# Processing: One library entry as a row of the library browser (no code).
+# Changed by: Claude Code
+# Date: 2026-11-15
+def browse_row(entry: Any) -> dict[str, Any]:
+    source = entry.source_permalink or entry.source_url or ""
+    repo = "/".join(source.split("github.com/", 1)[1].split("/")[:2]) if "github.com/" in source else ""
+    return {"block_id": entry.id, "name": entry.name, "language": entry.language, "category": entry.category,
+            "signature": entry.signature, "description": entry.description or "", "license": entry.license,
+            "repo": repo, "needs": local_imports(entry)}
+
+
+# Input: entry (Any)
+# Output: list[str]
+# Processing: The imports an entry takes from files of its own source project, which a copy alone does not bring.
+# Changed by: Claude Code
+# Date: 2026-11-15
+def local_imports(entry: Any) -> list[str]:
+    code = getattr(entry, "code", "") or ""
+    lines = [line.strip() for line in code.splitlines()[:40]]
+    return [line for line in lines
+            if line.startswith(("from .", "import ."))
+            or any(mark in line for mark in ("require('./", 'require("./', "require('../", 'require("../',
+                                             "from './", 'from "./', "from '../", 'from "../'))]
+
+
+# Input: ctx (Context), query (str | None), language (str | None), category (str | None)
+# Output: dict[str, Any]
+# Processing: Every verified function (optionally filtered by words, language and category), for the library browser.
+# Changed by: Claude Code
+# Date: 2026-11-15
+@operation("library.browse", command="/library", tool="plovane_library_browse", group="plovane_library",
+           mutates=False)
+def browse(ctx: Context, query: str | None = None, language: str | None = None,
+           category: str | None = None) -> dict[str, Any]:
+    """Lists every verified function in the library, filtered by words in its name or description, language and category."""
+    entries = ctx.ws.library_entries()
+    words = (query or "").lower().split()
+    rows = [browse_row(e) for e in entries
+            if (language is None or e.language == language.lower())
+            and (category is None or e.category == category)]
+    if words:
+        rows = [r for r in rows
+                if all(w in f"{r['name']} {r['description']} {r['repo']} {r['category']}".lower() for w in words)]
+    rows.sort(key=lambda r: (r["name"].lstrip("_").lower(), r["block_id"]))
+    count = lambda key: dict(Counter(getattr(e, key) for e in entries).most_common())  # noqa: E731
+    return {"total": len(entries), "matched": len(rows), "entries": rows,
+            "languages": count("language"), "categories": count("category")}
+
+
+# Input: ctx (Context), entry (str)
+# Output: dict[str, Any]
+# Processing: One verified function in full: its code, licence and where it came from.
+# Changed by: Claude Code
+# Date: 2026-11-15
+@operation("library.show", command="/library show", tool="plovane_library_show", group="plovane_library",
+           mutates=False)
+def show(ctx: Context, entry: str) -> dict[str, Any]:
+    """Shows one verified function's code, licence and source."""
+    from ml.serving.engine import entry_record
+
+    entries = ctx.ws.library_entries()
+    found = next((e for e in entries if e.id == entry), None)
+    if found is None:
+        close = [e.id for e in entries if entry.lower() in e.id.lower()][:10]
+        raise OpError("NOT_FOUND", f"no library entry {entry!r}; similar: {close}")
+    return entry_record(found, full=True) | {"repo": browse_row(found)["repo"]}
 
 
 # Input: ctx (Context), target (str)

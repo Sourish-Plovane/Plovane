@@ -350,6 +350,28 @@ class Workspace:
         except RuntimeError as exc:
             raise OpError("MODEL_UNAVAILABLE", str(exc)) from None
 
+    # Input: none
+    # Output: list
+    # Processing: The library's entries for browsing, without loading the models unless they already are.
+    # Changed by: Claude Code
+    # Date: 2026-11-15
+    def library_entries(self) -> list:
+        from ml.serving import engine as serving
+
+        if self._library is not None and self._library is not serving.get_engine:
+            return list(self.library().entries)  # an injected engine (tests, or a custom library)
+        if serving._engine is not None:
+            return list(serving._engine.entries)
+        from ml.ingest.dataset import load_dataset
+
+        if not serving.LIBRARY.exists():
+            raise OpError("MODEL_UNAVAILABLE", "ml/data/entries.jsonl is missing. Run: python -m ml.serving.setup")
+        stamp = serving.LIBRARY.stat().st_mtime_ns
+        if getattr(self, "_entries_stamp", None) != stamp:
+            self._entries = list(load_dataset(serving.LIBRARY).entries)
+            self._entries_stamp = stamp
+        return self._entries
+
     # Input: prompt (str), system (str | None)
     # Output: str
     # Processing: Ask the configured LLM; Claude by default.
