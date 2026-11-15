@@ -1,3 +1,11 @@
+/*
+Input: Agent chat panel elements and whiteboard theme styles
+Output: Styled agent picker, conversation thread, and chat controls
+Processing: Applies layout and colors to the embedded agent chat panel
+Changed by: Aarav
+Date: 2026-11-14
+*/
+
 /* Agent chat in the prompt panel: the "Talk to" picker and the thread above it.
    Uses whiteboard.css's tokens (--accent, --line, --muted, --shadow). */
 

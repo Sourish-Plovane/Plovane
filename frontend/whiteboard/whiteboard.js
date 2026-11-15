@@ -1,3 +1,11 @@
+/*
+Input: Whiteboard actions and server project state
+Output: Updated canvas, panels, and command results
+Processing: Loads and renders board data and sends user actions to the server
+Changed by: Aarav
+Date: 2026-11-14
+*/
+
 (() => {
   const API_ORIGIN = window.PLOVANE_API_ORIGIN || (window.location.pathname.startsWith('/whiteboard') ? window.location.origin : 'http://127.0.0.1:8700');
   const API = `${API_ORIGIN}/api/v1/whiteboard`;

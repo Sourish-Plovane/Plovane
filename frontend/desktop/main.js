@@ -1,3 +1,11 @@
+/*
+Input: Electron app lifecycle and project choice
+Output: Desktop window and project whiteboard server
+Processing: Starts the server process and handles desktop IPC requests
+Changed by: Aarav
+Date: 2026-11-14
+*/
+
 const { app, BrowserWindow, dialog, ipcMain } = require('electron');
 const { spawn } = require('node:child_process');
 const fs = require('node:fs');

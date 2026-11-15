@@ -1,3 +1,11 @@
+/*
+Input: Whiteboard elements, theme, and viewport size
+Output: Styled canvas, side panel, and prompt panel
+Processing: Defines whiteboard layout, themes, and responsive behavior
+Changed by: Aarav
+Date: 2026-11-14
+*/
+
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
 
 :root {

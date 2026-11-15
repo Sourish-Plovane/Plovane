@@ -1,10 +1,18 @@
+<!--
+Input: Browser request for the CLI page
+Output: CLI interface structure and controls
+Processing: Loads the terminal markup, styles, and script
+Changed by: Aarav
+Date: 2026-11-14
+-->
+
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Plovane CLI</title>
-  <link rel="stylesheet" href="/cli/cli.css">
+  <link rel="stylesheet" href="./cli.css">
 </head>
 <body>
   <main class="terminal" aria-label="Plovane command line">
@@ -21,6 +29,6 @@
       <button type="submit">Run</button>
     </form>
   </main>
-  <script src="/cli/cli.js"></script>
+  <script src="./cli.js"></script>
 </body>
 </html>

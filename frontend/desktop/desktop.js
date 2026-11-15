@@ -1,3 +1,11 @@
+/*
+Input: Project selection and connection actions
+Output: Selected project path and whiteboard connection status
+Processing: Calls desktop bridge actions and updates the page
+Changed by: Aarav
+Date: 2026-11-14
+*/
+
 const chooseButton = document.querySelector('#choose-project');
 const openButton = document.querySelector('#open-whiteboard');
 const pathLabel = document.querySelector('#project-path');

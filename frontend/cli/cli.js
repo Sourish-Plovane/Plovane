@@ -1,3 +1,11 @@
+/*
+Input: Typed commands and terminal actions
+Output: Command results, suggestions, and connection status
+Processing: Sends commands to the whiteboard API and updates the terminal
+Changed by: Aarav
+Date: 2026-11-14
+*/
+
 (() => {
   const API = '/api/v1/whiteboard';
   const output = document.querySelector('#terminal-output');

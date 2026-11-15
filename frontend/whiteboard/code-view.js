@@ -1,3 +1,11 @@
+/*
+Input: Current whiteboard view and selected file
+Output: Plain-English file blocks and code panel
+Processing: Draws file details at the right zoom level and opens the code view
+Changed by: Aarav
+Date: 2026-11-14
+*/
+
 // Code view (issue #64): zoom into a file card and it fades into plain-English blocks; zoom
 // past the blocks and they fade into the file's real code. Also the read-only code panel the
 // Files tab opens. whiteboard.js calls focus() and draw() on every render.

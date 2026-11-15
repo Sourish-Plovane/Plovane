@@ -1,3 +1,11 @@
+/*
+Input: File details, code blocks, and whiteboard theme styles
+Output: Styled semantic code view and file detail panel
+Processing: Defines the layout and colors for code shown on the canvas
+Changed by: Aarav
+Date: 2026-11-14
+*/
+
 /* Code view (issue #64): a file's plain-English blocks and code on the canvas, and the code panel. */
 
 .file-detail {

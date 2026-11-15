@@ -1,3 +1,11 @@
+/*
+Input: Chat prompts, selected agent, and server updates
+Output: Agent conversation messages and refreshed project state
+Processing: Sends agent chat requests, polls for replies, and updates the whiteboard
+Changed by: Aarav
+Date: 2026-11-14
+*/
+
 /* Chat with a whiteboard agent from the prompt panel.
  *
  * A "Talk to" picker in the prompt panel chooses who a plain-English prompt
