@@ -108,7 +108,7 @@ def groups() -> dict[str, dict[str, str]]:
 
     found: dict[str, dict[str, str]] = defaultdict(dict)
     for spec in OPERATIONS.values():
-        if spec.agents:
+        if spec.agents and spec.group != "plovane_sketch":  # registered on its own, as plovane_sketch(script)
             found[spec.group][action_name(spec.group, spec.name)] = spec.name
     return dict(found)
 
@@ -161,7 +161,10 @@ def run(op: str, args: dict | None, confirm: bool, dry_run: bool, command: str |
 # Changed by: Sourish
 # Date: 2026-10-22
 def register(mcp: Any) -> list[str]:
-    names = []
+    register_sketch(mcp)
+    if os.environ.get("PLOVANE_MCP_TOOLS", "all").lower() == "sketch":
+        return ["plovane_sketch", "plovane_undo"]
+    names = ["plovane_sketch", "plovane_undo"]
     for group, actions in sorted(groups().items()):
         # Input: actions (dict[str, str]), group (str)
         # Output: Callable

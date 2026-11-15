@@ -18,6 +18,8 @@ boost = ["lightgbm>=4.3"]
 # The cross-encoder and the bi-encoder need torch; nothing else does.
 neural = ["torch>=2.2", "transformers>=4.40"]
 dev = ["pytest>=8.0"]
+# Chatting with whiteboard agents from the prompt panel (backend/whiteboard/agent_chat.py).
+agents = ["anthropic>=2.7"]
 
 [tool.setuptools.packages.find]
 include = ["ml*", "backend*", "cli*"]

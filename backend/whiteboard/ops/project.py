@@ -16,7 +16,7 @@ from backend.whiteboard import codegen
 from backend.whiteboard.refactor import resolve_from
 from backend.whiteboard.engine import Context
 from backend.whiteboard.model import Block
-from backend.whiteboard.ops.placement import apply_position, grow_to_fit
+from backend.whiteboard.ops.placement import apply_position
 from backend.whiteboard.registry import OpError, flag, operation
 
 JS_IMPORT = re.compile(r"""(?:from\s+|require\(\s*|import\s+)['"](\.{1,2}/[^'"]+)['"]""")
@@ -239,6 +239,69 @@ def delete_folder(ctx: Context, path: str) -> dict[str, Any]:
             "removed": removed}
 
 
+PACK_GAP, PACK_PAD, PACK_HEAD = 24, 20, 48
+"""Space between packed blocks, around them inside a folder, and above them for the folder's title."""
+
+
+# Input: children (list[Block]), origin (tuple[float, float]), ratio (float)
+# Output: tuple[float, float]
+# Processing: Lay blocks out left to right in rows of a roughly fixed width; return the size used.
+# Changed by: Claude
+# Date: 2026-11-10
+def pack_rows(children: list[Block], origin: tuple[float, float], ratio: float) -> tuple[float, float]:
+    area = sum((b.w + PACK_GAP) * (b.h + PACK_GAP) for b in children)
+    limit = max(max(b.w for b in children), (area * ratio) ** 0.5)
+    x, y, row_h, used_w = 0.0, 0.0, 0.0, 0.0
+    for block in children:
+        if x and x + block.w > limit:
+            x, y, row_h = 0.0, y + row_h + PACK_GAP, 0.0
+        block.x, block.y = origin[0] + x, origin[1] + y
+        x += block.w + PACK_GAP
+        row_h = max(row_h, block.h)
+        used_w = max(used_w, x - PACK_GAP)
+    return used_w, y + row_h
+
+
+# Input: ctx (Context), added (list[str])
+# Output: None
+# Processing: Pack each imported folder tree bottom-up so nothing overlaps, then lay out the top-level folders.
+# Changed by: Claude
+# Date: 2026-11-10
+def pack_tree(ctx: Context, added: list[str]) -> None:
+    """Folders first, then files, by name. Each folder is sized to hold its packed children
+    below its title, so zooming into it shows them inside it."""
+    blocks = ctx.board.blocks
+    order = lambda b: (b.kind != "folder", b.name.lower())  # noqa: E731
+
+    # Input: block (Block)
+    # Output: None
+    # Processing: Pack one folder's children (after packing theirs) and size the folder to fit.
+    # Changed by: Claude
+    # Date: 2026-11-10
+    def pack(block: Block) -> None:
+        children = sorted((b for b in blocks.values() if b.parent == block.id and b.kind in ("folder", "file")),
+                          key=order)
+        if not children:
+            return
+        for child in children:
+            pack(child)
+        w, h = pack_rows(children, (PACK_PAD, PACK_HEAD), ratio=1.8)
+        block.w, block.h = max(block.w, w + 2 * PACK_PAD), max(block.h, h + PACK_HEAD + PACK_PAD)
+
+    roots = []
+    for block_id in added:
+        block = blocks.get(block_id)
+        while block is not None and block.parent in blocks:
+            block = blocks[block.parent]
+        if block is not None and block not in roots:
+            roots.append(block)
+    for root in roots:
+        pack(root)
+    top = sorted((b for b in blocks.values() if b.parent is None and b.kind in ("folder", "file")), key=order)
+    if top:
+        pack_rows(top, (40, 40), ratio=2.4)
+
+
 # Input: ctx (Context), path (str), arrows (Any)
 # Output: dict[str, Any]
 # Processing: Create blocks for the project's existing folders, files and imports.
@@ -274,8 +337,7 @@ def import_project(ctx: Context, path: str = "", arrows: Any = True) -> dict[str
                         a.source == source.id and a.target == target.id and a.type == "import"
                         for a in ctx.board.arrows.values()):
                     added_arrows.append(new_arrow(ctx, source, target, "import").id)
-    for block in ctx.board.blocks.values():
-        if block.kind == "folder":
-            grow_to_fit(ctx, block)
+    if added_blocks:
+        pack_tree(ctx, added_blocks)
     return {"files_found": len(files), "blocks_added": added_blocks, "import_arrows_added": added_arrows,
             "missing_on_disk": missing}

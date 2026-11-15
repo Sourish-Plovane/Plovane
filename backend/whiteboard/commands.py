@@ -56,6 +56,9 @@ def _edges(*names: str) -> dict[str, tuple[str, str]]:
 
 
 COMMANDS: tuple[Command, ...] = (
+    # Sketch: the short lines an AI should write (see ops/sketch.py)
+    Command("sketch", "sketch", ("script",), rest=True,
+            example='/sketch service orders; database postgres; orders -> postgres "reads"'),
     # Layers and zoom
     Command("layer define", "layer.define", ("number",), example="/layer define 1 --zoom 10-20 --show services"),
     Command("layer edit", "layer.edit", ("number",), example="/layer edit 2 --zoom 20-40"),
@@ -71,6 +74,8 @@ COMMANDS: tuple[Command, ...] = (
             example="/file create src/payments/charge.py --template python-module"),
     Command("file save", "file.save", ("path",), example="/file save src/app.py --content \"...\""),
     Command("folder delete", "folder.delete", ("path",), example="/folder delete src/old-cache"),
+    Command("file save", "file.save", ("path",), example="/file save src/app.py --content \"...\" --base 1a2b3c"),
+    Command("files", "file.list", ("under",), example="/files  or  /files src"),
     Command("project import", "project.import", ("path",), example="/project import"),
     # Blocks
     Command("block add", "block.add", ("kind", "name"), example='/block add service "auth" --layer 1'),
@@ -225,6 +230,8 @@ def parse(text: str) -> tuple[str, dict[str, Any]]:
         raise OpError("INVALID_COMMAND", "empty command")
     body = stripped[1:] if stripped.startswith("/") else stripped
     first_line, _, remainder = body.partition("\n")
+    if first_line.strip().split(" ", 1)[0] == "sketch":
+        return "sketch", {"script": [first_line.strip()[len("sketch"):].strip(), *remainder.splitlines()]}
     if first_line.strip().split(" ", 1)[0] == "batch":
         lines = [first_line.strip()[len("batch"):].strip(), *remainder.splitlines()]
         return "batch", {"commands": [line.strip() for line in lines if line.strip()]}

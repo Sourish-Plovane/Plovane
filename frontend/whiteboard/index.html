@@ -22,7 +22,7 @@ Date: 2026-11-14
 <body>
   <!--Workspace controls -->
   <header class="topbar">
-    <a class="brand" href="#" aria-label="Plovane — fit project" data-action="fit"><img class="brand-logo" src="/whiteboard/logo.jpeg" alt=""><span>Plovane</span></a>
+    <a class="brand" href="#" aria-label="Plovane — fit project" data-action="fit"><img class="brand-logo" src="/whiteboard/logo.jpeg" alt="" onerror="this.onerror=null;this.src='../1770049027667.jpeg'"><span>Plovane</span></a>
     <div class="menu-bar" role="menubar">
       <div class="menu-wrap"><button class="menu-trigger" aria-expanded="false">File</button><div class="menu-pop"><button data-action="import">Import project…</button><button data-action="new-file">New file…</button><button data-action="save">Save snapshot</button><hr><button data-action="github">GitHub connection</button></div></div>
       <div class="menu-wrap"><button class="menu-trigger" aria-expanded="false">Edit</button><div class="menu-pop"><button data-action="undo">Undo <kbd>⌘ Z</kbd></button><button data-action="redo">Redo <kbd>⇧ ⌘ Z</kbd></button><hr><button data-action="human-edit">Record human edit</button></div></div>
@@ -63,7 +63,12 @@ Date: 2026-11-14
     <div class="prompt-box"><textarea id="prompt-input" rows="1" placeholder="Add a rate limiter to the payments API…  (type / for commands)" aria-label="Describe a project change"></textarea><select id="provider-select" class="provider-select" aria-label="AI used for plain-English prompts" title="AI used for plain-English prompts"><option value="anthropic">Claude</option><option value="deepseek">DeepSeek</option><option value="openai">OpenAI</option></select><button class="attach-btn" data-action="attach" title="Attach context">＋</button><button class="send-btn" id="send-prompt" aria-label="Run prompt">↑</button></div>
     <div class="prompt-footer"><div class="prompt-tools"><button data-action="command-list">⌘ <span>Commands</span></button><button data-action="find-code">✧ <span>Find verified code</span></button><button data-command="/template list">▦ <span>Templates</span></button><button data-action="toggle-cli" aria-expanded="false">›_ <span>CLI</span></button><button data-action="ai-run" title="Let Claude or DeepSeek work on the board">✦ <span>AI agent</span></button></div><div class="prompt-footer-right"><span class="approval-note"><span>●</span> Generated code needs your approval</span><span class="shortcut">↵ to run</span></div></div>
     <!-- CLI frontend loader -->
-    <section class="cli-panel" id="cli-panel" aria-label="Plovane command line"><iframe src="../cli/index.html" title="Plovane CLI" loading="lazy"></iframe></section>
+    <section class="cli-panel" id="cli-panel" aria-label="Plovane command line"><iframe src="about:blank" title="Plovane CLI" loading="lazy"></iframe></section>
+    <script>
+      document.querySelector('#cli-panel iframe').src = location.protocol === 'file:'
+        ? '../cli/index.html'
+        : '/cli/';
+    </script>
     <div id="autocomplete" class="autocomplete" hidden></div>
   </section>
   <!-- Action feedback and review -->

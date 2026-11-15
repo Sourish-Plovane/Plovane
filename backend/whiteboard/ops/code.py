@@ -12,6 +12,18 @@ from backend.whiteboard.engine import Context
 from backend.whiteboard.registry import OpError, flag, operation
 
 
+# Input: content (str)
+# Output: str
+# Processing: A short fingerprint of a file's text.
+# Changed by: Claude
+# Date: 2026-11-10
+def version_of(content: str) -> str:
+    """A short fingerprint of a file's text; /file save compares it to refuse overwriting newer changes."""
+    import hashlib
+
+    return hashlib.sha1(content.encode("utf-8")).hexdigest()[:16]
+
+
 # Input: ctx (Context), target (str)
 # Output: tuple[str, int]
 # Processing: The file and first line a block or path refers to.
@@ -24,6 +36,7 @@ def location(ctx: Context, target: str) -> tuple[str, int]:
         path = target.strip("/")
         if not ctx.fs.exists(path):
             raise
+        ctx.require(path, "read")
         return path, 1
     ctx.require(block, "read")
     if block.kind in ("file", "folder") and block.path:
@@ -52,7 +65,8 @@ def open_code(ctx: Context, target: str, launch: Any = False) -> dict[str, Any]:
         else:
             subprocess.Popen([editor, "-g", f"{ctx.fs.path(path)}:{line}"])
             launched = True
-    return {"path": path, "line": line, "content": ctx.fs.read(path), "launched": launched}
+    content = ctx.fs.read(path)
+    return {"path": path, "line": line, "content": content, "version": version_of(content), "launched": launched}
 
 
 # Input: ctx (Context), block (str), since (str | None)

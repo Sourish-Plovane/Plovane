@@ -5,6 +5,32 @@ by running the same slash commands. Each visual change also changes the
 project itself: folders, files, imports, route handlers and client calls.
 Every change can be undone and is logged.
 
+## Sketch: short lines for AI agents
+
+An AI should draw with `/sketch` (MCP: `plovane_sketch(script)`), not with the
+detailed commands below. One plain line per change, or several separated by `;`:
+
+```
+service orders, payments
+database postgres
+queue order-events
+external stripe
+orders -> payments "POST /charge"
+orders, payments -> postgres
+rename orders "order service"
+unlink orders -> postgres
+remove drivers
+show
+```
+
+Each line is one small function in `ops/sketch.py`. Sketch only draws: it writes
+no files and generates no endpoints, so nothing shows up on other layers. Names
+are matched to existing blocks, so repeating a line changes nothing, and linking
+a name that doesn't exist is refused with the closest match. The services layer
+is laid out in columns after every change. All lines apply together, as one undo
+step. Start the MCP server with `PLOVANE_MCP_TOOLS=sketch` to give an agent only
+`plovane_sketch` and `plovane_undo`.
+
 ## Layout
 
 ```
@@ -324,6 +350,7 @@ command answers `needs_confirmation` first.
 
 | Command | Operation | MCP tool | Confirms | What it does | Example |
 |---|---|---|---|---|---|
+| `/sketch` | `sketch` | `plovane_sketch` |  | Draws with short lines (service orders | a -> b "label" | remove a); all apply or none do. | `/sketch service orders; database postgres; orders -> postgres "reads"` |
 | `/layer define` | `layer.define` | `plovane_layer` |  | Creates a layer with its zoom range and the block types it shows. | `/layer define 1 --zoom 10-20 --show services` |
 | `/layer edit` | `layer.edit` | `plovane_layer` |  | Changes a layer's zoom range or contents. | `/layer edit 2 --zoom 20-40` |
 | `/layer list` | `layer.list` | `plovane_layer` |  | Shows all layers with their ranges and contents. | `/layer list` |
@@ -336,6 +363,8 @@ command answers `needs_confirmation` first.
 | `/file create` | `file.create` | `plovane_project` |  | Creates a real file, optionally from a starter template. | `/file create src/payments/charge.py --template python-module` |
 | `/file save` | `file.save` | `plovane_project` |  | Saves edited text to an existing file; undo restores the old text. | `/file save src/app.py --content "..."` |
 | `/folder delete` | `folder.delete` | `plovane_project` | yes | Deletes a folder after showing what depends on it. | `/folder delete src/old-cache` |
+| `/file save` | `file.save` | `plovane_project` |  | Saves edited text to a file; refuses if it changed on disk since it was opened (base: its text or version). | `/file save src/app.py --content "..." --base 1a2b3c` |
+| `/files` | `file.list` | `plovane_project` |  | Lists the project's files (skipping .git, node_modules and virtual environments). | `/files  or  /files src` |
 | `/project import` | `project.import` | `plovane_project` |  | Maps existing folders, files and imports onto blocks; Git stays the source of truth. | `/project import` |
 | `/block add` | `block.add` | `plovane_block` |  | Adds a block to a layer. | `/block add service "auth" --layer 1` |
 | `/block move` | `block.move` | `plovane_block` |  | Moves a block on the canvas or into a group; moving a file block moves the real file. | `/block move auth --into backend` |
