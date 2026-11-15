@@ -203,6 +203,7 @@
   const canLeave = () => !dirty() || window.confirm(`Discard your unsaved changes to ${panel.path}?`)
 
   function open(path, tab) {
+    if (window.PlovaneWorkbench) return window.PlovaneWorkbench.open(path) // files open in the editor tabs
     if (panel.path !== path && !canLeave()) return
     if (panel.path !== path) Object.assign(panel, { editing: false, draft: null, notice: '' })
     panel.path = path
