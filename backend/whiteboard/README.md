@@ -423,6 +423,7 @@ command answers `needs_confirmation` first.
 | `/agent grant` | `agent.grant` | `plovane_agent` | yes | Gives an agent access to a path or region. | `/agent grant test-writer tests/ --mode read-write` |
 | `/agent revoke` | `agent.revoke` | `plovane_agent` | yes | Removes an agent's access. | `/agent revoke test-writer payments/` |
 | `/agent region` | `agent.region` | `plovane_agent` | yes | Grants access by canvas coordinates. | `/agent region reviewer --area 100,200,400,500 --mode read` |
+| `/agent configure` | `agent.configure` | `plovane_agent` |  | Sets how an agent connects, its instructions and who may approve its access. | `/agent configure helper --connection api --provider deepseek --instructions "Only edit tests/"` |
 | `/agent show` | `agent.show` | `plovane_agent` |  | Highlights what an agent can see and change. | `/agent show test-writer` |
 | `/agent log` | `agent.log` | `plovane_agent` |  | Shows everything an agent has done. | `/agent log test-writer --last 20` |
 | `/rank` | `library.rank` | `plovane_library` |  | Searches the verified library for a task and returns ranked slim cards. | `/rank "retry failed HTTP requests" --k 10` |

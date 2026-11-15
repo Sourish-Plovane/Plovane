@@ -12,7 +12,7 @@ from typing import Any
 from backend.whiteboard.engine import MODES, Context
 from backend.whiteboard.model import Agent
 from backend.whiteboard.ops.placement import apply_position
-from backend.whiteboard.registry import OpError, integer, number, operation
+from backend.whiteboard.registry import OpError, integer, items, number, operation, pair
 
 
 # Input: ctx (Context), agent (str)
@@ -52,6 +52,66 @@ def add(ctx: Context, name: str, at: Any = None) -> dict[str, Any]:
     ctx.board.agents[name] = Agent(name=name, block=block.id)
     ctx.notes.append(f"{name} has no access yet; grant it with /agent grant {name} PATH --mode read")
     return {"agent": name, "block": block.id}
+
+
+CONNECTIONS = ("", "mcp", "api")
+PROVIDERS = ("", "anthropic", "deepseek", "openai")
+MAX_INSTRUCTIONS = 4000
+
+
+# Input: ctx (Context), agent (str), connection, provider, model, instructions, approvers, place (Any)
+# Output: dict[str, Any]
+# Processing: Set an agent's profile: how it connects, its instructions, who may approve its access, where it sits.
+# Changed by: Claude
+# Date: 2026-11-14
+@operation("agent.configure", command="/agent configure", tool="plovane_agent_configure", group="plovane_agent",
+           agents=False)
+def configure(ctx: Context, agent: str, connection: Any = None, provider: Any = None, model: Any = None,
+              instructions: Any = None, approvers: Any = None, place: Any = None) -> dict[str, Any]:
+    """Sets how an agent connects, its instructions and who may approve its access."""
+    target = get(ctx, agent)
+    if connection is not None:
+        if str(connection) not in CONNECTIONS:
+            raise OpError("INVALID_ARGS", "connection is mcp or api")
+        target.connection = str(connection)
+    if provider is not None:
+        if str(provider) not in PROVIDERS:
+            raise OpError("INVALID_ARGS", f"provider is one of {list(PROVIDERS[1:])}")
+        target.provider = str(provider)
+    if model is not None:
+        target.model = str(model).strip()[:120]
+    if instructions is not None:
+        text = str(instructions).strip()
+        if len(text) > MAX_INSTRUCTIONS:
+            raise OpError("INVALID_ARGS", f"instructions are at most {MAX_INSTRUCTIONS} characters")
+        target.instructions = text
+    if approvers is not None:
+        names = []
+        for name in items(approvers):
+            if len(name) > 120:
+                raise OpError("INVALID_ARGS", "an approver is a name or email of at most 120 characters")
+            if name.lower() not in (n.lower() for n in names):
+                names.append(name)
+        target.approvers = names
+    if place is not None:
+        x, y = pair(place, "place")
+        target.place = {"x": round(min(1.0, max(0.0, float(x))), 4), "y": round(min(1.0, max(0.0, float(y))), 4)}
+    return {"agent": target.name, "connection": target.connection, "provider": target.provider,
+            "model": target.model, "instructions": target.instructions, "approvers": target.approvers,
+            "place": target.place}
+
+
+# Input: board (Board), agent (str)
+# Output: str
+# Processing: The person's instructions for an agent, worded for the end of its system prompt.
+# Changed by: Claude
+# Date: 2026-11-14
+def instructions_for(board: Any, agent: str | None) -> str:
+    found = board.agents.get(agent) if agent else None
+    if not found or not found.instructions:
+        return ""
+    return ("\n\nInstructions from the person who set you up. Follow them, within the access you have:\n"
+            + found.instructions)
 
 
 # Input: ctx (Context), agent (str), path (str), mode (str)

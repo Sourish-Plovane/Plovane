@@ -201,6 +201,17 @@ class Agent:
     block: str
     grants: list[dict[str, str]] = field(default_factory=list)
     regions: list[dict[str, Any]] = field(default_factory=list)
+    connection: str = ""
+    """How the AI reaches the board: "mcp" (it holds a token) or "api" (Plovane calls it with a key)."""
+    provider: str = ""
+    """For "api": anthropic, deepseek or openai."""
+    model: str = ""
+    instructions: str = ""
+    """What the person wants this agent to do and avoid; added to its system prompt."""
+    approvers: list[str] = field(default_factory=list)
+    """Teammates besides the project owner who may change this agent's access (once boards are shared)."""
+    place: dict[str, float] = field(default_factory=dict)
+    """Where its bubble sits on the canvas, as fractions of the view: {"x": 0.1, "y": 0.2}."""
 
 
 @dataclass

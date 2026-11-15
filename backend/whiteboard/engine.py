@@ -42,7 +42,7 @@ MODES = {"none": 0, "read": 1, "read-write": 2}
 # Date: 2026-10-22
 def summarise(before: dict[str, Any], after: dict[str, Any], files: dict[str, Any]) -> dict[str, Any]:
     summary: dict[str, Any] = {}
-    for key in ("blocks", "arrows", "endpoints"):
+    for key in ("blocks", "arrows", "endpoints", "agents"):
         old, new = before.get(key, {}), after.get(key, {})
         added = sorted(set(new) - set(old))
         removed = sorted(set(old) - set(new))

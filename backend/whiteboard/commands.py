@@ -160,6 +160,8 @@ COMMANDS: tuple[Command, ...] = (
     Command("agent revoke", "agent.revoke", ("agent", "path"), example="/agent revoke test-writer payments/"),
     Command("agent region", "agent.region", ("agent",),
             example="/agent region reviewer --area 100,200,400,500 --mode read"),
+    Command("agent configure", "agent.configure", ("agent",),
+            example='/agent configure helper --connection api --provider deepseek --instructions "Only edit tests/"'),
     Command("agent show", "agent.show", ("agent",), example="/agent show test-writer"),
     Command("agent log", "agent.log", ("agent",), example="/agent log test-writer --last 20"),
     # Library

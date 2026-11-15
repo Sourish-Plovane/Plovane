@@ -46,6 +46,7 @@ from typing import Any
 from flask import Flask, Response, g, jsonify, request, send_from_directory, stream_with_context
 
 from backend.whiteboard import llm_agent
+from backend.whiteboard.ops.agents import instructions_for
 from backend.whiteboard.agent_chat import AgentChat
 from backend.whiteboard.auth import Auth, new_token, remove_server_file, write_server_file
 from backend.whiteboard.engine import USER, Workspace
@@ -685,8 +686,11 @@ def create_app(workspace: Workspace, chat: AgentChat | None = None, *, person_to
         def work() -> None:
             client = llm_agent.LocalClient(workspace, lock, name, board_reply, commands_reply)
             try:
-                result = llm_agent.run(task.strip(), provider=provider, client=client, model=raw.get("model"),
-                                       max_steps=int(raw.get("max_steps") or 30), on_step=on_step, stop=stop)
+                profile = workspace.board.agents.get(name)
+                result = llm_agent.run(task.strip(), provider=provider, client=client,
+                                       model=raw.get("model") or (profile.model if profile else None) or None,
+                                       max_steps=int(raw.get("max_steps") or 30), on_step=on_step, stop=stop,
+                                       instructions=instructions_for(workspace.board, name))
                 record.update(status=result["status"], result=result)
             except Exception as exc:  # noqa: BLE001  (report any failure to the person)
                 record.update(status="error", error=str(exc))
