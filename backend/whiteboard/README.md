@@ -375,7 +375,7 @@ command answers `needs_confirmation` first.
 | `/block delete` | `block.delete` | `plovane_block` | yes | Removes a block and its code after showing dependents. | `/block delete old-cache` |
 | `/block info` | `block.info` | `plovane_block` |  | Shows a block's code, connections, and source. | `/block info checkout` |
 | `/blocks view` | `file.blocks` | `plovane_compile` |  | Shows a code file as plain-English step blocks at the chosen detail level. | `/blocks view src/orders.py --detail 2` |
-| `/blocks generate` | `blocks.generate` | `plovane_compile` |  | Groups a file's code into nested blocks by what it does: pass blocks=[{name, summary, lines: [start, end], children: [...]}] you wrote, or provider=claude or deepseek to have that AI write them. | `/blocks generate src/payments/billing.py --provider deepseek --depth 3` |
+| `/blocks generate` | `blocks.generate` | `plovane_compile` |  | Explains a file as zoomable blocks: pass summary (what the whole file does, read first when zooming in) and blocks=[{name, summary, lines: [start, end], children: [...]}] you wrote, or provider=claude or deepseek to have that AI write them. | `/blocks generate src/payments/billing.py --provider deepseek --depth 3` |
 | `/blocks` | `file.blocks` | `plovane_compile` |  | Shows a code file as plain-English step blocks at the chosen detail level. | `/blocks src/orders.py` |
 | `/block edit` | `block.edit_text` | `plovane_compile` |  | Rewrites an English block; the AI regenerates the code underneath as a reviewable diff. | `/block edit step-3 "Charge the card, retry twice on failure"` |
 | `/block replace` | `block.replace` | `plovane_compile` |  | Replaces a block with a verified palette block. | `/block replace step-3 --with retry_request --times 3` |

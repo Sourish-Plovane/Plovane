@@ -22,7 +22,22 @@ except ImportError:  # mcp 1.x
 from ml.serving import llm
 from ml.serving.engine import get_engine
 
-mcp = MCPServer("plovane")
+INSTRUCTIONS = """\
+Plovane is a zoomable whiteboard of the user's project. People zoom from folders into a file,
+then into blocks explaining what each part of the code does, then into the code itself. Many
+of them are not programmers.
+
+When asked to explain code, or to make blocks for a file, call plovane_compile with action
+"blocks_generate" and args {"target": "<file>", "summary": ..., "blocks": [...]}:
+1. summary first: one or two plain sentences on what the whole file does and why it exists.
+   It is the first thing shown when someone zooms into the file.
+2. Then blocks, top to bottom: each part named by what it does in 2 to 6 plain words (not the
+   function name), a one-sentence summary of what it does, and "lines": [start, end] from the
+   real file. Split a long part that does several things into children inside its lines.
+Read the file first so the line numbers are right. Use plovane_sketch for drawing services and
+arrows, and plovane_undo to take back a change."""
+
+mcp = MCPServer("plovane", instructions=INSTRUCTIONS)
 
 
 # Input: path (str | None), code (str | None), filename (str | None)

@@ -53,8 +53,10 @@ def prompt_for(path: str, text: str, depth: int) -> str:
     numbered = "\n".join(f"{n:>5} | {line}" for n, line in enumerate(text.splitlines(), start=1))
     return (
         f"Here is the file {path}, with line numbers.\n\n{numbered}\n\n"
-        "Group the code into blocks by what it does, for someone who wants to understand the file "
-        "by zooming into a diagram. Rules:\n"
+        "Explain the file for someone who understands it by zooming into a diagram, often a "
+        "non-programmer. First, summary: one or two plain sentences on what the whole file does and "
+        "why it exists; it is the first thing they read when they zoom into the file. Then group the "
+        "code into blocks by what each part does. Rules:\n"
         "- Top-level blocks follow the file from top to bottom and do not overlap. Imports and "
         "constants can be one block.\n"
         "- 3 to 8 blocks per level. Name each by what it does in 2 to 6 plain words, not by the "
@@ -62,7 +64,7 @@ def prompt_for(path: str, text: str, depth: int) -> str:
         "- A block longer than about 15 lines that does several things gets children: smaller "
         "blocks inside its line range, following the same rules.\n"
         f"- At most {depth} levels deep. Short or simple code has fewer levels.\n"
-        "- summary is one plain-English sentence.\n\n"
+        "- Each block's summary is one plain-English sentence on what that part does, not how.\n\n"
         'Reply with exactly: {"summary": "<what the whole file does>", "blocks": '
         '[{"name": "...", "summary": "...", "lines": [start, end], "children": [...]}]}'
     )
@@ -200,13 +202,13 @@ def draw(ctx: Context, owner: Block, nodes: list[dict[str, Any]], parent: Block,
         draw(ctx, owner, node["children"], block, depth + 1, by, made)
 
 
-# Input: ctx (Context), path (str), provider (str | None), depth (int), given (list | None), keep (bool)
+# Input: ctx (Context), path (str), provider (str | None), depth (int), given (list | None), keep (bool), about (str)
 # Output: dict[str, Any]
-# Processing: Outline one file: ask the AI (or take the given tree), check it, and draw it.
+# Processing: Outline one file: ask the AI (or take the given tree and file summary), check it, and draw it.
 # Changed by: Claude Code
-# Date: 2026-11-09
+# Date: 2026-11-15
 def outline_file(ctx: Context, path: str, provider: str | None, depth: int, given: list | None,
-                 keep: bool) -> dict[str, Any]:
+                 keep: bool, about: str = "") -> dict[str, Any]:
     ctx.require(path)
     text = ctx.fs.read(path)
     total = len(text.splitlines())
@@ -223,7 +225,7 @@ def outline_file(ctx: Context, path: str, provider: str | None, depth: int, give
         nodes, summary = found["blocks"], str(found.get("summary") or "")
         by = provider or os.environ.get("PLOVANE_LLM_PROVIDER", "anthropic")
     else:
-        nodes, by = given, ctx.actor
+        nodes, by, summary = given, ctx.actor, about
     notes: list[str] = []
     cleaned = clean(nodes, 1, total, 1, depth, notes, [0])
     if not cleaned:
@@ -240,19 +242,26 @@ def outline_file(ctx: Context, path: str, provider: str | None, depth: int, give
             "summary": owner.meta.get("summary", ""), "usage": usage}
 
 
-# Input: ctx (Context), target (str), provider (str | None), depth (Any), blocks (Any), keep (Any)
+# Input: ctx (Context), target (str), provider (str | None), depth (Any), blocks (Any), keep (Any), summary (str | None)
 # Output: dict[str, Any]
 # Processing: Group a file's (or every file in a folder's) code into nested blocks by what it does.
 # Changed by: Claude Code
-# Date: 2026-11-09
+# Date: 2026-11-15
 @operation("blocks.generate", command="/blocks generate", tool="plovane_blocks_generate", group="plovane_compile")
 def generate(ctx: Context, target: str, provider: str | None = None, depth: Any = 3, blocks: Any = None,
-             keep: Any = False) -> dict[str, Any]:
-    """Groups a file's code into nested blocks by what it does: pass blocks=[{name, summary, lines: [start, end], children: [...]}] you wrote, or provider=claude or deepseek to have that AI write them."""
+             keep: Any = False, summary: str | None = None) -> dict[str, Any]:
+    """Explains a file as zoomable blocks: pass summary (what the whole file does, read first when zooming in) and blocks=[{name, summary, lines: [start, end], children: [...]}] you wrote, or provider=claude or deepseek to have that AI write them."""
     levels = integer(depth, "depth")
     if not 1 <= levels <= 6:
         raise OpError("INVALID_ARGS", "depth is 1 to 6")
     given = None if blocks in (None, "") else blocks_argument(blocks)
+    about = summary if isinstance(summary, str) else ""
+    if given is not None and not about and isinstance(blocks, (str, dict)):
+        try:  # {"summary": ..., "blocks": [...]} passed whole, as the AI prompt asks for
+            whole = json.loads(blocks) if isinstance(blocks, str) else blocks
+            about = str(whole.get("summary") or "") if isinstance(whole, dict) else ""
+        except json.JSONDecodeError:
+            about = ""
     try:
         block = ctx.board.block(target)
         path = (block.path or block.meta.get("file") or "").strip("/")
@@ -278,7 +287,7 @@ def generate(ctx: Context, target: str, provider: str | None = None, depth: Any 
     results, failed = [], []
     for file in files:
         try:
-            results.append(outline_file(ctx, file, provider, levels, given, keep))
+            results.append(outline_file(ctx, file, provider, levels, given, keep, about))
         except OpError as exc:
             if len(files) == 1 or exc.code == "LLM_UNAVAILABLE":
                 raise
