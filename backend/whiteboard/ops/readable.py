@@ -24,7 +24,7 @@ import re
 from typing import Any
 
 from backend.whiteboard import codegen
-from backend.whiteboard.engine import Context
+from backend.whiteboard.engine import USER, Context
 from backend.whiteboard.ops.english import brace_sentence, project_path, sentence, short
 from backend.whiteboard.registry import OpError, flag, integer, operation
 from backend.whiteboard.store import STATE_DIR
@@ -65,6 +65,25 @@ def first_sentence(text: str) -> str:
     return " ".join(words[:SUMMARY_WORDS]).rstrip(",;:") + ("…" if len(words) > SUMMARY_WORDS else "")
 
 
+# Input: doc (str)
+# Output: str
+# Processing: A docstring without the parts that say nothing (a leading module name, reST underlines, :copyright:/:license: fields), starting with its verb.
+# Changed by: Claude Code
+# Date: 2026-11-21
+def clean_doc(doc: str) -> str:
+    kept = []
+    for line in doc.strip().splitlines():
+        bare = line.strip()
+        if re.fullmatch(r"[~=\-^*#`'\"]{3,}", bare) or (re.fullmatch(r"[\w.]+", bare) and not kept):
+            continue
+        if re.match(r":(copyright|license|author)s?:", bare, re.I):
+            break
+        kept.append(line)
+    text = "\n".join(kept).strip()
+    # "This module handles X" / "It provides X" -> "Handles X" / "Provides X"
+    return re.sub(r"^(?:This (?:module|file|package|script)|It)\s+(?!is\b|are\b|was\b)(\w)", lambda m: m.group(1).upper(), text)
+
+
 # Input: names (list[str])
 # Output: str
 # Processing: "a, b and c" from a list of names.
@@ -78,7 +97,7 @@ def listing(names: list[str]) -> str:
 # Output: str
 # Processing: A free one-line summary of a file from its docstring, leading comment or definitions.
 # Changed by: Claude Code
-# Date: 2026-11-18
+# Date: 2026-11-21
 def free_summary(path: str, text: str) -> str:
     language = codegen.language_of(path) or path.rsplit(".", 1)[-1]
     if path.endswith(".py"):
@@ -87,11 +106,28 @@ def free_summary(path: str, text: str) -> str:
         except SyntaxError:
             tree = None
         if tree is not None:
-            doc = ast.get_docstring(tree)
-            if doc and doc.strip():
+            doc = clean_doc(ast.get_docstring(tree) or "")
+            if doc:
                 return first_sentence(doc)
             names = [n.name for n in tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
                      and not n.name.startswith("_")]
+            if names:
+                return f"Defines {listing(names[:4])}" + (f" and {len(names) - 4} more" if len(names) > 4 else "")
+            settings = [t.id for n in tree.body if isinstance(n, (ast.Assign, ast.AnnAssign))
+                        for t in (n.targets if isinstance(n, ast.Assign) else [n.target])
+                        if isinstance(t, ast.Name) and t.id.isupper()]
+            if settings:
+                return f"Settings: {listing(settings[:4])}" + (f" and {len(settings) - 4} more" if len(settings) > 4 else "")
+            if path.endswith("__init__.py"):
+                folder = path.rsplit("/", 2)[-2] if "/" in path else "this"
+                exported = [a.asname or a.name for n in tree.body if isinstance(n, ast.ImportFrom) for a in n.names
+                            if a.name != "*"]
+                return f"Sets up the {folder} package" + (f" and exposes {listing(exported[:3])}" if exported else "")
+        else:  # newer syntax than this Python reads: fall back to the docstring and top-level names by pattern
+            doc = re.match(r'\s*(?:#[^\n]*\n\s*)*[rRuU]?("""|\'\'\')([\s\S]*?)\1', text)
+            if doc and clean_doc(doc.group(2)):
+                return first_sentence(clean_doc(doc.group(2)))
+            names = list(dict.fromkeys(re.findall(r"^(?:async\s+)?(?:def|class)\s+([A-Za-z]\w*)", text, re.M)))
             if names:
                 return f"Defines {listing(names[:4])}" + (f" and {len(names) - 4} more" if len(names) > 4 else "")
     else:
@@ -186,9 +222,9 @@ def ai_summaries(ctx: Context, files: dict[str, str], about: str, want_about: bo
 
 # Input: ctx (Context), target (str), provider (str | None), refresh (Any)
 # Output: dict[str, Any]
-# Processing: Give file blocks a one-line summary (and the project a line), only where missing or out of date.
+# Processing: Give file blocks a one-line summary (and the project a line), only where missing or out of date; with a provider, free parser lines are upgraded by the AI.
 # Changed by: Claude Code
-# Date: 2026-11-18
+# Date: 2026-11-21
 @operation("code.summary", command="/summary", tool="plovane_summary", group="plovane_code")
 def summary(ctx: Context, target: str = "", provider: str | None = None, refresh: Any = False) -> dict[str, Any]:
     """Gives each file a one-line summary shown on its tile; free by default, one AI call with --provider."""
@@ -206,16 +242,18 @@ def summary(ctx: Context, target: str = "", provider: str | None = None, refresh
             continue
         text = file.read_text(encoding="utf-8", errors="replace")
         mark = fingerprint(text)
-        if block.meta.get("summary_hash") == mark and block.meta.get("summary") and not flag(refresh):
+        upgrade = bool(provider) and block.meta.get("summary_by") == "parser"  # the AI replaces free lines
+        if block.meta.get("summary_hash") == mark and block.meta.get("summary") and not flag(refresh) and not upgrade:
             counts["cached"] += 1
             continue
         if block.meta.get("summary_by") not in (None, "parser") and block.meta.get("summary_hash") == mark:
             counts["cached"] += 1  # a person's or agent's line is kept until the file changes
             continue
         stale[block.path] = text
-        block.meta.update(summary=free_summary(block.path, text), summary_hash=mark, summary_by="parser")
+        if not upgrade:
+            block.meta.update(summary=free_summary(block.path, text), summary_hash=mark, summary_by="parser")
         counts["free"] += 1
-    about = ctx.board.view.get("about") or ""
+    about = "" if ctx.board.view.get("about_by") == "parser" and provider else ctx.board.view.get("about") or ""
     usage: dict[str, Any] = {}
     if provider and (stale or not about):
         paths = list(stale)
@@ -226,7 +264,7 @@ def summary(ctx: Context, target: str = "", provider: str | None = None, refresh
                 usage[key] = usage.get(key, 0) + (value if isinstance(value, int) else 0)
             if lines.get("_project") and not about:
                 about = lines["_project"]
-                ctx.board.view["about"] = about
+                ctx.board.view["about"], ctx.board.view["about_by"] = about, provider
             for block in blocks:
                 if block.path in chunk and lines.get(block.path):
                     block.meta.update(summary=lines[block.path], summary_by=provider)
@@ -236,6 +274,7 @@ def summary(ctx: Context, target: str = "", provider: str | None = None, refresh
         free = free_about(ctx)
         if free:
             ctx.board.view["about"] = about = free
+            ctx.board.view["about_by"] = "parser"
     return {"about": ctx.board.view.get("about", ""), "files": {b.path: b.meta.get("summary") for b in blocks},
             "counts": counts, "usage": usage}
 
@@ -266,7 +305,7 @@ def summary_set(ctx: Context, target: str, text: str) -> dict[str, Any]:
 # Output: dict[str, Any]
 # Processing: Set the one line saying what the whole project is, shown above every whiteboard.
 # Changed by: Claude Code
-# Date: 2026-11-18
+# Date: 2026-11-21
 @operation("project.describe", command="/project describe", tool="plovane_project_describe", group="plovane_project")
 def describe(ctx: Context, text: str = "") -> dict[str, Any]:
     """Sets the one line saying what the whole project is, shown at the top of the whiteboard."""
@@ -279,6 +318,7 @@ def describe(ctx: Context, text: str = "") -> dict[str, Any]:
     line = re.sub(r"\s+", " ", text).strip()
     if line:
         ctx.board.view["about"] = line[:200]
+        ctx.board.view["about_by"] = "person" if ctx.actor == USER else ctx.actor
     else:
         ctx.board.view.pop("about", None)
     return {"about": ctx.board.view.get("about", "")}
@@ -302,9 +342,9 @@ def parameters(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
 
 # Input: text (str)
 # Output: dict[int, tuple[str, str]]
-# Processing: Python lines worded through the syntax tree: {line: (english, "rule" | "continues")}.
+# Processing: Python lines worded through the syntax tree: {line: (english, "rule" | "continues")}; docstrings drop module-name lines and underlines.
 # Changed by: Claude Code
-# Date: 2026-11-18
+# Date: 2026-11-21
 def python_lines(text: str) -> dict[int, tuple[str, str]]:
     try:
         tree = ast.parse(text)
@@ -324,7 +364,7 @@ def python_lines(text: str) -> dict[int, tuple[str, str]]:
             for deco in node.decorator_list:
                 out[deco.lineno] = (f"Mark {node.name} with {short(deco)}", "rule")
         elif isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
-            words = "Describe it: " + first_sentence(node.value.value)
+            words = "Describe it: " + first_sentence(clean_doc(node.value.value) or node.value.value)
         else:
             words = sentence(node)
         out[node.lineno] = (words, "rough" if words.startswith("Run ") else "rule")

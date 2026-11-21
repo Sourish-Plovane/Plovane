@@ -537,15 +537,16 @@ def create_app(workspace: Workspace, chat: AgentChat | None = None, *, person_to
 
     # Input: none
     # Output: tuple
-    # Processing: Run a slash command.
-    # Changed by: Sourish
-    # Date: 2026-10-22
+    # Processing: Run a slash command. A library operation first waits for the models outside the lock.
+    # Changed by: Claude Code
+    # Date: 2026-11-21
     @app.post("/api/v1/whiteboard/command")
     def command():
         raw = body()
         if not isinstance(raw.get("command"), str):
             return send({"ok": False, "data": None, "error": {"code": "INVALID_ARGS", "message": "command is required"}})
         target = current()
+        library_ready(workspace, command=raw["command"])  # outside the lock: the board stays responsive
         with lock:
             target.current_command = raw["command"]
             try:
@@ -557,9 +558,9 @@ def create_app(workspace: Workspace, chat: AgentChat | None = None, *, person_to
 
     # Input: none
     # Output: tuple
-    # Processing: Run a structured operation.
-    # Changed by: Sourish
-    # Date: 2026-10-22
+    # Processing: Run a structured operation. A library operation first waits for the models outside the lock.
+    # Changed by: Claude Code
+    # Date: 2026-11-21
     @app.post("/api/v1/whiteboard/op")
     def op():
         raw = body()
@@ -567,6 +568,7 @@ def create_app(workspace: Workspace, chat: AgentChat | None = None, *, person_to
             return send({"ok": False, "data": None, "error": {"code": "INVALID_ARGS",
                                                              "message": "op (string) and args (object) are required"}})
         target = current()
+        library_ready(workspace, op=raw["op"], args=raw.get("args") or {})  # outside the lock: the board stays responsive
         with lock:
             reply = target.execute(raw["op"], raw.get("args") or {}, actor=actor(),
                                    confirm=bool(raw.get("confirm")), dry_run=bool(raw.get("dry_run")))
@@ -950,6 +952,67 @@ def start_parent_watch(pid: int, state_dir: Path) -> threading.Thread:
     thread = threading.Thread(target=watch, name="plovane-parent-watch", daemon=True)
     thread.start()
     return thread
+
+
+LIBRARY_OPS = frozenset({"library.rank", "library.insert", "library.palette", "library.suggest", "library.save",
+                         "library.cite", "block.replace", "template.fill"})
+"""Operations that need the code library's models loaded."""
+
+
+# Input: engine (Any)
+# Output: None
+# Processing: Let the library engine remember each search for two minutes, so a search run outside the board lock (library_ready) is answered instantly when the operation repeats it inside.
+# Changed by: Claude Code
+# Date: 2026-11-21
+def remember_searches(engine: Any) -> None:
+    if getattr(engine, "_plovane_searches", None) is not None or not hasattr(engine, "search"):
+        return
+    original, cache = engine.search, {}
+
+    # Input: query (str), args, kwargs (Any)
+    # Output: dict[str, Any]
+    # Processing: A recent identical search's answer, else a fresh one.
+    # Changed by: Claude Code
+    # Date: 2026-11-21
+    def search(query: str, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        key = (query, args, tuple(sorted(kwargs.items())))
+        hit = cache.get(key)
+        if hit and time.time() - hit[0] < 120:
+            return hit[1]
+        answer = original(query, *args, **kwargs)
+        cache[key] = (time.time(), answer)
+        while len(cache) > 64:
+            cache.pop(next(iter(cache)))
+        return answer
+
+    engine.search, engine._plovane_searches = search, cache
+
+
+# Input: workspace (Workspace), op (str | None), command (str | None), args (dict | None)
+# Output: None
+# Processing: Before a library operation takes the board lock, load the models (about 10 s the first time) and run its search here, so the rest of the board keeps working meanwhile.
+# Changed by: Claude Code
+# Date: 2026-11-21
+def library_ready(workspace: Workspace, op: str | None = None, command: str | None = None,
+                  args: dict[str, Any] | None = None) -> None:
+    if op is None and command:
+        from backend.whiteboard.commands import parse
+
+        try:
+            op, args = parse(command)
+        except Exception:  # noqa: BLE001  (a bad command is reported by the normal path)
+            return
+    if op not in LIBRARY_OPS:
+        return
+    try:
+        engine = workspace.library()
+        remember_searches(engine)
+        args = args or {}
+        if op == "library.rank" and args.get("query"):
+            count = int(args.get("k", 5))
+            engine.search(args["query"], language=args.get("language"), k=count * 3 if args.get("category") else count)
+    except Exception:  # noqa: BLE001  (missing models or bad arguments: the operation itself reports it)
+        pass
 
 
 # Input: none

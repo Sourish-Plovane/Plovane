@@ -396,10 +396,22 @@ running project, so every whiteboard tab shows the same picture
     `app.wsgi_app = PlovaneTraffic(app.wsgi_app, project=".")` from
     `backend.whiteboard.traffic`. An Express one-liner is in that file.
 
-  Routes match templates such as `/orders/{id}`, `:id`, `<int:id>` and `[id]`.
+  Routes match templates such as `/orders/{id}`, `:id`, `<int:id>`,
+  `/<int:id>-<slug>` and `[id]`.
   Rules decide pass or fail, so watching costs no tokens. Clicking a red
-  arrow, or `/api explain <endpoint>`, asks the AI why, only then. `/api status`
-  lists every endpoint, plus requests to routes not on the whiteboard.
+  arrow, or the "✗ API failing · why?" badge on the folder that handles the
+  route, or `/api explain <endpoint>`, asks the AI why, only then. Without a
+  working AI key you get Plovane's own reading of the status code and error
+  instead, and it says so. `/api status` lists every endpoint, plus requests
+  to routes not on the whiteboard.
+- **Routes found in your code.** `/endpoint scan` (run by itself on a first
+  `/project import`) reads the code once, with no AI: Flask and FastAPI
+  decorators, `add_url_rule` and `routes=[...]` helpers with their blueprint
+  prefixes (also `app.config["X_URL_PREFIX"]` when a config file sets it),
+  Express `app.get(...)`, Next.js `app/**/route.ts` and `pages/api`. Each
+  route becomes an endpoint on its handler file, and every `fetch`, `axios`,
+  `requests` or test-client call to it gets an API arrow, so `/traffic` works
+  on an existing project straight away (`ops/routes.py`).
 - **Attacks.** Every reported request is checked for SQL injection, path
   traversal, script and command injection, scanners and repeated failed
   logins (5 refusals in 60 s from one address). A 🛡 badge goes on the service
@@ -607,6 +619,7 @@ command answers `needs_confirmation` first.
 | `/endpoint test` | `endpoint.test` | `plovane_endpoint` |  | Sends a test request in the sandbox and shows the response on the arrow. | `/endpoint test payments:POST /charge --body sample` |
 | `/endpoint mock` | `endpoint.mock` | `plovane_endpoint` |  | Creates a mock response so callers can be built before the endpoint exists. | `/endpoint mock payments:POST /charge --response sample` |
 | `/endpoint check` | `endpoint.check` | `plovane_endpoint` |  | Checks every API arrow: caller request matches endpoint schema; mismatches turn red. | `/endpoint check all` |
+| `/endpoint scan` | `endpoint.scan` | `plovane_endpoint` |  | Finds the app's API routes and the code calling them; adds endpoints and API arrows (no AI). | `/endpoint scan` |
 | `/endpoint import` | `endpoint.import` | `plovane_endpoint` |  | Creates endpoint blocks from an OpenAPI spec. | `/endpoint import openapi.yaml` |
 | `/endpoint export` | `endpoint.export` | `plovane_endpoint` |  | Exports a service's endpoints as an OpenAPI spec. | `/endpoint export payments` |
 | `/api external add` | `external.add` | `plovane_endpoint` |  | Adds a third-party API (such as a payment provider) as an external block with its endpoints. | `/api external add stripe --spec stripe-openapi.yaml` |

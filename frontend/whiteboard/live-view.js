@@ -77,6 +77,23 @@
   function endpointsOf (id) { return Object.values(wb.board?.board?.endpoints || {}).filter(e => e.service === id) }
 
   /**
+   * Input: b (object)
+   * Output: object[]
+   * Processing: Endpoints a card stands for: its own, and for a folder those handled by files inside it.
+   * Changed by: Claude Code
+   * Date: 2026-11-21
+   */
+  function endpointsWithin (b) {
+    const blocks = wb.board?.board?.blocks || {}
+    const path = pathOf(b)
+    return Object.values(wb.board?.board?.endpoints || {}).filter(e => {
+      if (e.service === b.id) return true
+      const owner = blocks[e.service]
+      return !!(path && (b.kind === 'folder' || b.kind === 'group') && owner && owner.path && inside(owner.path, path))
+    })
+  }
+
+  /**
    * Input: job (object), folder (string)
    * Output: string
    * Processing: The orchestration banner for a folder.
@@ -91,8 +108,9 @@
    * Input: el (Element), b (object), state (object)
    * Output: void
    * Processing: Working glow, orchestration banner, summary, API, attack and weak-spot badges for one card or tile.
+   *   A folder shows the API status of the routes handled inside it; a failing badge asks the AI why when clicked.
    * Changed by: Claude Code
-   * Date: 2026-11-18
+   * Date: 2026-11-21
    */
   function decorate (el, b, state) {
     const path = pathOf(b)
@@ -108,12 +126,12 @@
     }
     const weak = path && state.weak_spots[path]
     if (weak) badges.push(`<span class="sec-badge sev-${weak.worst}" title="${weak.count} weak spot${weak.count > 1 ? 's' : ''} in this code; /security lists them">⚠ ${weak.count}</span>`)
-    if (['service', 'server', 'external'].includes(b.kind)) {
-      const eps = endpointsOf(b.id)
+    const eps = endpointsWithin(b)
+    if (eps.length) {
       const failing = eps.filter(e => state.api[e.id] && !state.api[e.id].ok)
       const passing = eps.filter(e => state.api[e.id] && state.api[e.id].ok)
-      if (failing.length) badges.push(`<span class="api-badge fail" title="${esc(failing.map(e => `${e.method} ${e.path}: ${state.api[e.id].status}`).join('\n'))}">● ${failing.length} failing</span>`)
-      else if (passing.length) badges.push(`<span class="api-badge pass" title="every reported request passed">● passing</span>`)
+      if (failing.length) badges.push(`<button type="button" class="api-badge fail" data-live="explain" data-endpoint="${esc(failing[0].id)}" title="${esc(failing.map(e => `${e.method} ${e.path}: ${state.api[e.id].status}`).join('\n'))}&#10;Click to ask the AI why">✗ ${failing.length} API failing · why?</button>`)
+      else if (passing.length) badges.push(`<span class="api-badge pass" title="every reported request passed">✓ API passing</span>`)
       const hits = eps.map(e => state.threats[e.id]).filter(Boolean)
       if (hits.length) {
         const worst = hits.some(h => h.worst === 'high') ? 'high' : hits.some(h => h.worst === 'medium') ? 'medium' : 'low'
@@ -159,22 +177,25 @@
   /**
    * Input: state (object)
    * Output: void
-   * Processing: Colour API arrows by the requests reported for their endpoint; red labels open the AI's explanation.
+   * Processing: Colour API arrows from live requests. An arrow carrying several routes is red when any
+   *   of them fails (clicking asks the AI about the first failing one), green when all pass.
    * Changed by: Claude Code
-   * Date: 2026-11-18
+   * Date: 2026-11-21
    */
   function colourArrows (state) {
     $$('#connections [data-endpoint]').forEach(el => {
-      const ep = el.dataset.endpoint
-      const info = ep && state.api[ep]
-      if (!info) return
-      el.classList.add(info.ok ? 'live-pass' : 'live-fail')
+      const eps = (el.dataset.endpoint || '').split('|').filter(ep => state.api[ep])
+      if (!eps.length) return
+      const failing = eps.filter(ep => !state.api[ep].ok)
+      const shown = state.api[failing[0] || eps[0]]
+      el.classList.add(failing.length ? 'live-fail' : 'live-pass')
       if (el.tagName.toLowerCase() === 'text' && !el.dataset.live) {
         el.dataset.live = '1'
-        el.textContent = `${el.textContent} ${info.ok ? '✓' : '✗'} ${info.status || ''}`.trim()
-        if (!info.ok) {
-          el.insertAdjacentHTML('afterbegin', `<title>${info.fails} of ${info.count} requests failed; click to ask the AI why</title>`)
-          el.addEventListener('click', () => explain(ep))
+        const mark = failing.length ? (eps.length > 1 ? `✗ ${failing.length} failing` : `✗ ${shown.status || ''}`) : `✓ ${eps.length > 1 ? 'all passing' : shown.status || ''}`
+        el.textContent = `${el.textContent} ${mark}`.trim()
+        if (failing.length) {
+          el.insertAdjacentHTML('afterbegin', `<title>${esc(failing.map(ep => `${ep}: ${state.api[ep].fails} of ${state.api[ep].count} failed`).join('\n'))}\nClick to ask the AI why</title>`)
+          el.addEventListener('click', () => explain(failing[0]))
         }
       }
     })
@@ -183,15 +204,16 @@
   /**
    * Input: ep (string)
    * Output: Promise<void>
-   * Processing: Ask the AI why an endpoint's last request failed, and show the answer.
+   * Processing: Ask the AI why an endpoint's last request failed, and show the answer. Without an AI key the free reading is shown, saying so.
    * Changed by: Claude Code
-   * Date: 2026-11-18
+   * Date: 2026-11-21
    */
   async function explain (ep) {
     wb.toast(`Asking why ${ep} failed…`)
     try {
       const data = await wb.request('command', { method: 'POST', body: JSON.stringify({ command: `/api explain ${q(ep)}` }) })
-      wb.openModal(`Why ${ep} failed`, `<p>${esc(data.result?.explanation || 'No answer.')}</p>`, 'API FAILURE')
+      const r = data.result || {}
+      wb.openModal(`Why ${ep.replace(/^[^:]*:/, '')} failed`, `<p class="explain-text">${esc(r.explanation || 'No answer.')}</p>${r.note ? `<p class="muted">${esc(r.note)}</p>` : ''}<p class="muted explain-by">${r.by === 'ai' ? '✦ Explained by the AI' : 'Free explanation, no AI used'}</p>`, 'API FAILURE')
     } catch (e) { wb.toast(e.message, true) }
   }
 
@@ -394,8 +416,9 @@
     if (!el) { if (Date.now() - dragEnded > 300 && !e.target.closest?.('#connect-pick')) $('#connect-pick')?.remove(); return }  // the click that ends a drag keeps the chooser
     const act = el.dataset.live; const pick = $('#connect-pick')
     e.preventDefault(); e.stopPropagation()
-    if (act === 'degree') setDegree(el.dataset.path, el.dataset.degree)
-    else if (act === 'lines-ai') setDegree(el.dataset.path, 'lines', localStorage.getItem('plovane-provider') || 'anthropic')
+    if (act === 'explain') explain(el.dataset.endpoint)
+    else if (act === 'degree') setDegree(el.dataset.path, el.dataset.degree)
+    else if (act === 'lines-ai') setDegree(el.dataset.path, 'lines', document.querySelector('#provider-select')?.value || localStorage.getItem('plovane-provider') || 'anthropic')
     else if (act === 'tray') $('#block-tray').classList.toggle('open')
     else if (act === 'views') showViews()
     else if (act === 'make-view') {

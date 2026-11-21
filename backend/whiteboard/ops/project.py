@@ -41,12 +41,21 @@ def ensure_folder_block(ctx: Context, folder: str) -> str | None:
     return block.id
 
 
-# Input: ctx (Context), path (str)
+# Input: ctx (Context)
+# Output: dict[str, str]
+# Processing: Every Python module name in the project mapped to its file.
+# Changed by: Claude Code
+# Date: 2026-11-21
+def python_modules(ctx: Context) -> dict[str, str]:
+    return {codegen.module_name(f): f for f in ctx.fs.files_under() if f.endswith(".py")}
+
+
+# Input: ctx (Context), path (str), modules (dict[str, str] | None)
 # Output: list[str]
-# Processing: Project files a source file imports (Python and JavaScript/TypeScript).
-# Changed by: Sourish
-# Date: 2026-10-22
-def imports_of(ctx: Context, path: str) -> list[str]:
+# Processing: Project files a source file imports (Python and JavaScript/TypeScript). Pass ``modules`` (from python_modules) when checking many files, so the project is listed only once.
+# Changed by: Claude Code
+# Date: 2026-11-21
+def imports_of(ctx: Context, path: str, modules: dict[str, str] | None = None) -> list[str]:
     language = codegen.language_of(path)
     try:
         text = ctx.fs.read(path)
@@ -54,7 +63,7 @@ def imports_of(ctx: Context, path: str) -> list[str]:
         return []
     found: list[str] = []
     if language == "python":
-        modules = {codegen.module_name(f): f for f in ctx.fs.files_under() if f.endswith(".py")}
+        modules = python_modules(ctx) if modules is None else modules
         try:
             tree = ast.parse(text)
         except SyntaxError:
@@ -83,15 +92,16 @@ def imports_of(ctx: Context, path: str) -> list[str]:
 
 # Input: ctx (Context), path (str)
 # Output: list[str]
-# Processing: Project files that import any file under a path.
-# Changed by: Sourish
-# Date: 2026-10-22
+# Processing: Project files that import any file under a path (the project is listed once).
+# Changed by: Claude Code
+# Date: 2026-11-21
 def importers_of(ctx: Context, path: str) -> list[str]:
     prefix = path.strip("/")
     inside = lambda f: f == prefix or f.startswith(prefix + "/")  # noqa: E731
+    modules = python_modules(ctx)
     return sorted(
         f for f in ctx.fs.files_under()
-        if not inside(f) and codegen.language_of(f) and any(inside(t) for t in imports_of(ctx, f))
+        if not inside(f) and codegen.language_of(f) and any(inside(t) for t in imports_of(ctx, f, modules))
     )
 
 
@@ -341,9 +351,9 @@ def pack_tree(ctx: Context, added: list[str]) -> None:
 
 # Input: ctx (Context), path (str), arrows (Any)
 # Output: dict[str, Any]
-# Processing: Create blocks for the project's existing folders, files and imports.
-# Changed by: Sourish
-# Date: 2026-10-22
+# Processing: Create blocks for the project's existing folders, files and imports. A first import also adds free one-line summaries and the app's API routes (/summary, /endpoint scan).
+# Changed by: Claude Code
+# Date: 2026-11-21
 @operation("project.import", command="/project import", tool="plovane_project_import", group="plovane_project")
 def import_project(ctx: Context, path: str = "", arrows: Any = True) -> dict[str, Any]:
     """Maps existing folders, files and imports onto blocks; Git stays the source of truth."""
@@ -366,15 +376,24 @@ def import_project(ctx: Context, path: str = "", arrows: Any = True) -> dict[str
             block.status = "missing"
             missing.append(block.id)
     if flag(arrows):
+        modules = python_modules(ctx)
         for file in files:
             source = ctx.board.block_for_path(file)
-            for target_path in imports_of(ctx, file):
+            for target_path in imports_of(ctx, file, modules):
                 target = ctx.board.block_for_path(target_path)
                 if source and target and not any(
                         a.source == source.id and a.target == target.id and a.type == "import"
                         for a in ctx.board.arrows.values()):
                     added_arrows.append(new_arrow(ctx, source, target, "import").id)
+    extras: dict[str, Any] = {}
     if added_blocks:
         pack_tree(ctx, added_blocks)
+        # A new project also gets its free one-line summaries and its API routes, in the same undo step.
+        for op, args, key in (("code.summary", {"target": base}, "summaries"), ("endpoint.scan", {"under": base}, "routes")):
+            try:
+                extras[key] = ctx.execute(op, args)
+            except OpError as exc:  # e.g. an agent without whole-board access: the import still stands
+                ctx.notes.append(f"{op} skipped: {exc.message}")
     return {"files_found": len(files), "blocks_added": added_blocks, "import_arrows_added": added_arrows,
-            "missing_on_disk": missing}
+            "missing_on_disk": missing, "summarised": sum(1 for v in ((extras.get("summaries") or {}).get("files") or {}).values() if v),
+            "routes_found": (extras.get("routes") or {}).get("routes", 0)}

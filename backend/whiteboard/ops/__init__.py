@@ -23,6 +23,7 @@ from backend.whiteboard.ops import (  # noqa: F401
     sketch,
     project,
     readable,
+    routes,
     style,
     templates,
     view,

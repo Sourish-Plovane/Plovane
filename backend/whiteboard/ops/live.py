@@ -308,27 +308,30 @@ def activity(ctx: Context) -> dict[str, Any]:
 
 # Input: template (str)
 # Output: re.Pattern
-# Processing: A route template ("/orders/{id}", "/orders/:id", "/orders/<int:id>", "/orders/[id]") as a pattern.
+# Processing: A route template ("/orders/{id}", "/orders/:id", "/orders/<int:id>", "/orders/[id]") as a pattern. Params may sit inside a segment ("/<int:id>-<slug>"); [...slug] and * match the rest.
 # Changed by: Claude Code
-# Date: 2026-11-18
+# Date: 2026-11-21
 def route_pattern(template: str) -> re.Pattern:
     parts = []
     for piece in template.strip().rstrip("/").split("/"):
-        if re.fullmatch(r"\{[^}]+\}|:\w+|<[^>]+>|\[[^\]]+\]|\*", piece):
+        if re.fullmatch(r"\[\[?\.\.\.[^\]]+\]\]?|\*", piece):      # [...slug] or * : the rest of the path
+            parts.append(".+")
+        elif piece.startswith(":"):
             parts.append("[^/]+")
-        else:
-            parts.append(re.escape(piece))
+        else:  # {id}, <int:id> or [id], possibly inside a segment: /<int:id>-<slug>
+            tokens = re.split(r"(\{[^}]+\}|<[^>]+>|\[[^\]]+\])", piece)
+            parts.append("".join("[^/]+?" if i % 2 else re.escape(t) for i, t in enumerate(tokens)))
     return re.compile("^" + "/".join(parts) + "/?$")
 
 
 # Input: board (Any), method (str), path (str)
 # Output: Any
-# Processing: The endpoint a request is for, preferring an exact path over a template.
+# Processing: The endpoint a request is for, preferring an exact path over a template; an ANY route (class-based view, pages/api) answers every method.
 # Changed by: Claude Code
-# Date: 2026-11-18
+# Date: 2026-11-21
 def match_endpoint(board: Any, method: str, path: str) -> Any:
     path = path.split("?", 1)[0] or "/"
-    candidates = [e for e in board.endpoints.values() if e.method.upper() == method.upper()]
+    candidates = [e for e in board.endpoints.values() if e.method.upper() in (method.upper(), "ANY")]
     for endpoint in candidates:
         if endpoint.path.rstrip("/") == path.rstrip("/"):
             return endpoint
@@ -460,9 +463,9 @@ def api_status(ctx: Context) -> dict[str, Any]:
 
 # Input: ctx (Context), endpoint (str), provider (str | None)
 # Output: dict[str, Any]
-# Processing: Ask an AI why an endpoint's last request failed, using its handler code and the request.
+# Processing: Ask an AI why an endpoint's last request failed, using its handler code and the request. Without an AI key, Plovane's own reading of the status and error is given instead.
 # Changed by: Claude Code
-# Date: 2026-11-18
+# Date: 2026-11-21
 @operation("api.explain", command="/api explain", tool="plovane_api_explain", group="plovane_endpoint",
            mutates=False)
 def api_explain(ctx: Context, endpoint: str, provider: str | None = None) -> dict[str, Any]:
@@ -488,8 +491,55 @@ def api_explain(ctx: Context, endpoint: str, provider: str | None = None) -> dic
               f"Handler code:\n{code or '(not found)'}\n\n"
               "In at most four short sentences of plain English, say the most likely reason it failed and what to "
               "change. Name the line or field when you can.")
-    reply = ctx.ws.llm_result(prompt, "You debug web APIs and explain causes plainly.", provider=provider)
-    return {"endpoint": found.id, "explanation": reply["text"].strip(), "usage": reply.get("usage", {})}
+    try:
+        reply = ctx.ws.llm_result(prompt, "You debug web APIs and explain causes plainly.", provider=provider)
+    except OpError as exc:
+        if exc.code != "LLM_UNAVAILABLE":
+            raise
+        why = "No AI key is set" if "no API key" in exc.message else f"The AI could not answer ({exc.message})"
+        return {"endpoint": found.id, "explanation": rule_explanation(found, failure), "by": "rules",
+                "note": f"{why}, so this is Plovane's own reading. For a fuller answer, add a working key with "
+                        "'plovane connect deepseek' (or claude)."}
+    return {"endpoint": found.id, "explanation": reply["text"].strip(), "usage": reply.get("usage", {}), "by": "ai"}
+
+
+STATUS_MEANING = {
+    400: "the request was rejected as malformed: a field is missing or has the wrong type",
+    401: "the caller was not signed in (no or expired credentials)",
+    403: "the caller is signed in but not allowed to do this",
+    404: "the route or the record it asked for does not exist",
+    405: "this route does not accept that HTTP method",
+    409: "it conflicts with existing data (a duplicate, or an edit to something that changed)",
+    422: "the request's data failed validation",
+    429: "too many requests: a rate limit kicked in",
+    500: "the handler crashed: an unexpected error in the server code",
+    502: "a service this one depends on did not answer properly",
+    503: "the server or a service it needs is down or overloaded",
+    504: "a service this one depends on took too long to answer",
+}
+"""What each common status code usually means, for the free explanation."""
+
+
+# Input: endpoint (Endpoint), failure (dict[str, Any])
+# Output: str
+# Processing: A plain-English reading of a failed request without the AI: what the status means, what the reported error points at, and where the handler is.
+# Changed by: Claude Code
+# Date: 2026-11-21
+def rule_explanation(endpoint: Any, failure: dict[str, Any]) -> str:
+    status = int(failure.get("status") or 0)
+    meaning = STATUS_MEANING.get(status) or ("the server failed" if status >= 500 else "the request was refused")
+    parts = [f"{endpoint.method} {endpoint.path} answered {status}: {meaning}."]
+    error = str(failure.get("error") or "")
+    if m := re.search(r"KeyError: '?([^']+)'?", error):
+        parts.append(f"The code read a field named '{m.group(1)}' that was not there; check the request sends it, "
+                     "or use .get() with a default.")
+    elif m := re.search(r"(TypeError|ValueError|AttributeError|IndexError|ZeroDivisionError)[:\s]+(.+)", error):
+        parts.append(f"The error was {m.group(1)} ({m.group(2)[:120]}): a value had the wrong type or shape.")
+    elif error:
+        parts.append(f"The error reported was: {error[:160]}.")
+    if endpoint.handler:
+        parts.append(f"The route is handled in {endpoint.handler.split(':')[0]}.")
+    return " ".join(parts)
 
 
 # -- Security --------------------------------------------------------------------

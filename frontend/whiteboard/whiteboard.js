@@ -39,16 +39,73 @@ Date: 2026-11-14
     sample.board.arrows={'a1':{id:'a1',source:'web-app',target:'payments',type:'api',endpoint:'POST /charge',status:'built'},'a2':{id:'a2',source:'payments',target:'postgres',type:'database',status:'built'},'a3':{id:'a3',source:'client-file',target:'routes-file',type:'api',endpoint:'POST /charge',status:'built'},'a4':{id:'a4',source:'routes-file',target:'billing-file',type:'import',status:'built'},'a5':{id:'a5',source:'charge',target:'retry',type:'calls',status:'planned'}};
     sample.absolute={}; Object.values(sample.board.blocks).forEach(b=>sample.absolute[b.id]={x:b.x,y:b.y,w:b.w,h:b.h});sample.board.alerts=[{severity:'medium',message:'Payment amount is not validated before charge',block_id:'billing-file'}]; sample.board.templates={rest_api:{name:'REST API service',builtin:true}};sample.board.agents={};state.demo=true;return sample;
   }
+  /**
+   * Input: path (string), options (object)
+   * Output: Promise<object>
+   * Processing: Call the whiteboard API. A call slower than 0.4 s shows what is happening (busy pill);
+   *   failures come back as plain sentences saying what went wrong and what to do next, never raw errors.
+   * Changed by: Claude Code
+   * Date: 2026-11-21
+   */
   async function request(path, options={}){
-    let response;try{response=await fetch(`${API}/${path}`,{...options,headers:{'Content-Type':'application/json','X-Plovane-Board':tabs.active,...(TOKEN?{Authorization:`Bearer ${TOKEN}`}:{}),...(options.headers||{})}})}catch(_){throw new Error('Whiteboard backend unavailable. Run: plovane open')}
-    const envelope=await response.json();if(!response.ok||!envelope.ok)throw new Error(envelope.error?.message||`Request failed (${response.status})`);return envelope.data;
+    const label=busyLabel(path,options),timer=label&&setTimeout(()=>busy(label,1),400);
+    let response;try{response=await fetch(`${API}/${path}`,{...options,headers:{'Content-Type':'application/json','X-Plovane-Board':tabs.active,...(TOKEN?{Authorization:`Bearer ${TOKEN}`}:{}),...(options.headers||{})}})}catch(_){throw new Error("Can't reach the whiteboard server. Is it still running? Start it again with: plovane open")}
+    finally{if(timer){clearTimeout(timer);busy(label,-1)}}
+    let envelope=null;try{envelope=await response.json()}catch(_){}
+    if(!envelope)throw new Error(`The whiteboard server hit an unexpected problem (HTTP ${response.status}). Nothing was changed. Try again; if it keeps happening, look at the terminal running Plovane.`);
+    if(!response.ok||!envelope.ok)throw new Error(friendlyError(envelope.error,response.status));return envelope.data;
   }
+  /**
+   * Input: error (object|undefined), status (number)
+   * Output: string
+   * Processing: One readable sentence for an API error, with the next step for the common cases.
+   * Changed by: Claude Code
+   * Date: 2026-11-21
+   */
+  function friendlyError(error,status){const code=error?.code||'',message=String(error?.message||`Request failed (${status})`);
+    if(code==='INTERNAL'){const what=(message.match(/^(\/[\w ]+?) failed/)||[])[1];return `${what?what+' ':'That '}hit a bug, so nothing was changed. Try again, or undo your last step; if it keeps happening, the details are in the terminal running Plovane.`}
+    if(code==='LLM_UNAVAILABLE')return `${message.replace(/\.$/,'')}. The AI is optional: summaries and line-by-line English also work for free without it.`;
+    return message.charAt(0).toUpperCase()+message.slice(1)}
+  const busyNow=new Map();
+  /**
+   * Input: path (string), options (object)
+   * Output: string|null
+   * Processing: What a slow call is doing, in words, or null for calls that never need a busy pill.
+   * Changed by: Claude Code
+   * Date: 2026-11-21
+   */
+  function busyLabel(path,options){if(!options.method||options.method==='GET')return path.startsWith('library')?'Loading the code library…':null;let body={};try{body=JSON.parse(options.body||'{}')}catch(_){}
+    const text=String(body.command||body.op||'');const words=[[/^\/project import|project\.import/,'Importing your project…'],[/--provider|ask|explain|ai /,'Asking the AI…'],[/^\/summary|code\.summary/,'Writing file summaries…'],[/^\/translate|code\.translate/,'Turning code into English…'],[/^\/board make/,'Building the whiteboard…'],[/^\/frontend start/,'Starting your app…'],[/^\/(security scan|endpoint scan)/,'Scanning the code…'],[/^\/(find|search|library)|library\./,'Searching the code library (the first search loads it, about 10 s)…'],[/^\/blocks|code\.blocks|generate/,'Breaking the code into blocks…']];
+    for(const [re,label] of words)if(re.test(text))return label;return 'Working…'}
+  /**
+   * Input: label (string), delta (number)
+   * Output: void
+   * Processing: Show or hide the busy pill; several slow calls at once show the newest.
+   * Changed by: Claude Code
+   * Date: 2026-11-21
+   */
+  function busy(label,delta){busyNow.set(label,(busyNow.get(label)||0)+delta);if(busyNow.get(label)<=0)busyNow.delete(label);let pill=$('#busy');if(!pill){pill=document.createElement('div');pill.id='busy';pill.className='busy-pill';pill.setAttribute('role','status');document.body.append(pill)}
+    const labels=[...busyNow.keys()];pill.hidden=!labels.length;if(labels.length)pill.innerHTML=`<span class="busy-spin" aria-hidden="true"></span>${esc(labels[labels.length-1])}`}
   function toast(text,error=false){const t=$('#toast');t.textContent=text;t.classList.toggle('error',error);t.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>t.classList.remove('show'),3200)}
   function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
   function styleFor(b){return state.data?.block_styles?.[b.id]||{}}
   function savePreferences(){localStorage.setItem('plovane-whiteboard-preferences',JSON.stringify(preferences))}
   function applyCodePreferences(){document.documentElement.style.setProperty('--code-font-size',`${preferences.codeFontSize}px`);document.body.dataset.codeTheme=preferences.codeTheme}
-  function updateGrid(){const z=state.scale;const base=Math.max(8,Math.min(48,preferences.gridSpacing*z));const major=base*5;const v=$('#canvas-viewport'),dark=document.body.dataset.theme==='dark',fade=Math.max(.25,Math.min(1,preferences.gridContrast)),minorColor=dark?`rgba(120,128,145,${.34*fade})`:`rgba(140,148,162,${.28*fade})`,majorColor=dark?`rgba(95,103,120,${.34*fade})`:`rgba(160,168,182,${.28*fade})`;v.style.backgroundImage=preferences.gridVisible?`radial-gradient(circle, ${minorColor} ${Math.max(.55,z*.8)}px, transparent ${Math.max(.8,z*.95)}px),linear-gradient(to right, transparent ${major-1}px,${majorColor} ${major-1}px,${majorColor} ${major}px,transparent ${major}px),linear-gradient(to bottom, transparent ${major-1}px,${majorColor} ${major-1}px,${majorColor} ${major}px,transparent ${major}px)`:'none';v.style.backgroundSize=`${base}px ${base}px,${major}px ${major}px,${major}px ${major}px`;v.style.backgroundPosition=`${state.x}px ${state.y}px,${state.x}px ${state.y}px,${state.x}px ${state.y}px`;$('#zoom-label').textContent=`${Math.round(z*100)}%`}
+  const gridPaint={anchor:0,period:0,key:''};
+  /**
+   * Input: none
+   * Output: void
+   * Processing: Draw the dot grid on its own layer. The pattern is painted once per zoom range and then only
+   *   moved and scaled with a GPU transform, so zooming and panning never repaint the whole canvas.
+   * Changed by: Claude Code
+   * Date: 2026-11-21
+   */
+  function updateGrid(){const v=$('#canvas-viewport');$('#zoom-label').textContent=`${Math.round(state.scale*100)}%`;let layer=$('#grid-layer');if(!layer){layer=document.createElement('div');layer.id='grid-layer';layer.setAttribute('aria-hidden','true');v.prepend(layer)}v.style.backgroundImage='none';
+    if(!preferences.gridVisible){layer.hidden=true;return}layer.hidden=false;const dark=document.body.dataset.theme==='dark',key=`${dark}|${preferences.gridSpacing}|${preferences.gridContrast}`;let k=state.scale/(gridPaint.anchor||state.scale);
+    if(!gridPaint.anchor||k<.85||k>1.25||gridPaint.key!==key){const z=state.scale,base=Math.max(8,Math.min(48,preferences.gridSpacing*z)),major=base*5,fade=Math.max(.25,Math.min(1,preferences.gridContrast)),minorColor=dark?`rgba(120,128,145,${.34*fade})`:`rgba(140,148,162,${.28*fade})`,majorColor=dark?`rgba(95,103,120,${.34*fade})`:`rgba(160,168,182,${.28*fade})`;
+      layer.style.backgroundImage=`radial-gradient(circle, ${minorColor} ${Math.max(.55,z*.8)}px, transparent ${Math.max(.8,z*.95)}px),linear-gradient(to right, transparent ${major-1}px,${majorColor} ${major-1}px,${majorColor} ${major}px,transparent ${major}px),linear-gradient(to bottom, transparent ${major-1}px,${majorColor} ${major-1}px,${majorColor} ${major}px,transparent ${major}px)`;layer.style.backgroundSize=`${base}px ${base}px,${major}px ${major}px,${major}px ${major}px`;
+      Object.assign(gridPaint,{anchor:z,period:major,key});k=1}
+    const P=gridPaint.period*k,tx=((state.x%P)+P)%P-P,ty=((state.y%P)+P)%P-P;layer.style.transform=`translate(${tx}px,${ty}px) scale(${k})`}
   /* ---- Nested zoom: the project as boxes inside boxes ----
    * The canvas always looks at one block (the focus, or the whole project).
    * Its children are cards; each card already shows its own children as
@@ -264,15 +321,15 @@ Date: 2026-11-14
   /**
    * Input: none
    * Output: void
-   * Processing: Redraw the focus frame, its cards, their tiles and the arrows between cards.
+   * Processing: Redraw the focus frame, its cards, their tiles and the arrows between cards; an empty board says what to do first.
    * Changed by: Claude Code
-   * Date: 2026-11-10
+   * Date: 2026-11-21
    */
   function render(){if(!state.data)return;const top=focusEntry(),all=boardBlocks(),focus=top.id?all[top.id]:null,kids=childrenOf(top.id);nest.items=new Map();
     let frame={x:0,y:0,w:top.w,h:top.h},inner=innerOf(frame),html='',leafCode=!kids.length&&focus&&codeSource(focus);
     if(leafCode){if(top.h0==null)top.h0=top.h;const code=codeHTML(codeSource(focus),inner,true,innerOf({x:0,y:0,w:top.w,h:top.h0}));if(code.height){top.h=Math.max(top.h,inner.head+code.height+inner.w*.03);frame.h=top.h}html+=code.html}
     else if(kids.length)grid(kids.length,inner).forEach((cell,i)=>{nest.items.set(kids[i].id,{level:1,rect:cell});html+=cardHTML(kids[i],cell)});
-    else html+=`<div class="nest-empty big" style="left:0;top:${frame.h*.42}px;width:${frame.w}px;font-size:${frame.w/55}px">${focus?'Nothing inside this block yet.':'No project files on the board yet.'}<br><button data-action="${focus?'generate-blocks':'import'}">${focus?'✦ Generate blocks with AI':'Import project files'}</button></div>`;
+    else html+=`<div class="nest-empty big" style="left:0;top:${frame.h*.42}px;width:${frame.w}px;font-size:${frame.w/55}px">${focus?'Nothing inside this block yet.<br><button data-action="generate-blocks">✦ Generate blocks with AI</button>':state.emptyProject?`This folder has no code yet.<div class="empty-steps">Start by <button data-action="new-file">＋ creating a file</button>, or describe what to build in the box below and press ↑.<br><small>Already have code somewhere else? Open that folder instead: <code>plovane open --dir &lt;folder&gt;</code></small></div>`:'No project files on the board yet.<br><button data-action="import">Import project files</button>'}</div>`;
     top.leaf=!!leafCode;
     const title=focus?`${kinds[focus.kind]||'□'} ${esc(focus.name||focus.id)}`:`▰ ${esc(projectName())}`,sub=focus?summaryOf(focus):'Scroll over a block to zoom into it';
     $('#blocks').innerHTML=`<section class="nest-frame ${leafCode?'code-frame':''}" style="width:${frame.w}px;height:${frame.h}px"><header style="height:${inner.head}px;font-size:${inner.head*.3}px"><b>${title}</b>${focus?badgeOf(focus)+agentChips(focus.id,5):''}<small>${esc(sub)}</small></header></section>${html}`;
@@ -282,14 +339,18 @@ Date: 2026-11-14
    * Input: frame (object)
    * Output: void
    * Processing: Arrows between the cards in view; an arrow to a block deeper inside goes to the card holding it.
+   *   Arrows between the same two cards become one, labelled with its route or "N API routes"; a very short
+   *   arrow (cards side by side) curves up so it can be seen and clicked.
    * Changed by: Claude Code
-   * Date: 2026-11-10
+   * Date: 2026-11-21
    */
   function drawArrows(frame){const all=boardBlocks(),board=state.data.board||state.data,holder=id=>{let b=all[id],guard=0;while(b&&guard++<20){const it=nest.items.get(b.id);if(it&&it.level===1)return b.id;b=all[b.parent]}return null};
     const edge=(r,tx,ty)=>{const cx=r.x+r.w/2,cy=r.y+r.h/2,dx=tx-cx,dy=ty-cy,k=1/Math.max(Math.abs(dx)/(r.w/2)||0,Math.abs(dy)/(r.h/2)||0,1e-6);return [cx+dx*Math.min(k,1),cy+dy*Math.min(k,1)]};
     const seen=new Set(),arrows=state.data.arrows?.length?state.data.arrows:Object.values(board.arrows||{});
-    const paths=arrows.map(a=>{const s=holder(a.source||a.from||a.source_node_id),t=holder(a.target||a.to||a.target_node_id);if(!s||!t||s===t||seen.has(s+'>'+t))return '';seen.add(s+'>'+t);const A=nest.items.get(s).rect,B=nest.items.get(t).rect,[x1,y1]=edge(A,B.x+B.w/2,B.y+B.h/2),[x2,y2]=edge(B,A.x+A.w/2,A.y+A.h/2),cx=(x1+x2)/2,cy=(y1+y2)/2,label=a.endpoint||a.label||(a.type==='api'?'API':a.type||'');
-      const tag=`data-endpoint="${esc(a.endpoint||'')}" data-source="${esc(s)}" data-target="${esc(t)}"`;return `<path class="${esc(a.type||'calls')} ${esc(a.status||'')}" ${tag} d="M ${x1} ${y1} L ${x2} ${y2}" marker-end="url(#arrowhead)"/><text ${tag} x="${cx}" y="${cy-frame.w/250}" text-anchor="middle" style="font-size:${frame.w/130}px">${esc(label)}</text>`}).join('');
+    const groups=new Map();arrows.forEach(a=>{const s=holder(a.source||a.from||a.source_node_id),t=holder(a.target||a.to||a.target_node_id);if(!s||!t||s===t)return;const key=s+'>'+t;if(!groups.has(key))groups.set(key,{s,t,first:a,endpoints:[]});if(a.endpoint&&!groups.get(key).endpoints.includes(a.endpoint))groups.get(key).endpoints.push(a.endpoint)});
+    const short=ep=>String(ep).replace(/^[^:]*:/,'');
+    const paths=[...groups.values()].map(({s,t,first:a,endpoints})=>{const A=nest.items.get(s).rect,B=nest.items.get(t).rect,[x1,y1]=edge(A,B.x+B.w/2,B.y+B.h/2),[x2,y2]=edge(B,A.x+A.w/2,A.y+A.h/2),bulge=Math.hypot(x2-x1,y2-y1)<frame.w*.05?frame.w*.035:0,cx=(x1+x2)/2,cy=(y1+y2)/2-bulge,label=endpoints.length>1?`${endpoints.length} API routes`:endpoints.length?short(endpoints[0]):(a.label||(a.type==='api'?'API':a.type||''));
+      const tag=`data-endpoint="${esc(endpoints.join('|'))}" data-source="${esc(s)}" data-target="${esc(t)}"`;return `<path class="${esc(a.type||'calls')} ${esc(a.status||'')}" ${tag} d="${bulge?`M ${x1} ${y1} Q ${cx} ${cy-bulge} ${x2} ${y2}`:`M ${x1} ${y1} L ${x2} ${y2}`}" marker-end="url(#arrowhead)"/><text ${tag} x="${cx}" y="${cy-frame.w/250}" text-anchor="middle" style="font-size:${frame.w/130}px">${esc(label)}</text>`}).join('');
     $('#connections').setAttribute('width',frame.w);$('#connections').setAttribute('height',frame.h);
     $('#connections').innerHTML=paths+`<defs><marker id="arrowhead" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="#aaa3ca"/></marker></defs>`}
   /**
@@ -321,11 +382,12 @@ Date: 2026-11-14
   /**
    * Input: none
    * Output: object
-   * Processing: The canvas size in screen pixels.
+   * Processing: The canvas size, as last measured by the ResizeObserver (reading it never forces a layout).
    * Changed by: Claude Code
-   * Date: 2026-11-10
+   * Date: 2026-11-21
    */
-  function viewSize(){const v=$('#canvas-viewport');return {w:v.clientWidth||1000,h:v.clientHeight||600}}
+  let viewCache=null;
+  function viewSize(){if(viewCache)return viewCache;const v=$('#canvas-viewport');return {w:v.clientWidth||1000,h:v.clientHeight||600}}
   /**
    * Input: none
    * Output: void
@@ -345,11 +407,12 @@ Date: 2026-11-14
   /**
    * Input: s (number)
    * Output: number
-   * Processing: Keep the zoom where the focus is still findable and code still readable.
+   * Processing: Keep the zoom where the focus is still findable and code still readable (a folder
+   *   stops at 8x the screen, so zooming into a gap cannot run away).
    * Changed by: Claude Code
-   * Date: 2026-11-10
+   * Date: 2026-11-21
    */
-  function clampScale(s){const top=focusEntry(),v=viewSize(),canLeave=nest.stack.length>1||!!currentBoard().parent,min=canLeave?1e-6:v.w*.25/top.w,max=top.leaf?40/(top.w/95):v.w*30/top.w;return Math.max(min,Math.min(max,s))}
+  function clampScale(s){const top=focusEntry(),v=viewSize(),canLeave=nest.stack.length>1||!!currentBoard().parent,min=canLeave?1e-6:v.w*.25/top.w,max=top.leaf?40/(top.w/95):v.w*8/top.w;return Math.max(min,Math.min(max,s))}
   /**
    * Input: f (number), dx (number), dy (number)
    * Output: void
@@ -361,11 +424,12 @@ Date: 2026-11-14
   /**
    * Input: id (string), rect (object)
    * Output: void
-   * Processing: Make a card the focus, keeping it exactly where it is on screen.
+   * Processing: Make a card the focus, keeping it exactly where it is on screen; a file, or a folder that
+   *   ends up partly off screen, then glides to fit the screen.
    * Changed by: Claude Code
-   * Date: 2026-11-10
+   * Date: 2026-11-21
    */
-  function enter(id,rect){const sub=subboardFor(id);if(sub&&sub.id!==boards.active){switchBoard(sub.id);toast(`Entered ${sub.name} whiteboard. Zoom out past the root to return.`);return}const f=FRAME_W/rect.w;remap(f,rect.x,rect.y);nest.stack.push({id,w:FRAME_W,h:rect.h*f});state.selected=null;hidePopup();render();fadeIn()}
+  function enter(id,rect){const sub=subboardFor(id);if(sub&&sub.id!==boards.active){switchBoard(sub.id);toast(`Entered ${sub.name} whiteboard. Zoom out past the root to return.`);return}const f=FRAME_W/rect.w;remap(f,rect.x,rect.y);nest.stack.push({id,w:FRAME_W,h:rect.h*f});state.selected=null;hidePopup();render();fadeIn();const v=viewSize(),top=focusEntry(),x0=state.x,x1=state.x+top.w*state.scale;if(top.leaf||x0<-v.w*.05||x1>v.w*1.05||state.y+top.h*state.scale<v.h*.3||state.y>v.h*.5)fit(true)}
   /**
    * Input: none
    * Output: boolean
@@ -385,13 +449,14 @@ Date: 2026-11-14
   /**
    * Input: dir (number), ax (number), ay (number)
    * Output: void
-   * Processing: After zooming, enter the card under the pointer once it fills the screen, or leave once the frame is small.
+   * Processing: After zooming, enter the card under the pointer (or the nearest one, when the pointer
+   *   is over a gap) once it fills the screen, or leave once the frame is small.
    * Changed by: Claude Code
-   * Date: 2026-11-10
+   * Date: 2026-11-21
    */
   function checkDepth(dir,ax,ay){const v=viewSize(),top=focusEntry(),canLeave=nest.stack.length>1||!!currentBoard().parent;
     if(dir<0&&canLeave&&top.w*state.scale<LEAVE_AT*v.w&&(top.leaf||top.h*state.scale<LEAVE_AT*v.h)){leave();return}
-    if(dir>0){const wx=(ax-state.x)/state.scale,wy=(ay-state.y)/state.scale;for(const [id,it] of nest.items){const r=it.rect;if(it.level!==1||wx<r.x||wy<r.y||wx>r.x+r.w||wy>r.y+r.h||!enterable(id))continue;if(r.w*state.scale>ENTER_AT*v.w||r.h*state.scale>ENTER_AT*v.h)enter(id,r);return}}}
+    if(dir>0){const wx=(ax-state.x)/state.scale,wy=(ay-state.y)/state.scale;let best=null,bestGap=Infinity;for(const [id,it] of nest.items){const r=it.rect;if(it.level!==1||!enterable(id))continue;const gap=Math.hypot(Math.max(r.x-wx,0,wx-r.x-r.w),Math.max(r.y-wy,0,wy-r.y-r.h));if(gap<bestGap){best=[id,r];bestGap=gap}}if(best){const [id,r]=best;if(r.w*state.scale>ENTER_AT*v.w||r.h*state.scale>ENTER_AT*v.h)enter(id,r)}}}
   /**
    * Input: none
    * Output: boolean
@@ -421,11 +486,11 @@ Date: 2026-11-14
   /**
    * Input: animate (boolean)
    * Output: void
-   * Processing: Fit the focus in the canvas (code frames show from the top).
+   * Processing: Fit the focus in the canvas, clear of the tool palette on the left (code frames show from the top).
    * Changed by: Claude Code
-   * Date: 2026-11-10
+   * Date: 2026-11-21
    */
-  function fit(animate=false){if(!state.data)return;if(reducedMotion())animate=false;const top=focusEntry(),v=viewSize(),head=104,room={w:v.w-24,h:Math.max(120,v.h-head-16)},visibleH=top.leaf?Math.min(top.h,top.w*room.h/room.w):top.h,s=Math.min(room.w/top.w,room.h/visibleH),goal={scale:s,x:(v.w-top.w*s)/2,y:head+(top.leaf?0:(room.h-top.h*s)/2)};
+  function fit(animate=false){if(!state.data)return;state.fitted=true;if(reducedMotion())animate=false;const top=focusEntry(),v=viewSize(),head=104,pal=$('.studio-palette'),vp=$('#canvas-viewport').getBoundingClientRect(),left=pal&&pal.offsetParent?Math.max(12,pal.getBoundingClientRect().right-vp.left+10):12,room={w:v.w-left-12,h:Math.max(120,v.h-head-16)},visibleH=top.leaf?Math.min(top.h,top.w*room.h/room.w):top.h,s=Math.min(room.w/top.w,room.h/visibleH),goal={scale:s,x:left+(room.w-top.w*s)/2,y:head+(top.leaf?0:(room.h-top.h*s)/2)};
     if(animate){nest.target=goal;nest.lastAnchor=null;if(!nest.anim)nest.anim=requestAnimationFrame(stepCamera)}else{nest.target=null;Object.assign(state,goal);applyCamera()}}
   /**
    * Input: id (string)
@@ -595,11 +660,20 @@ Date: 2026-11-14
   });
   const workspaceName=$('#workspace-name');workspaceName.addEventListener('blur',()=>{const value=workspaceName.textContent.trim()||'Payments API';workspaceName.textContent=value;localStorage.setItem('plovane-workspace-name',value)});workspaceName.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();workspaceName.blur()}if(e.key==='Escape'){workspaceName.textContent=localStorage.getItem('plovane-workspace-name')||'Payments API';workspaceName.blur()}});
   $('#send-prompt').onclick=submitPrompt;$('#prompt-input').addEventListener('input',()=>{resizePrompt();autocomplete()});$('#prompt-input').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();submitPrompt()}if(e.key==='Escape')$('#autocomplete').hidden=true});$('#autocomplete').onclick=e=>{const b=e.target.closest('[data-example]');if(b){$('#prompt-input').value=b.dataset.example;$('#autocomplete').hidden=true;$('#prompt-input').focus()}};
-  const viewport=$('#canvas-viewport');viewport.addEventListener('wheel',e=>{e.preventDefault();const r=viewport.getBoundingClientRect(),top=focusEntry();if(top.leaf&&!e.ctrlKey&&!e.metaKey){nest.target=null;state.x-=e.deltaX;state.y-=e.deltaY;applyCamera();return}zoomAt(state.scale*Math.exp(-e.deltaY*(e.ctrlKey?.01:.0015)*preferences.zoomSensitivity),e.clientX-r.left,e.clientY-r.top)},{passive:false});
+  const viewport=$('#canvas-viewport');viewport.addEventListener('wheel',e=>{e.preventDefault();state.fitted=false;const r=viewport.getBoundingClientRect(),top=focusEntry();if(top.leaf&&!e.ctrlKey&&!e.metaKey){nest.target=null;state.x-=e.deltaX;state.y-=e.deltaY;applyCamera();return}zoomAt(state.scale*Math.exp(-e.deltaY*(e.ctrlKey?.01:.0015)*preferences.zoomSensitivity),e.clientX-r.left,e.clientY-r.top)},{passive:false});
   viewport.addEventListener('pointerdown',e=>{if(e.button!==0||e.target.closest('.zoom-controls,.minimap,.selection-popup,.focus-bar,button,.code-editor')||(preferences.panMode==='space'&&!spacePressed))return;state.drag={x:e.clientX,y:e.clientY,sx:state.x,sy:state.y,id:e.pointerId,moved:false}});
-  viewport.addEventListener('pointermove',e=>{const d=state.drag;if(!d)return;if(!d.moved&&Math.hypot(e.clientX-d.x,e.clientY-d.y)<4)return;if(!d.moved){d.moved=true;viewport.classList.add('panning');viewport.setPointerCapture(d.id);hidePopup()}state.x=d.sx+e.clientX-d.x;state.y=d.sy+e.clientY-d.y;applyTransform()});
+  viewport.addEventListener('pointermove',e=>{const d=state.drag;if(!d)return;if(!d.moved&&Math.hypot(e.clientX-d.x,e.clientY-d.y)<4)return;if(!d.moved){d.moved=true;state.fitted=false;viewport.classList.add('panning');viewport.setPointerCapture(d.id);hidePopup()}state.x=d.sx+e.clientX-d.x;state.y=d.sy+e.clientY-d.y;applyTransform()});
   viewport.addEventListener('pointerup',()=>{if(state.drag?.moved){const stop=ev=>{ev.stopPropagation();ev.preventDefault()};window.addEventListener('click',stop,{capture:true,once:true});setTimeout(()=>window.removeEventListener('click',stop,{capture:true}),0)}state.drag=null;viewport.classList.remove('panning')});
   viewport.addEventListener('click',e=>{if(!e.target.closest('.nest-card,.nest-tile,.selection-popup,.focus-bar')){state.selected=null;$$('#blocks .nest-card.selected').forEach(x=>x.classList.toggle('selected',false));hidePopup()}});
+  /**
+   * Input: none (watches the canvas size)
+   * Output: void
+   * Processing: Remember the canvas size, and fit the board again when it changes (the stylesheets arriving
+   *   after the first draw, the window or a side panel resizing), unless the person has moved the camera since.
+   * Changed by: Claude Code
+   * Date: 2026-11-21
+   */
+  let lastViewport={w:0,h:0};new ResizeObserver(()=>{viewCache={w:viewport.clientWidth||1000,h:viewport.clientHeight||600};const v=viewCache;if(Math.abs(v.w-lastViewport.w)<2&&Math.abs(v.h-lastViewport.h)<2)return;lastViewport=v;if(!state.data||state.fitted===false)return;if(nest.stack.length===1)nest.stack=[];render();fit(false)}).observe(viewport);
   viewport.addEventListener('dblclick',e=>{if(!e.target.closest('.nest-card,.nest-tile,.focus-bar'))fit(true)});window.addEventListener('resize',()=>{if(nest.stack.length===1)nest.stack=[];render()});window.addEventListener('keydown',e=>{if(e.code==='Space'&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)){spacePressed=true;if(preferences.panMode==='space')e.preventDefault()}if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'){e.preventDefault();history(e.shiftKey?'redo':'undo')}if(e.key==='/'&&document.activeElement!==$('#prompt-input')){$('#prompt-input').focus();$('#prompt-input').value='/';autocomplete()}if(e.key==='Escape'){$$('.menu-wrap').forEach(x=>x.classList.toggle('open',false));if(!$('#mission-control').hidden){closeMissionControl();return}if(!$('#modal').open&&$('#code-editor').hidden&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)&&leave())fit(true)}if(e.code==='Space'&&e.ctrlKey&&e.shiftKey&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)){e.preventDefault();$('#mission-control').hidden?openMissionControl():closeMissionControl()}});window.addEventListener('keyup',e=>{if(e.code==='Space')spacePressed=false});
   const promptHistory=state.history;state.log=promptHistory.slice(0,100);$('#token-count').textContent=`${state.log.reduce((n,x)=>n+(x.tokens||0),0)} tokens`;
   (async()=>{try{state.commands=(await request('commands')).commands||[]}catch(_){}await loadBoards();await refresh();fit();if(!state.online)toast('Demo graph shown. Run "plovane open" in your project to load it.',true);else{connectEvents();loadProviders()}})();
@@ -718,11 +792,11 @@ Date: 2026-11-14
   /**
    * Input: none
    * Output: Promise<void>
-   * Processing: Load which AI providers have keys and fill the provider picker.
+   * Processing: Load which AI providers have keys and fill the provider picker, choosing one that has a key.
    * Changed by: Claude Code
-   * Date: 2026-11-09
+   * Date: 2026-11-21
    */
-  async function loadProviders(){try{providerList=(await request('providers')).providers||[];const sel=$('#provider-select');if(sel){const keep=sel.value||localStorage.getItem('plovane-provider')||'anthropic';sel.innerHTML=providerList.map(p=>`<option value="${esc(p.provider)}">${esc(p.label)}${p.configured?'':' (no key)'}</option>`).join('');sel.value=providerList.some(p=>p.provider===keep)?keep:'anthropic'}}catch(_){}}
+  async function loadProviders(){try{providerList=(await request('providers')).providers||[];const sel=$('#provider-select');if(sel){const keep=sel.value||localStorage.getItem('plovane-provider')||'anthropic';sel.innerHTML=providerList.map(p=>`<option value="${esc(p.provider)}">${esc(p.label)}${p.configured?'':' (no key)'}</option>`).join('');const ready=providerList.filter(p=>p.configured),pick=ready.find(p=>p.provider===keep)||ready[0]||providerList.find(p=>p.provider===keep)||providerList[0];if(pick){sel.value=pick.provider;localStorage.setItem('plovane-provider',pick.provider)}sel.title=ready.length?'The AI used for prompts, summaries and explanations':'No AI key yet: summaries, line-by-line English and the rest work for free. Add a key to use the AI (optional).'}}catch(_){}}
   /**
    * Input: none
    * Output: Promise<void>
@@ -897,11 +971,11 @@ Date: 2026-11-14
   /**
    * Input: none
    * Output: Promise<boolean>
-   * Processing: Put the project's real folders and files on an empty board, once per project.
+   * Processing: Put the project's real folders and files on an empty board, once per project; an empty folder gets first-step help instead.
    * Changed by: Claude Code
-   * Date: 2026-11-10
+   * Date: 2026-11-21
    */
-  async function autoImport(){if(tabs.active!==MAIN_BOARD)return false;const blocks=Object.values(state.data?.board?.blocks||{}),key=`plovane-imported:${state.data?.project||''}`;if(blocks.some(b=>['file','folder'].includes(b.kind))||localStorage.getItem(key))return false;localStorage.setItem(key,'1');try{const data=await request('command',{method:'POST',body:JSON.stringify({command:'/project import'})});toast(`Imported ${data.result?.files_found||0} project files.`);return true}catch(e){toast(e.message,true);return false}}
+  async function autoImport(){if(tabs.active!==MAIN_BOARD)return false;const blocks=Object.values(state.data?.board?.blocks||{}),key=`plovane-imported:${state.data?.project||''}`;if(blocks.some(b=>['file','folder'].includes(b.kind))||localStorage.getItem(key))return false;localStorage.setItem(key,'1');try{const data=await request('command',{method:'POST',body:JSON.stringify({command:'/project import'})});const r=data.result||{};state.emptyProject=!r.files_found;if(r.files_found)toast(`Imported ${r.files_found} files`+(r.routes_found?`, found ${r.routes_found} API routes`:'')+'. Scroll over a folder to zoom in.');return true}catch(e){toast(e.message,true);return false}}
   const editorArea=$('#code-editor textarea');editorArea.addEventListener('input',syncGutter);editorArea.addEventListener('scroll',syncGutter);editorArea.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='s'){e.preventDefault();saveCode()}else if(e.key==='Escape'){e.preventDefault();closeEditor()}else if(e.key==='Tab'){e.preventDefault();editorArea.setRangeText('    ',editorArea.selectionStart,editorArea.selectionEnd,'end');syncGutter()}e.stopPropagation()});
   // Used by code-view.js (file panel, quick open) and agent-chat.js (chat with an agent).
   window.PlovaneWhiteboard={request,refresh,runCommand,render,position,toast,flyTo,quoteArg,openModal,blocks:()=>boardBlocks(),get items(){return nest.items},get focus(){const top=nest.stack[nest.stack.length-1];return top?.id||null},get plo(){return tabs.active},get focus(){return focusEntry().id||null},get board(){return state.data},get commands(){return state.commands},get view(){return{scale:state.scale,x:state.x,y:state.y}},setView(x,y,scale){state.x=x;state.y=y;state.scale=scale;applyTransform()}};

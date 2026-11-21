@@ -55,3 +55,11 @@
 [2026-11-18 12:00] Claude Code — moved all uncommitted ai-bridge work (#71, #72) onto the Sourish branch working tree by 3-way merge, keeping Sourish's uncommitted Mission Control work; renamed the .plo tab switcher to switchPlo to avoid clashing with sub-whiteboard switchBoard — no issue yet — backup of Sourish files in the session scratchpad; not committed
 [2026-11-18 12:00] Claude Code — blocked — no issue — could not open the GitHub issue: no gh CLI or token, and reading the saved git login was refused; issue text written for Sourish to paste
 [2026-11-18 12:00] Claude Code — built live view (agent working glow, folder orchestration banner, API green/red from /traffic, attack + weak-spot detection), readable code (/summary free or one AI call, /translate line by line with rules + per-line cache, parse degree bar), /board make structure|api|security|frontend, /frontend start with live page tiles, connector-dot arrows and block tray; fixed nested arrows never drawing (from/to keys) and a flaky watcher test — issue pending — 865 tests + 20-check browser test pass on Sourish; not committed
+
+## 2026-11-21 · Claude Code · Core loop works end to end on real projects (Sourish branch)
+- Tested open → folders → zoom to code → summaries → line by line → agent glow/banner → red API arrow → explanation → draw arrow → tray block → undo in a real browser on FlaskBB (508 files), Taxonomy (Next.js) and a copy of Plovane: 21/21 checks each, no console errors.
+- Fixed: board opened blank (fitted before the CSS loaded); wheel zoom ran away into gaps; opened folders landed half off screen; files were covered by the tool palette; short arrows between neighbouring folders were invisible.
+- New: /endpoint scan finds Flask/FastAPI/Express/Next.js routes and their callers, so API arrows work on existing projects; a first import also writes free summaries and scans routes (one undo step), and is 4x faster (9.8 s → 2.2 s on FlaskBB).
+- New: "Working…" pill for slow calls, plain-English errors, library searches no longer freeze the board, free explanation when the AI key is missing or refused, provider picker chooses one that has a key.
+- Zoom/pan frame time halved (grid moved to its own layer).
+- Blocked: the saved DeepSeek key is refused by DeepSeek (HTTP 401), so real AI calls could not be tested.

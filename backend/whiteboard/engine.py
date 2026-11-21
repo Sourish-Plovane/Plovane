@@ -24,6 +24,7 @@ import copy
 import difflib
 import inspect
 import os
+import re
 import subprocess
 from pathlib import Path
 from dataclasses import asdict
@@ -302,6 +303,20 @@ def board_name(root: Path, name: str | None) -> str:
     return rel
 
 
+# Input: none
+# Output: str
+# Processing: The AI provider to use when none is named: PLOVANE_LLM_PROVIDER, else the first of Claude, DeepSeek and OpenAI whose key is set (Claude when none is, so the message says how to add one).
+# Changed by: Claude Code
+# Date: 2026-11-21
+def default_provider() -> str:
+    from ml.serving.llm import KEY_NAMES
+
+    chosen = os.environ.get("PLOVANE_LLM_PROVIDER")
+    if chosen:
+        return chosen
+    return next((p for p in ("anthropic", "deepseek", "openai") if os.environ.get(KEY_NAMES[p])), "anthropic")
+
+
 class Workspace:
     """One project's whiteboard: its board, history and files."""
 
@@ -510,22 +525,26 @@ class Workspace:
 
     # Input: prompt (str), system (str | None), provider (str | None)
     # Output: dict[str, Any]
-    # Processing: Ask Claude, DeepSeek or OpenAI and keep its token usage; a missing key says how to add one.
+    # Processing: Ask Claude, DeepSeek or OpenAI and keep its token usage; a missing or refused key says how to fix it. With no provider named, use the first one that has a key.
     # Changed by: Claude Code
-    # Date: 2026-11-09
+    # Date: 2026-11-21
     def llm_result(self, prompt: str, system: str | None = None, *, provider: str | None = None) -> dict[str, Any]:
         if self._llm is not None:
             return {"text": self._llm(prompt, system), "usage": {}}
         from ml.serving import llm
 
-        provider = provider or os.environ.get("PLOVANE_LLM_PROVIDER", "anthropic")
+        provider = provider or default_provider()
         reply = llm.ask(prompt, provider=provider, system=system, max_tokens=4096)
         if "error" in reply:
             if "is not set" in reply["error"]:
                 name = {"anthropic": "claude"}.get(provider, provider)
                 raise OpError("LLM_UNAVAILABLE", f"no API key for {name}: add one under AI providers "
                                                  f"(the A button, top right) or run 'plovane connect {name}'")
-            raise OpError("LLM_UNAVAILABLE", reply["error"])
+            name = {"anthropic": "claude"}.get(provider, provider)
+            if re.search(r"HTTP 40[13]\b", reply["error"]):
+                raise OpError("LLM_UNAVAILABLE", f"the {name} key was refused (it may be wrong or expired); "
+                                                 f"replace it with 'plovane connect {name}'")
+            raise OpError("LLM_UNAVAILABLE", f"the {name} AI could not answer: {reply['error']}")
         return reply
 
     # Input: op (str)

@@ -141,6 +141,7 @@ COMMANDS: tuple[Command, ...] = (
     Command("endpoint mock", "endpoint.mock", ("endpoint",),
             example="/endpoint mock payments:POST /charge --response sample"),
     Command("endpoint check", "endpoint.check", ("target",), example="/endpoint check all"),
+    Command("endpoint scan", "endpoint.scan", (), example="/endpoint scan"),
     Command("endpoint import", "endpoint.import", ("spec",), example="/endpoint import openapi.yaml"),
     Command("endpoint export", "endpoint.export", ("service",), example="/endpoint export payments"),
     Command("api external add", "external.add", ("name",), example="/api external add stripe --spec stripe-openapi.yaml"),

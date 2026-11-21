@@ -81,3 +81,21 @@
 body[data-theme="dark"] .connect-pick, body[data-theme="dark"] .block-tray .tray-items, body[data-theme="dark"] .block-tray .tray-toggle { background:#22252d; border-color:#383c47; color:#e5e7ee; }
 body[data-theme="dark"] .block-tray .tray-item { background:#2a2e38; border-color:#383c47; }
 body[data-theme="dark"] .nest-code.with-english .en { color:#cfd3dd; border-left-color:#383c47; }
+
+/* Busy pill: shown while a slow call runs (whiteboard.js busy()). */
+.busy-pill { position:fixed; top:66px; left:50%; transform:translateX(-50%); z-index:2500; display:flex; align-items:center; gap:8px; padding:7px 14px; border-radius:999px; background:#1f2330; color:#fff; font:600 12.5px Inter,system-ui,sans-serif; box-shadow:0 6px 20px #0003; }
+.busy-pill[hidden] { display:none; }
+.busy-spin { width:12px; height:12px; border-radius:50%; border:2px solid #ffffff55; border-top-color:#fff; animation:busySpin .8s linear infinite; }
+@keyframes busySpin { to { transform:rotate(360deg); } }
+.nest-empty .empty-steps { margin-top:.6em; font-size:.62em; line-height:1.7; color:var(--muted,#6b7280); }
+.nest-empty .empty-steps button { font-size:1em; padding:.15em .6em; }
+.nest-empty .empty-steps small { display:block; margin-top:.6em; font-size:.8em; }
+
+/* A failing API badge is a button: it asks the AI why. */
+button.api-badge.fail { cursor:pointer; font:inherit; font-size:.55em; font-weight:700; font-family:Inter,system-ui,sans-serif; }
+button.api-badge.fail:hover { background:#b3261e; color:#fff; }
+.nest-tile button.api-badge.fail { font-size:1em; }
+
+/* Dot grid on its own GPU layer (whiteboard.js updateGrid): zooming moves it instead of repainting it. */
+#grid-layer { position:absolute; left:0; top:0; width:200%; height:200%; pointer-events:none; transform-origin:0 0; will-change:transform; z-index:0; }
+#grid-layer[hidden] { display:none; }
