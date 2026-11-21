@@ -1,0 +1,467 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "plovane:whiteboard/0.1",
+  "title": "Plovane whiteboard file (whiteboard.json) v0.1",
+  "description": "Proposed. Confidential internal spec. One project whiteboard: zoom levels, overlays, roles, personal views, display rules, layout, drawings and library references. Source code is not stored here; it stays in Git. See Plovane_Handbook.md section 21.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["whiteboard_version", "project", "levels", "overlays", "roles", "views", "display", "layout", "drawings", "library"],
+  "properties": {
+    "whiteboard_version": { "const": "0.1" },
+    "project": { "$ref": "#/$defs/project" },
+    "levels": {
+      "description": "Zoom levels. Exactly one is active at a time, chosen by the zoom value.",
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/level" }
+    },
+    "overlays": {
+      "description": "Overlays, keyed by overlay id. Any number can be on at once. A tree is formed through each overlay's parent.",
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/id" },
+      "additionalProperties": { "$ref": "#/$defs/overlay" }
+    },
+    "roles": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/id" },
+      "additionalProperties": { "$ref": "#/$defs/role" }
+    },
+    "views": {
+      "description": "One saved personal view per user, keyed by user_id.",
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/personal_view" }
+    },
+    "display": {
+      "description": "How each kind of block is drawn, keyed by block kind.",
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/block_kind" },
+      "additionalProperties": { "$ref": "#/$defs/display_rule" }
+    },
+    "layout": { "$ref": "#/$defs/layout" },
+    "drawings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/drawing" }
+    },
+    "library": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/library_ref" }
+    },
+    "signature": {
+      "description": "Optional for now. Planned for when the file moves to the .plo name.",
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/signature" }
+      ]
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "language": {
+      "enum": ["javascript", "html", "css", "python", "pytorch", "cpp", "cuda"]
+    },
+    "block_kind": {
+      "enum": ["agent", "service", "server", "external", "database", "queue", "endpoint",
+               "folder", "group", "slot", "file", "function", "class", "step", "code", "note", "scan"]
+    },
+    "node_type": {
+      "description": "Kinds of node in the code graph that custom overlays can match.",
+      "enum": ["service", "folder", "file", "function", "class", "endpoint", "finding"]
+    },
+    "relationship": {
+      "enum": ["contains", "calls", "imports", "routes_to", "tests", "flags"]
+    },
+    "channel": {
+      "description": "The kind of visual mark an overlay uses, so stacked overlays do not cover each other.",
+      "enum": ["fill", "border", "badge", "chip", "icon", "port", "arrows", "line_highlight"]
+    },
+    "appearance": {
+      "description": "How much an overlay shows at one zoom level.",
+      "enum": ["hidden", "count", "mark", "detail"]
+    },
+    "size": {
+      "type": "array",
+      "items": { "type": "number", "exclusiveMinimum": 0 },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": { "x": { "type": "number" }, "y": { "type": "number" } }
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project_id", "name", "repo", "commit", "languages"],
+      "properties": {
+        "project_id": { "type": "string" },
+        "name": { "type": "string", "minLength": 1 },
+        "repo": { "type": "string", "minLength": 1 },
+        "commit": {
+          "description": "Commit the board was last synced against; null before first sync.",
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "pattern": "^[0-9a-f]{7,64}$" }
+          ]
+        },
+        "languages": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/language" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "level": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["number", "id", "name", "zoom", "shows"],
+      "properties": {
+        "number": { "type": "integer", "minimum": 0 },
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string" },
+        "zoom": {
+          "description": "[low, high] on the 0-100 zoom scale. Ranges must not overlap.",
+          "type": "array",
+          "items": { "type": "number", "minimum": 0, "maximum": 100 },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "shows": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/block_kind" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "overlay": {
+      "oneOf": [
+        { "$ref": "#/$defs/group_overlay" },
+        { "$ref": "#/$defs/premade_overlay" },
+        { "$ref": "#/$defs/custom_overlay" }
+      ]
+    },
+    "overlay_common": {
+      "type": "object",
+      "required": ["label", "source"],
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "source": { "enum": ["group", "premade", "custom"] },
+        "parent": {
+          "description": "Id of the group overlay this one sits inside; null or absent for a top-level overlay.",
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/id" }]
+        },
+        "description": { "type": "string" }
+      }
+    },
+    "drawing_overlay": {
+      "description": "Fields shared by overlays that draw something (premade and custom).",
+      "type": "object",
+      "required": ["channel", "appearance"],
+      "properties": {
+        "channel": { "$ref": "#/$defs/channel" },
+        "priority": {
+          "description": "When two active overlays use the same channel on the same block, the higher priority is drawn.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "appearance": {
+          "description": "How much this overlay shows at each zoom level, keyed by level id. Levels not listed are hidden.",
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/id" },
+          "additionalProperties": { "$ref": "#/$defs/appearance" }
+        },
+        "style": { "$ref": "#/$defs/style" }
+      }
+    },
+    "group_overlay": {
+      "allOf": [{ "$ref": "#/$defs/overlay_common" }],
+      "unevaluatedProperties": false,
+      "properties": {
+        "source": { "const": "group" }
+      }
+    },
+    "premade_overlay": {
+      "allOf": [{ "$ref": "#/$defs/overlay_common" }, { "$ref": "#/$defs/drawing_overlay" }],
+      "unevaluatedProperties": false,
+      "required": ["engine_ref"],
+      "properties": {
+        "source": { "const": "premade" },
+        "engine_ref": {
+          "description": "Versioned reference to a Plovane analyzer, e.g. plovane.overlays.leaked_secrets@1.",
+          "type": "string",
+          "pattern": "^plovane\\.overlays\\.[a-z_]+@[0-9]+$"
+        }
+      }
+    },
+    "custom_overlay": {
+      "allOf": [{ "$ref": "#/$defs/overlay_common" }, { "$ref": "#/$defs/drawing_overlay" }],
+      "unevaluatedProperties": false,
+      "required": ["created_by", "author", "match"],
+      "properties": {
+        "source": { "const": "custom" },
+        "created_by": { "enum": ["ai", "user"] },
+        "author": { "type": "string" },
+        "define_tags": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/id" },
+          "additionalProperties": { "$ref": "#/$defs/tag_rule" }
+        },
+        "match": { "$ref": "#/$defs/match" }
+      }
+    },
+    "tag_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["engine", "language", "pattern"],
+      "properties": {
+        "engine": { "enum": ["tree_sitter", "semgrep"] },
+        "language": { "$ref": "#/$defs/language" },
+        "pattern": { "type": "string", "minLength": 1 }
+      }
+    },
+    "traversal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["via", "tag"],
+      "properties": {
+        "via": { "$ref": "#/$defs/relationship" },
+        "tag": { "$ref": "#/$defs/id" }
+      }
+    },
+    "match": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "node_type": { "$ref": "#/$defs/node_type" },
+        "path": { "description": "Glob over source paths.", "type": "string" },
+        "has_tag": { "$ref": "#/$defs/id" },
+        "reaches": { "$ref": "#/$defs/traversal" },
+        "not_reaches": { "$ref": "#/$defs/traversal" }
+      }
+    },
+    "style": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "oneOf": [
+            { "enum": ["blue", "green", "orange", "red", "purple", "gray"] },
+            { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }
+          ]
+        },
+        "badge": { "type": "string", "maxLength": 40 },
+        "icon": { "type": "string" }
+      }
+    },
+    "role": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "overlays", "default_level"],
+      "properties": {
+        "label": { "type": "string" },
+        "overlays": {
+          "description": "Overlays switched on for this role. Naming a group switches on all its children.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" },
+          "uniqueItems": true
+        },
+        "filters": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/id" },
+          "additionalProperties": { "enum": ["all", "only_with_findings"] }
+        },
+        "default_level": { "$ref": "#/$defs/id" }
+      }
+    },
+    "personal_view": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base_role"],
+      "properties": {
+        "base_role": { "$ref": "#/$defs/id" },
+        "overlays_add": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true },
+        "overlays_remove": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true },
+        "level": { "$ref": "#/$defs/id" },
+        "focus": { "$ref": "#/$defs/selector" }
+      }
+    },
+    "display_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["shape"],
+      "properties": {
+        "shape": { "enum": ["rectangle", "rounded", "pill", "circle", "hexagon", "cylinder", "container", "port"] },
+        "show": {
+          "description": "Fields printed on the block, in order.",
+          "type": "array",
+          "items": { "enum": ["name", "language_icon", "line_count", "file_count", "english_summary", "method", "route"] },
+          "uniqueItems": true
+        },
+        "size": {
+          "oneOf": [
+            { "$ref": "#/$defs/size" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["by", "min", "max"],
+              "properties": {
+                "by": { "enum": ["line_count", "child_count"] },
+                "min": { "$ref": "#/$defs/size" },
+                "max": { "$ref": "#/$defs/size" }
+              }
+            }
+          ]
+        },
+        "attach_to": { "enum": ["file_edge", "parent_edge"] }
+      }
+    },
+    "layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "spacing", "overlay_slots"],
+      "properties": {
+        "algorithm": { "enum": ["nested_grid"] },
+        "spacing": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["between_blocks", "container_padding"],
+          "properties": {
+            "between_blocks": { "type": "number", "minimum": 0 },
+            "container_padding": { "type": "number", "minimum": 0 }
+          }
+        },
+        "sort_by": { "enum": ["name", "size", "kind"] },
+        "pinned": {
+          "description": "Blocks someone moved by hand, keyed by project path or block id. Everything else is placed automatically.",
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/point" }
+        },
+        "collapsed": {
+          "description": "Folders drawn as a single block.",
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "overlay_slots": {
+          "description": "Where on a block each channel draws, so overlays never cover the name or each other.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["badge", "chip", "icon"],
+          "properties": {
+            "badge": { "enum": ["top_right", "top_left", "bottom_right", "bottom_left"] },
+            "chip": { "enum": ["bottom", "top"] },
+            "icon": { "enum": ["top_left", "top_right", "bottom_left", "bottom_right"] }
+          }
+        }
+      }
+    },
+    "selector": {
+      "description": "Binds a drawing to code. Resolved by the Plovane engine on every sync, so bound drawings follow the code.",
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "maxProperties": 1,
+      "properties": {
+        "service": { "type": "string" },
+        "folder": { "type": "string" },
+        "file": { "type": "string" },
+        "function": { "description": "path::qualified_name", "type": "string", "pattern": "^.+::.+$" },
+        "endpoint": { "description": "METHOD /route", "type": "string", "pattern": "^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS) /.*$" },
+        "node_id": { "type": "string" }
+      }
+    },
+    "target": {
+      "oneOf": [
+        { "$ref": "#/$defs/id" },
+        { "$ref": "#/$defs/selector" }
+      ]
+    },
+    "drawing_base": {
+      "type": "object",
+      "required": ["id", "type", "author"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "type": { "enum": ["group", "note", "arrow", "shape"] },
+        "author": { "type": "string" },
+        "created_by": { "enum": ["ai", "user"] },
+        "level": { "$ref": "#/$defs/id" },
+        "style": { "$ref": "#/$defs/style" },
+        "position": { "$ref": "#/$defs/point" }
+      }
+    },
+    "drawing": {
+      "oneOf": [
+        {
+          "allOf": [{ "$ref": "#/$defs/drawing_base" }],
+          "unevaluatedProperties": false,
+          "required": ["label", "bind"],
+          "properties": {
+            "type": { "const": "group" },
+            "label": { "type": "string" },
+            "bind": { "$ref": "#/$defs/selector" }
+          }
+        },
+        {
+          "allOf": [{ "$ref": "#/$defs/drawing_base" }],
+          "unevaluatedProperties": false,
+          "required": ["text"],
+          "properties": {
+            "type": { "const": "note" },
+            "text": { "type": "string", "maxLength": 2000 },
+            "attach": { "$ref": "#/$defs/target" }
+          }
+        },
+        {
+          "allOf": [{ "$ref": "#/$defs/drawing_base" }],
+          "unevaluatedProperties": false,
+          "required": ["from", "to"],
+          "properties": {
+            "type": { "const": "arrow" },
+            "from": { "$ref": "#/$defs/target" },
+            "to": { "$ref": "#/$defs/target" },
+            "label": { "type": "string" }
+          }
+        },
+        {
+          "allOf": [{ "$ref": "#/$defs/drawing_base" }],
+          "unevaluatedProperties": false,
+          "required": ["kind", "position", "size"],
+          "properties": {
+            "type": { "const": "shape" },
+            "kind": { "enum": ["rect", "ellipse"] },
+            "label": { "type": "string" },
+            "size": { "$ref": "#/$defs/size" }
+          }
+        }
+      ]
+    },
+    "library_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["block_id", "revision", "inserted_at", "credited_to"],
+      "properties": {
+        "block_id": { "type": "string" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "inserted_at": { "$ref": "#/$defs/selector" },
+        "credited_to": { "type": "string" }
+      }
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["alg", "key_id", "signed_at", "value"],
+      "properties": {
+        "alg": { "const": "ed25519" },
+        "key_id": { "type": "string" },
+        "signed_at": { "type": "string", "format": "date-time" },
+        "value": { "type": "string", "contentEncoding": "base64" }
+      }
+    }
+  }
+}

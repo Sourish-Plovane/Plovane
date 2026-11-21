@@ -1,0 +1,216 @@
+{
+  "display": {
+    "endpoint": { "attach_to": "file_edge", "shape": "port", "show": ["method", "route"] },
+    "file": {
+      "shape": "rounded",
+      "show": ["name", "language_icon", "line_count"],
+      "size": { "by": "line_count", "max": [320, 140], "min": [160, 60] }
+    },
+    "folder": {
+      "shape": "container",
+      "show": ["name", "file_count"],
+      "size": { "by": "child_count", "max": [1600, 1200], "min": [220, 140] }
+    },
+    "function": { "shape": "rectangle", "show": ["name", "english_summary"], "size": [260, 50] },
+    "service": { "shape": "container", "show": ["name"], "size": [200, 100] }
+  },
+  "drawings": [
+    {
+      "author": "usr_sourish",
+      "bind": { "folder": "src/payments" },
+      "created_by": "user",
+      "id": "d_payments",
+      "label": "Payments service",
+      "level": "folders",
+      "style": { "color": "blue" },
+      "type": "group"
+    },
+    {
+      "attach": "d_payments",
+      "author": "usr_sourish",
+      "created_by": "user",
+      "id": "d_refactor_note",
+      "text": "Refactor before launch",
+      "type": "note"
+    },
+    {
+      "author": "usr_aarav",
+      "created_by": "ai",
+      "from": "d_payments",
+      "id": "d_charge_arrow",
+      "label": "handles",
+      "to": { "endpoint": "POST /charge" },
+      "type": "arrow"
+    }
+  ],
+  "layout": {
+    "algorithm": "nested_grid",
+    "collapsed": ["node_modules", "tests/fixtures"],
+    "overlay_slots": { "badge": "top_right", "chip": "bottom", "icon": "top_left" },
+    "pinned": { "src/payments/charge.py": { "x": 420, "y": 180 } },
+    "sort_by": "name",
+    "spacing": { "between_blocks": 24, "container_padding": 32 }
+  },
+  "levels": [
+    { "id": "agents", "name": "Agents and access", "number": 0, "shows": ["agent"], "zoom": [0, 10] },
+    {
+      "id": "services",
+      "name": "Services and endpoints",
+      "number": 1,
+      "shows": ["service", "server", "external", "database", "queue", "endpoint"],
+      "zoom": [10, 20]
+    },
+    { "id": "folders", "name": "Folders", "number": 2, "shows": ["folder", "group", "slot"], "zoom": [20, 40] },
+    { "id": "files", "name": "Files", "number": 3, "shows": ["file"], "zoom": [40, 70] },
+    { "id": "steps", "name": "English steps", "number": 4, "shows": ["function", "step"], "zoom": [70, 90] },
+    { "id": "code", "name": "Code", "number": 5, "shows": ["code"], "zoom": [90, 100] }
+  ],
+  "library": [
+    {
+      "block_id": "blk_csv_validator",
+      "credited_to": "usr_nirmal",
+      "inserted_at": { "function": "src/payments/import.py::load_ledger" },
+      "revision": 2
+    }
+  ],
+  "overlays": {
+    "agent_access": {
+      "appearance": { "files": "mark", "folders": "mark", "services": "mark", "steps": "mark" },
+      "channel": "chip",
+      "engine_ref": "plovane.overlays.agent_access@1",
+      "label": "Agent access",
+      "priority": 40,
+      "source": "premade"
+    },
+    "api_endpoints": { "label": "API endpoints", "source": "group" },
+    "caller_arrows": {
+      "appearance": { "files": "detail", "services": "mark" },
+      "channel": "arrows",
+      "engine_ref": "plovane.overlays.caller_arrows@1",
+      "label": "Caller arrows",
+      "parent": "api_endpoints",
+      "priority": 50,
+      "source": "premade"
+    },
+    "code_vulnerabilities": {
+      "appearance": { "code": "detail", "files": "mark", "folders": "count", "services": "count", "steps": "mark" },
+      "channel": "border",
+      "engine_ref": "plovane.overlays.code_vulnerabilities@1",
+      "label": "Vulnerabilities in code",
+      "parent": "cyber_security",
+      "priority": 100,
+      "source": "premade",
+      "style": { "color": "red" }
+    },
+    "cyber_security": { "label": "Cyber security", "source": "group" },
+    "endpoint_ports": {
+      "appearance": { "files": "detail", "services": "detail" },
+      "channel": "port",
+      "engine_ref": "plovane.overlays.endpoint_ports@1",
+      "label": "Endpoint ports",
+      "parent": "api_endpoints",
+      "priority": 50,
+      "source": "premade"
+    },
+    "leaked_secrets": {
+      "appearance": { "code": "detail", "files": "mark", "folders": "count", "services": "count" },
+      "channel": "badge",
+      "engine_ref": "plovane.overlays.leaked_secrets@1",
+      "label": "Leaked secrets",
+      "parent": "cyber_security",
+      "priority": 100,
+      "source": "premade",
+      "style": { "badge": "secret", "color": "red" }
+    },
+    "library_code": {
+      "appearance": { "files": "mark", "steps": "mark" },
+      "channel": "icon",
+      "engine_ref": "plovane.overlays.library_code@1",
+      "label": "Verified library code",
+      "priority": 30,
+      "source": "premade"
+    },
+    "test_health": {
+      "appearance": { "files": "mark", "folders": "count", "services": "count", "steps": "mark" },
+      "channel": "fill",
+      "engine_ref": "plovane.overlays.test_health@1",
+      "label": "Test health",
+      "priority": 60,
+      "source": "premade"
+    },
+    "unauthenticated_endpoints": {
+      "appearance": { "files": "mark", "services": "mark" },
+      "channel": "badge",
+      "engine_ref": "plovane.overlays.unauthenticated_endpoints@1",
+      "label": "Endpoints with no login check",
+      "parent": "cyber_security",
+      "priority": 90,
+      "source": "premade",
+      "style": { "badge": "no auth", "color": "red" }
+    },
+    "unvalidated_db_writes": {
+      "appearance": { "files": "mark", "services": "count" },
+      "author": "usr_sourish",
+      "channel": "badge",
+      "created_by": "ai",
+      "define_tags": {
+        "db_write": { "engine": "semgrep", "language": "python", "pattern": "$CURSOR.execute(...)" }
+      },
+      "description": "Endpoints that write to the database without checking their input.",
+      "label": "Unvalidated database writes",
+      "match": {
+        "node_type": "endpoint",
+        "not_reaches": { "tag": "input_validation", "via": "calls" },
+        "reaches": { "tag": "db_write", "via": "calls" }
+      },
+      "parent": "cyber_security",
+      "priority": 80,
+      "source": "custom",
+      "style": { "badge": "unvalidated write", "color": "orange" }
+    },
+    "vulnerable_dependencies": {
+      "appearance": { "files": "mark", "services": "count" },
+      "channel": "badge",
+      "engine_ref": "plovane.overlays.vulnerable_dependencies@1",
+      "label": "Vulnerable dependencies",
+      "parent": "cyber_security",
+      "priority": 85,
+      "source": "premade",
+      "style": { "badge": "CVE", "color": "red" }
+    }
+  },
+  "project": {
+    "commit": "d85a644",
+    "languages": ["python", "javascript"],
+    "name": "Example shop",
+    "project_id": "proj_example_shop",
+    "repo": "git@github.com:example/shop.git"
+  },
+  "roles": {
+    "cyber": {
+      "default_level": "services",
+      "filters": { "api_endpoints": "only_with_findings" },
+      "label": "Cyber security",
+      "overlays": ["cyber_security", "api_endpoints"]
+    },
+    "developer": {
+      "default_level": "files",
+      "label": "Developer",
+      "overlays": ["api_endpoints", "test_health", "library_code"]
+    },
+    "reviewer": {
+      "default_level": "folders",
+      "label": "Reviewer",
+      "overlays": ["test_health", "library_code"]
+    }
+  },
+  "views": {
+    "usr_sourish": {
+      "base_role": "developer",
+      "focus": { "service": "payments" },
+      "level": "steps",
+      "overlays_add": ["unvalidated_db_writes", "agent_access"]
+    }
+  },
+  "whiteboard_version": "0.1"
+}
