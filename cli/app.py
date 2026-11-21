@@ -312,7 +312,7 @@ def _help(args: list[str], state: dict) -> None:
         ("agent add <name> [--access read-write]", "Add an AI agent (the only place agents are added)"),
         ("agent token <name>",       "API token for an agent (for your own scripts)"),
         ("connect [claude|deepseek|openai]", "Add an API key / show which are set"),
-        ("mcp [--agent claude]",     "MCP server for Claude Code / Desktop / Cursor"),
+        ("mcp [--agent claude] [--board F.plo]", "MCP server for Claude Code / Desktop / Cursor"),
         ("serve [dir] [--headless]", "Run the whiteboard server in this terminal"),
         ("status",                   "Ping B03/B05/B06"),
         ("register <email>",         "Register with B03 /api/v1/auth/register"),
@@ -624,20 +624,21 @@ def _open(args: list[str], state: dict) -> None:
 @_command("wb", "whiteboard")
 def _wb(args: list[str], state: dict) -> None:
     opts, rest = _wb_args(args, "wb", lambda p: (
-        p.add_argument("--confirm", action="store_true"), p.add_argument("--dry-run", action="store_true")))
+        p.add_argument("--confirm", action="store_true"), p.add_argument("--dry-run", action="store_true"),
+        p.add_argument("--board", default=None, help="whiteboard file, e.g. designs/payments.plo (default: whiteboard.plo)")))
     if not rest:
-        print(f"{theme.c('dim')}usage: wb \"/block add service payments\" [--confirm] [--dry-run]{theme.c('reset')}")
+        print(f"{theme.c('dim')}usage: wb \"/block add service payments\" [--confirm] [--dry-run] [--board FILE.plo]{theme.c('reset')}")
         return
     text = " ".join(rest)
     text = text if text.startswith("/") else "/" + text
     client = wb_mod.PersonClient(wb_mod.ensure_running(opts.dir, headless=opts.headless, port=opts.port))
-    reply = client.command(text, confirm=opts.confirm, dry_run=opts.dry_run)
+    reply = client.command(text, confirm=opts.confirm, dry_run=opts.dry_run, board=opts.board)
     data = reply.get("data") or {}
     if reply.get("ok") and data.get("status") == "needs_confirmation":
         print(f"{theme.c('secondary')}{data.get('message')}{theme.c('reset')}")
         print(json.dumps(data.get("preview"), indent=2, default=str)[:4000])
         if sys.stdin.isatty() and _prompt("apply it? [y/N] ").lower() in {"y", "yes"}:
-            reply = client.command(text, confirm=True)
+            reply = client.command(text, confirm=True, board=opts.board)
         else:
             print(f"{theme.c('dim')}not applied; add --confirm to apply{theme.c('reset')}")
             return
@@ -670,10 +671,13 @@ def _mcp(args: list[str], state: dict) -> None:
         p.add_argument("--agent", default="claude"),
         p.add_argument("--access", choices=["read", "read-write"], default=None,
                        help="grant this agent access to the whole project on connect"),
-        p.add_argument("--no-launch", action="store_true", help="do not open the app; edit the project in-process")))
+        p.add_argument("--no-launch", action="store_true", help="do not open the app; edit the project in-process"),
+        p.add_argument("--board", default=None, help="whiteboard file the agent works on (default: whiteboard.plo)")))
     project = Path(opts.dir).expanduser().resolve()
     os.environ["PLOVANE_PROJECT"] = str(project)
     os.environ["PLOVANE_AGENT"] = opts.agent
+    if opts.board:
+        os.environ["PLOVANE_BOARD"] = opts.board
     if not opts.no_launch:
         try:
             # stdout is the MCP channel, so everything here reports on stderr.

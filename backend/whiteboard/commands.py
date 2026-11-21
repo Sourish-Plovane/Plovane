@@ -195,7 +195,42 @@ COMMANDS: tuple[Command, ...] = (
     Command("focus", "view.focus", ("block",), example="/focus payments"),
     Command("layout", "view.layout", ("direction",), example="/layout left-to-right"),
     Command("filter", "view.filter", example="/filter --arrows api"),
+    # Whiteboard files (#72): save the board as JSON full of commands, open one, and the exact restore commands
+    Command("boards", "board.list", example="/boards"),
+    Command("board new", "board.new", ("path",), example="/board new designs/payments"),
+    Command("board save", "board.save", ("path",), example="/board save  or  /board save designs/copy"),
+    Command("board load", "board.load", ("path",), example="/board load  or  /board load designs/copy.plo"),
+    Command("block put", "block.put", ("block",),
+            example="/block put auth --kind service --name auth --layer 1 --at 100,80 --size 200x100"),
+    Command("arrow put", "arrow.put", arrow=("source", "target"), example="/arrow put checkout -> auth --type api"),
+    Command("endpoint put", "endpoint.put", ("endpoint",), example="/endpoint put 'auth:POST /login' --status built"),
+    Command("agent put", "agent.put", ("agent",),
+            example="/agent put claude --block agent-claude --grants '[{\"path\":\"src\",\"mode\":\"read\"}]'"),
+    Command("template put", "template.put", ("template",),
+            example="/template put api --blocks '[{\"kind\":\"service\",\"name\":\"api\"}]' --arrows '[]'"),
+    Command("layer put", "layer.put", ("number",), example='/layer put 6 --name "Tests" --zoom 100-110 --show note'),
     Command("board", "board.read", example="/board  or  /board --layer 3  or  /board --block payments"),
+    # Live view: what agents are working on, API pass/fail, attacks (ops/live.py)
+    Command("agent working", "agent.working", ("target", "task"), rest=True,
+            example='/agent working src/payments "add refunds"'),
+    Command("agent done", "agent.done", ("target",), example="/agent done src/payments"),
+    Command("agent activity", "agent.activity", example="/agent activity"),
+    Command("traffic", "traffic.record", ("method", "path", "status"), example="/traffic POST /charge 500"),
+    Command("api status", "api.status", example="/api status"),
+    Command("api explain", "api.explain", ("endpoint",), example="/api explain 'payments:POST /charge' --provider claude"),
+    Command("security scan", "security.scan", ("target",), example="/security scan src"),
+    Command("security", "security.events", example="/security"),
+    # Readable code: summaries one layer up and English line by line (ops/readable.py)
+    Command("summary set", "code.summary_set", ("target", "text"), rest=True,
+            example='/summary set src/pay.py "Charges a card and retries twice"'),
+    Command("summary", "code.summary", ("target",), example="/summary src  or  /summary --provider claude"),
+    Command("project describe", "project.describe", ("text",), rest=True,
+            example='/project describe "A shop backend: orders, payments and emails"'),
+    Command("translate", "code.translate", ("file",), example="/translate src/pay.py --start 1 --end 40"),
+    # Whiteboards built for one job (ops/views.py)
+    Command("board make", "board.make", ("kind",), example="/board make api  or  /board make frontend --refresh"),
+    Command("pages", "frontend.pages", example="/pages"),
+    Command("frontend", "frontend.run", ("action",), example="/frontend start  or  /frontend stop"),
 )
 
 BY_PHRASE = {c.phrase: c for c in COMMANDS}

@@ -1,10 +1,17 @@
 """Where the whiteboard keeps its state, and how file changes are recorded.
 
+In the project root, committed with the code:
+
+    whiteboard.plo    the main whiteboard: JSON whose "commands" rebuild it, agents and access included.
+    *.plo             more whiteboards, each its own drawing, opened in its own tab (#72).
+
 Inside the project, under ``.plovane/``:
 
-    board.json        the board: layout, styles, layers, endpoints. Committed with the code.
-    snapshots/        named copies of board.json (/snapshot). Committed.
-    history.json      undo and redo stacks. Local, gitignored.
+    board.json        a local cache of whiteboard.plo, with what a .plo does not carry (alerts,
+                      previews, line provenance). Local, gitignored.
+    boards/           the same cache and undo history for every other .plo. Local.
+    snapshots/        named copies of the board (/snapshot). Committed.
+    history.json      undo and redo stacks of the main whiteboard. Local, gitignored.
     log.jsonl         every operation run, by whom. Local, gitignored.
     compile/          code previews waiting for /compile apply. Local.
     monitor/          output of processes started by /monitor. Local.
@@ -39,7 +46,11 @@ SKIP_DIRS = frozenset({".git", STATE_DIR, ".claude", "node_modules", "__pycache_
 agent worktrees, which are whole extra copies of the repository."""
 HISTORY_LIMIT = 50
 IGNORED = ("history.json", "log.jsonl", "compile/", "monitor/", "submissions.jsonl",
-           "server.json", "agent_tokens.json", "lock", "*.tmp")
+           "server.json", "agent_tokens.json", "lock", "*.tmp", "board.json", "boards/",
+           "translations.json", "security.log", "frontend.json", "frontend.log")
+MAIN_BOARD = "whiteboard.plo"
+"""The main whiteboard file. It holds the project's agents and their access; other .plo files share them."""
+BOARD_EXTENSION = ".plo"
 PROTECTED = (".git", STATE_DIR)
 """Paths no operation may write to through the file journal."""
 
@@ -56,18 +67,26 @@ def now() -> str:
 class Store:
     """Reads and writes ``.plovane/`` for one project."""
 
-    # Input: root (Path)
+    # Input: root (Path), board (str)
     # Output: None
-    # Processing: Locate the state folder for a project root.
-    # Changed by: Sourish
-    # Date: 2026-10-22
-    def __init__(self, root: Path) -> None:
+    # Processing: Locate the state folder, and one whiteboard's .plo file, cache and undo history.
+    # Changed by: Claude Code
+    # Date: 2026-11-15
+    def __init__(self, root: Path, board: str = MAIN_BOARD) -> None:
         self.root = root
         self.dir = root / STATE_DIR
-        self.board_path = self.dir / "board.json"
-        self.history_path = self.dir / "history.json"
+        self.board_file = board
+        self.plo_path = root / board
+        if board == MAIN_BOARD:
+            self.board_path = self.dir / "board.json"
+            self.history_path = self.dir / "history.json"
+        else:
+            key = board[: -len(BOARD_EXTENSION)].replace("/", "--")
+            self.board_path = self.dir / "boards" / f"{key}.json"
+            self.history_path = self.dir / "boards" / f"{key}.history.json"
         self.log_path = self.dir / "log.jsonl"
         self.last_stamp: tuple[int, int] | None = None
+        self.last_plo_stamp: tuple[int, int] | None = None
         self.snapshots = self.dir / "snapshots"
         self.monitor_dir = self.dir / "monitor"
         self.submissions = self.dir / "submissions.jsonl"
@@ -81,7 +100,7 @@ class Store:
         self.dir.mkdir(exist_ok=True)
         ignore = self.dir / ".gitignore"
         if not ignore.exists():
-            ignore.write_text("# Local whiteboard state; board.json and snapshots/ are shared.\n"
+            ignore.write_text("# Local whiteboard state; snapshots/ is shared, and the boards live in *.plo files.\n"
                               + "\n".join(IGNORED) + "\n")
             return
         present = set(ignore.read_text(encoding="utf-8").splitlines())
@@ -96,11 +115,45 @@ class Store:
     # Changed by: Claude Code
     # Date: 2026-11-09
     def board_stamp(self) -> tuple[int, int] | None:
+        return stamp_of(self.board_path)
+
+    # Input: none
+    # Output: tuple[int, int] | None
+    # Processing: The .plo file's modification time and size, or None when it does not exist.
+    # Changed by: Claude Code
+    # Date: 2026-11-15
+    def plo_stamp(self) -> tuple[int, int] | None:
+        return stamp_of(self.plo_path)
+
+    # Input: none
+    # Output: str | None
+    # Processing: The .plo file's text, remembering its stamp; None when there is no file.
+    # Changed by: Claude Code
+    # Date: 2026-11-15
+    def read_plo(self) -> str | None:
+        self.last_plo_stamp = self.plo_stamp()
         try:
-            info = self.board_path.stat()
+            return self.plo_path.read_text(encoding="utf-8")
         except FileNotFoundError:
             return None
-        return (info.st_mtime_ns, info.st_size)
+
+    # Input: text (str)
+    # Output: None
+    # Processing: Write the .plo file atomically, only when its text changes, and remember its stamp.
+    # Changed by: Claude Code
+    # Date: 2026-11-15
+    def write_plo(self, text: str) -> None:
+        try:
+            if self.plo_path.read_text(encoding="utf-8") == text:
+                self.last_plo_stamp = self.plo_stamp()
+                return
+        except FileNotFoundError:
+            pass
+        self.plo_path.parent.mkdir(parents=True, exist_ok=True)
+        temp = self.plo_path.with_name(self.plo_path.name + ".tmp")
+        temp.write_text(text, encoding="utf-8")
+        temp.replace(self.plo_path)
+        self.last_plo_stamp = self.plo_stamp()
 
     # Input: none
     # Output: Iterator[None]
@@ -133,13 +186,16 @@ class Store:
             return Board.from_dict(json.loads(self.board_path.read_text(encoding="utf-8")))
         return default_board()
 
-    # Input: board (Board)
+    # Input: board (Board), plo (str | None)
     # Output: None
-    # Processing: Write board.json atomically and remember its new stamp.
+    # Processing: Write the cache atomically and, when given, the .plo text; remember both stamps.
     # Changed by: Claude Code
-    # Date: 2026-11-09
-    def save_board(self, board: Board) -> None:
+    # Date: 2026-11-15
+    def save_board(self, board: Board, plo: str | None = None) -> None:
         self.ensure()
+        if plo is not None:
+            self.write_plo(plo)
+        self.board_path.parent.mkdir(parents=True, exist_ok=True)
         temp = self.board_path.with_suffix(".tmp")
         temp.write_text(json.dumps(board.to_dict(), indent=1, sort_keys=True) + "\n", encoding="utf-8")
         temp.replace(self.board_path)
@@ -147,11 +203,11 @@ class Store:
 
     # Input: none
     # Output: bool
-    # Processing: Whether another process has written board.json since this one read or wrote it.
+    # Processing: Whether another process (or Git, or a person) changed the cache or the .plo since this one last did.
     # Changed by: Claude Code
-    # Date: 2026-11-14
+    # Date: 2026-11-15
     def board_changed(self) -> bool:
-        return self.board_stamp() != self.last_stamp
+        return self.board_stamp() != self.last_stamp or self.plo_stamp() != self.last_plo_stamp
 
     # Input: none
     # Output: dict[str, list]
@@ -170,6 +226,7 @@ class Store:
     # Date: 2026-10-22
     def save_history(self, history: dict[str, list]) -> None:
         self.ensure()
+        self.history_path.parent.mkdir(parents=True, exist_ok=True)
         trimmed = {k: v[-HISTORY_LIMIT:] for k, v in history.items()}
         self.history_path.write_text(json.dumps(trimmed), encoding="utf-8")
 
@@ -195,6 +252,19 @@ class Store:
         if actor is not None:
             rows = [r for r in rows if r.get("actor") == actor]
         return rows[-last:] if last else rows
+
+
+# Input: path (Path)
+# Output: tuple[int, int] | None
+# Processing: A file's modification time and size, or None when it does not exist.
+# Changed by: Claude Code
+# Date: 2026-11-15
+def stamp_of(path: Path) -> tuple[int, int] | None:
+    try:
+        info = path.stat()
+    except FileNotFoundError:
+        return None
+    return (info.st_mtime_ns, info.st_size)
 
 
 # Input: data (bytes | None)
@@ -234,12 +304,14 @@ class FileJournal:
         self._dirs_removed: list[str] = []
         self._listing: dict[str, list[str]] = {}
         """files_under answers for this operation; any change clears them."""
+        self.allow_plo = False
+        """Set by the /board commands only: other operations may not write whiteboard files."""
 
     # Input: rel (str), write (bool)
     # Output: Path
-    # Processing: Resolve a project-relative path, refusing escapes and protected folders.
-    # Changed by: Sourish
-    # Date: 2026-10-22
+    # Processing: Resolve a project-relative path, refusing escapes, protected folders and (for writes) whiteboard files.
+    # Changed by: Claude Code
+    # Date: 2026-11-15
     def path(self, rel: str, *, write: bool = False) -> Path:
         cleaned = str(rel).strip().replace("\\", "/").strip("/")
         target = (self.root / cleaned).resolve()
@@ -248,6 +320,9 @@ class FileJournal:
         first = cleaned.split("/", 1)[0]
         if write and first in PROTECTED:
             raise OpError("INVALID_PATH", f"{rel!r} is inside {first}/, which commands may not change")
+        if write and cleaned.endswith(BOARD_EXTENSION) and not self.allow_plo:
+            # Whiteboard files hold agents' access: only the /board commands may write them.
+            raise OpError("INVALID_PATH", f"{rel!r} is a whiteboard file; change it with the /board commands")
         return target
 
     # Input: target (Path)

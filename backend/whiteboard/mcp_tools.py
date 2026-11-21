@@ -14,8 +14,11 @@ Where the calls go:
   one owner of the board, holds the agent to its grants and shows each change
   live in the open whiteboard.
 - **No server**: the tools edit the project in this process. The board is
-  still saved to .plovane/board.json under the project lock, and a whiteboard
+  still saved to its .plo file under the project lock, and a whiteboard
   started later, or one already watching that file, picks the change up.
+
+``PLOVANE_BOARD`` picks the whiteboard (.plo file) the agent works on; the
+default is the main one, whiteboard.plo.
 
 Either way the caller is an agent, never the person: ``PLOVANE_AGENT`` names
 it, and it defaults to ``claude``. An agent a person has not added and granted
@@ -47,13 +50,15 @@ def agent_name() -> str:
 
 # Input: path (str), payload (dict[str, Any])
 # Output: dict[str, Any] | None
-# Processing: POST to the running whiteboard server as this agent, or None when no server is configured.
+# Processing: POST to the running whiteboard server as this agent, on PLOVANE_BOARD's whiteboard; None when no server is configured.
 # Changed by: Claude Code
-# Date: 2026-11-09
+# Date: 2026-11-15
 def remote(path: str, payload: dict[str, Any]) -> dict[str, Any] | None:
     url, token = os.environ.get("PLOVANE_URL"), os.environ.get("PLOVANE_AGENT_TOKEN")
     if not url or not token:
         return None
+    if os.environ.get("PLOVANE_BOARD"):
+        payload = {**payload, "board": os.environ["PLOVANE_BOARD"]}
     from backend.whiteboard.llm_agent import http_json
 
     try:
@@ -68,13 +73,15 @@ def remote(path: str, payload: dict[str, Any]) -> dict[str, Any] | None:
 
 # Input: none
 # Output: Workspace
-# Processing: The project's workspace, opened on first use.
-# Changed by: Sourish
-# Date: 2026-10-22
+# Processing: The whiteboard the agent works on (PLOVANE_BOARD, else whiteboard.plo), opened on first use.
+# Changed by: Claude Code
+# Date: 2026-11-15
 def workspace() -> Workspace:
     global _workspace
     if _workspace is None:
-        _workspace = Workspace(os.environ.get("PLOVANE_PROJECT") or os.getcwd())
+        root = os.environ.get("PLOVANE_PROJECT") or os.getcwd()
+        board = os.environ.get("PLOVANE_BOARD")
+        _workspace = Workspace(root, board=board) if board else Workspace(root)
     return _workspace
 
 

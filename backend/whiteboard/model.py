@@ -21,7 +21,7 @@ BOARD_VERSION = 1
 
 LAYER_FOR_KIND = {
     "agent": 0,
-    "service": 1, "server": 1, "external": 1, "database": 1, "queue": 1, "endpoint": 1,
+    "service": 1, "server": 1, "external": 1, "database": 1, "queue": 1, "endpoint": 1, "page": 1,
     "folder": 2, "group": 2, "slot": 2,
     "file": 3,
     "function": 4, "class": 4, "step": 4,
@@ -35,14 +35,14 @@ DEFAULT_SIZE = {
     "service": (200, 100), "server": (200, 100), "external": (180, 90), "database": (140, 100),
     "queue": (160, 80), "folder": (220, 140), "group": (240, 160), "file": (160, 60),
     "function": (180, 50), "class": (240, 80), "step": (260, 40), "agent": (120, 60), "slot": (160, 60),
-    "note": (160, 80), "scan": (240, 160), "endpoint": (120, 24), "code": (400, 300),
+    "note": (160, 80), "scan": (240, 160), "endpoint": (120, 24), "code": (400, 300), "page": (320, 220),
 }
 
 ARROW_TYPES = ("api", "import", "database", "event", "external", "calls")
 
 DEFAULT_LAYERS = (
     (0, "Agents and access", 0, 10, ["agent"]),
-    (1, "Services and endpoints", 10, 20, ["service", "server", "external", "database", "queue", "endpoint"]),
+    (1, "Services and endpoints", 10, 20, ["service", "server", "external", "database", "queue", "endpoint", "page"]),
     (2, "Folders", 20, 40, ["folder", "group", "slot"]),
     (3, "Files", 40, 70, ["file"]),
     (4, "English steps", 70, 90, ["function", "step"]),
@@ -86,6 +86,7 @@ DEFAULT_PRESETS = {
     "step": {"fill": "#F1F3F4", "border": "#DADCE0", "radius": 6},
     "agent": {"fill": "#FCE8E6", "border": "#D93025", "shape": "pill", "icon": "robot"},
     "slot": {"fill": "#FFFFFF", "border": "#9AA0A6", "border_style": "dashed", "radius": 8},
+    "page": {"fill": "#FFFFFF", "border": "#1A73E8", "radius": 10, "icon": "page"},
     "scan": {"fill": "#FCE8E6", "border": "#D93025", "border_style": "dashed", "opacity": 0.3},
 }
 

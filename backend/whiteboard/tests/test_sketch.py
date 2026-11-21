@@ -34,7 +34,7 @@ def test_sketch_draws_without_writing_code(tmp_path):
     assert types[("payments", "stripe")] == "external"
     assert types[("api-gateway", "orders")] == "calls"
     assert "orders -> payments (POST /charge)" in result["arrows"]
-    assert [p.name for p in tmp_path.iterdir()] == [".plovane"]  # no handler files, no folders
+    assert sorted(p.name for p in tmp_path.iterdir()) == [".plovane", "whiteboard.plo"]  # no handler files, no folders
 
 
 # Input: tmp_path

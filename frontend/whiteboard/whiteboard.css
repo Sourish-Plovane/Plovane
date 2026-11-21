@@ -1746,3 +1746,83 @@ body[data-theme="dark"] .nest-code, body[data-theme="dark"] .code-editor textare
 body[data-theme="dark"] .focus-bar, body[data-theme="dark"] .code-editor, body[data-theme="dark"] .focus-bar button, body[data-theme="dark"] .editor-gutter { background:#22252d; color:#e5e7ee; border-color:#383c47; }
 body[data-theme="dark"] .breadcrumbs .crumb.current { color:#e5e7ee; }
 @media (prefers-reduced-motion: reduce) { #blocks.nest-fade > * { animation:none; } .nest-card { transition:none; } }
+
+/* Sub-whiteboard breadcrumbs: boards appear as pill-shaped crumbs with a frame glyph. */
+.breadcrumbs .crumb.board-crumb { color:var(--accent); background:var(--accent-soft); padding:2px 8px; border-radius:999px; font-weight:700; }
+.breadcrumbs .crumb.board-crumb:hover { color:#fff; background:var(--accent); }
+
+/* Mission Control: overlay grid of every whiteboard, like a trackpad "all windows" view. */
+.mission-control { position:fixed; inset:0; z-index:1000; background:rgba(16,17,22,.55); backdrop-filter:blur(14px); display:flex; flex-direction:column; animation:mcFade .18s ease-out; }
+.mission-control[hidden] { display:none; }
+body.mission-open { overflow:hidden; }
+@keyframes mcFade { from { opacity:0; } to { opacity:1; } }
+.mc-head { display:flex; align-items:baseline; gap:12px; padding:18px 24px 10px; color:#fff; }
+.mc-head b { font-size:17px; font-family:Manrope,sans-serif; letter-spacing:.2px; }
+.mc-head small { color:#cfd3dd; font-size:12px; }
+.mc-head .icon-btn { margin-left:auto; color:#fff; background:transparent; border:1px solid #ffffff33; border-radius:10px; width:34px; height:34px; font-size:18px; }
+.mc-head .icon-btn:hover { background:#ffffff14; }
+.mc-grid { flex:1; overflow:auto; display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:18px; padding:8px 24px 28px; align-content:start; }
+.mc-card { position:relative; background:#fff; border:1px solid var(--line); border-radius:14px; padding:0; cursor:pointer; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,.25); transition:transform .14s ease, border-color .14s ease, box-shadow .14s ease; display:flex; flex-direction:column; animation:mcCard .22s ease-out backwards; }
+.mc-card:focus { outline:none; }
+.mc-card:hover, .mc-card:focus-visible { transform:translateY(-3px); border-color:var(--accent); box-shadow:0 14px 36px rgba(0,0,0,.32); }
+.mc-card.active { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent), 0 14px 36px rgba(0,0,0,.32); }
+.mc-preview { background:linear-gradient(140deg, var(--accent-soft), #ffffff); height:180px; display:flex; align-items:center; justify-content:center; }
+.mc-preview svg { width:100%; height:100%; }
+.mc-rect { fill:#ffffffdd; stroke:var(--accent); stroke-width:1; opacity:.9; }
+.mc-rect.folder { fill:#fff3dd; stroke:#d19a3b; }
+.mc-rect.file { fill:#e8f1fe; stroke:#397bd1; }
+.mc-rect.service, .mc-rect.server { fill:#f0edff; stroke:#7357e8; }
+.mc-rect.database { fill:#e7f5ed; stroke:#25845f; }
+.mc-rect.function, .mc-rect.class { fill:#fce8e6; stroke:#d94a4a; }
+.mc-rect.code { fill:#f5ebdd; stroke:#a87845; }
+.mc-label { font-size:9px; font-family:Manrope,sans-serif; fill:#111317; }
+.mc-empty { font-size:12px; fill:#9aa0ab; }
+.mc-card footer { padding:10px 14px 12px; border-top:1px solid var(--line); background:#fff; }
+.mc-card footer b { font-size:14px; font-family:Manrope,sans-serif; }
+.mc-card footer small { display:block; color:var(--muted); font-size:11px; margin-top:2px; }
+.mc-badge { display:inline-block; margin-left:6px; padding:1px 7px; border-radius:999px; background:var(--accent); color:#fff; font-size:10px; font-weight:700; letter-spacing:.3px; vertical-align:middle; }
+.mc-del { position:absolute; top:8px; right:8px; width:26px; height:26px; border-radius:50%; border:0; background:#00000066; color:#fff; font-size:16px; line-height:1; cursor:pointer; opacity:0; transition:opacity .15s; }
+.mc-card:hover .mc-del, .mc-card:focus-within .mc-del { opacity:1; }
+.mc-del:hover { background:#d94a4a; }
+@keyframes mcCard { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+body[data-theme="dark"] .mc-card { background:#22252d; border-color:#383c47; }
+body[data-theme="dark"] .mc-card footer { background:#22252d; border-top-color:#383c47; color:#e5e7ee; }
+body[data-theme="dark"] .mc-preview { background:linear-gradient(140deg, #2f2a4a, #22252d); }
+body[data-theme="dark"] .mc-rect { fill:#2a2e38; }
+body[data-theme="dark"] .mc-label { fill:#e5e7ee; }
+
+/* Agent access chips (#71): which agents may reach a block. ✎ read-write, 👁 read only. */
+.agent-chips { display:inline-flex; gap:.3em; flex-wrap:nowrap; overflow:hidden; max-width:100%; vertical-align:middle; }
+.agent-chip { display:inline-flex; align-items:center; gap:.25em; font-size:.55em; font-weight:700; line-height:1.4; padding:.1em .55em; border-radius:999px; white-space:nowrap; border:1px solid hsl(var(--hue,250) 55% 78%); background:hsl(var(--hue,250) 80% 96%); color:hsl(var(--hue,250) 55% 34%); font-family:Inter,system-ui,sans-serif; }
+.agent-chip.ro { background:transparent; border-style:dashed; }
+.agent-chip.more { --hue:220; }
+.agent-chip.none { --hue:220; opacity:.6; background:transparent; }
+.nest-tile .agent-chips { font-size:.85em; opacity:clamp(0, calc((var(--w) * var(--z) - 90) / 70), 1); }
+.nest-frame > header .agent-chip { font-size:.5em; }
+.agent-strip { display:flex; gap:6px; align-items:center; max-width:42vw; overflow-x:auto; scrollbar-width:none; }
+.agent-strip .agent-chip { font-size:11.5px; padding:3px 9px; cursor:pointer; }
+.agent-strip .agent-chip:hover { filter:brightness(.97); box-shadow:0 1px 4px #26324a1f; }
+.agent-strip-empty { font-size:11.5px; color:var(--muted); }
+body[data-theme="dark"] .agent-chip { background:hsl(var(--hue,250) 35% 20%); border-color:hsl(var(--hue,250) 40% 38%); color:hsl(var(--hue,250) 80% 82%); }
+body[data-theme="dark"] .agent-chip.ro, body[data-theme="dark"] .agent-chip.none { background:transparent; }
+
+/* Whiteboard tabs (#72): one per .plo file, at the left of the canvas toolbar. */
+.toolbar-left { display:flex; align-items:center; gap:14px; min-width:0; }
+.board-tabs { display:flex; align-items:center; gap:4px; flex-shrink:0; }
+.board-tab { display:inline-flex; align-items:center; border:1px solid var(--line); border-radius:8px; background:#fff; overflow:hidden; }
+.board-tab button { border:0; background:none; font:inherit; font-size:12px; color:var(--muted); padding:5px 10px; cursor:pointer; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.board-tab.active { border-color:var(--accent); background:var(--accent-soft); }
+.board-tab.active button { color:var(--accent); font-weight:600; }
+.board-tab-arrow { border:1px solid var(--line); background:none; border-radius:8px; height:26px; min-width:26px; padding:0 7px; color:var(--muted); cursor:pointer; font-size:14px; line-height:1; display:inline-flex; align-items:center; gap:4px; }
+.board-tab-arrow span { font-size:10px; font-weight:700; background:var(--accent-soft); color:var(--accent); border-radius:6px; padding:1px 5px; }
+.board-tab-arrow:hover, .board-tab-arrow.open { color:var(--accent); border-color:var(--accent); }
+body[data-theme="dark"] .board-tab-arrow { border-color:#3a3f4a; }
+.board-tab-add { border:1px dashed var(--line); background:none; border-radius:8px; width:26px; height:26px; color:var(--muted); cursor:pointer; font-size:15px; line-height:1; }
+.board-tab-add:hover { color:var(--accent); border-color:var(--accent); }
+.board-picks { display:grid; gap:6px; margin:12px 0; max-height:320px; overflow:auto; }
+.board-pick { display:flex; flex-direction:column; align-items:flex-start; gap:2px; text-align:left; border:1px solid var(--line); border-radius:8px; background:none; padding:8px 12px; cursor:pointer; font:inherit; }
+.board-pick small { color:var(--muted); }
+.board-pick:hover, .board-pick.open { border-color:var(--accent); }
+body[data-theme="dark"] .board-tab { background:#2b2f38; border-color:#3a3f4a; }
+body[data-theme="dark"] .board-tab.active { background:#33294f; border-color:var(--accent); }
+body[data-theme="dark"] .board-pick, body[data-theme="dark"] .board-tab-add { border-color:#3a3f4a; }
