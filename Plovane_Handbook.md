@@ -13,7 +13,7 @@ source_of_truth: "Part B (handbook text) for contracts; Part A is derived"
 **Date:** 13 October 2026  
 **Status:** Draft for engineering review  
 **Purpose:** Show how Plovane's 16 blocks fit together, who owns each one, and exactly what data crosses every boundary.  
-**Contents:** Part A is the architecture guide (diagram, inventories, flows, review notes, machine-readable registry). Part B is the full Inter-Block Data Transfer Handbook text, sections 1 to 20.
+**Contents:** Part A is the architecture guide (diagram, inventories, flows, review notes, machine-readable registry). Part B is the full Inter-Block Data Transfer Handbook text, sections 1 to 21.
 
 ## Part A — Architecture guide
 
@@ -158,6 +158,7 @@ Owner totals: Nirmal owns 8 blocks (B03, B05, B07, B08, B09, B11, B13, B16), Sou
 | Library admission | `submission_id`, `code_block`, `verification` (`status`, `revision`); acknowledgement: `block_id`, `status` | §14 | — |
 | Contribution | `contribution_id`, `user_id`, `source` (manual_submission / completed_project), `code_blocks[]`; outcome adds `credit_outcome` | §15 | — |
 | Authentication | login and registration: `email`, `password`, `machine_id`; login response: `user_id`, `session_token`, `expires_at` | §8.3 | — |
+| Whiteboard file (`.plo`) | `plo_version`, `project`, `layers`, `roles`, `views`, `drawings`, `library`, `signature` | §21, `spec/plo/plo-v0.1.schema.json` | B01, B04, B10, B11 |
 
 
 Status values and what they mean. The same word appears in several places, so check the context:
@@ -246,6 +247,8 @@ These are findings from comparing the diagram with the handbook. They are for th
 | OD-2 | §18.2 | Diagram relationship types | Which relationship values must the diagram schema support? Only `calls` appears as an example. |
 | OD-3 | §18.3 | Contribution credit units | Which credit types and units will the contribution outcome expose? `compute` is only an example. |
 | OD-4 | §18.4 | Engineering confirmation | Owners must confirm hybrid AI/backend allocations, authentication payloads and operation-specific schemas. |
+| OD-5 | §21.9 | `.plo` signing keys | Who holds the signing key, and is a file re-signed on every save or only on export and share? |
+| OD-6 | §21.9 | `.plo` merge driver | How are conflicting edits to the same drawing or view resolved between teammates? |
 
 
 
@@ -638,7 +641,7 @@ The same blocks and connections as JSON, for tools and AI assistants.
 
 ## Part B — Handbook v0.1 (full text, sections 1 to 20)
 
-Part B reproduces the handbook text. One correction was applied: the cross-reference in §5.4 now points to §18.2.
+Part B reproduces the handbook text. One correction was applied: the cross-reference in §5.4 now points to §18.2. Section 21 (the `.plo` whiteboard file) was added after v0.1 and is a proposal.
 
 ### 1. Purpose and scope
 
@@ -1691,3 +1694,92 @@ Before publishing this handbook as the approved interface specification:
 **Document status:** Draft for engineering review.
 
 This handbook is intended to establish a common language for inter-block communication. Component implementation remains the responsibility of each assigned developer, while jointly owned interfaces require agreement between both parties before their contracts are considered final.
+
+---
+
+### 21. Whiteboard file (`.plo`)
+
+**Status:** Proposed. Confidential internal specification; do not publish.  
+**Schema:** `spec/plo/plo-v0.1.schema.json` (JSON Schema 2020-12)  
+**Example:** `spec/plo/example.plo`
+
+#### 21.1 Purpose
+
+One `.plo` file defines one project whiteboard: which layers exist, which layers each role sees, each user's personal view, what is drawn on the board, and which verified library blocks the project uses.
+
+Source code is not stored in the `.plo`. Code in Git remains the source of truth. The code graph, English summaries and scan results are derived from the code by the Plovane engine and cached locally; they are not stored in the file.
+
+#### 21.2 Ecosystem binding
+
+A `.plo` is plain, readable JSON, but it is only meaningful inside Plovane:
+
+- Premade layers are references to versioned Plovane engine analyzers (`engine_ref`, for example `plovane.layers.security@1`).
+- Drawings bind to code through selectors that only the Plovane engine resolves.
+- Library entries are Plovane `block_id` values whose code, tests and credit records live in the Plovane library.
+- Files produced by Plovane carry an Ed25519 signature so the application can tell genuine files from edited or third-party ones.
+
+#### 21.3 Top-level fields
+
+| Field | Type | Meaning |
+|---|---|---|
+| `plo_version` | string | Format version. `"0.1"` for this revision. |
+| `project` | object | `project_id`, `name`, `repo`, `commit` (last synced commit or null), `languages[]` |
+| `layers` | object | Layer definitions keyed by layer id |
+| `roles` | object | Role definitions keyed by role id |
+| `views` | object | One personal view per user, keyed by `user_id` |
+| `drawings` | array | Groups, notes, arrows and shapes on the board |
+| `library` | array | Verified blocks used in the project |
+| `signature` | object or null | Plovane signature; null for unsigned drafts |
+
+All ids (layer, role, drawing, tag) are snake_case strings, consistent with §3.3.
+
+#### 21.4 Layers
+
+A layer is either premade or custom. Both are run by the same deterministic engine, so neither costs model tokens once defined.
+
+- **Premade:** `{ "source": "premade", "engine_ref": "plovane.layers.<name>@<version>" }`. The MVP set is `structure`, `endpoints`, `security` and `tests`.
+- **Custom:** written by the AI or a user. `match` selects graph nodes by `node_type`, `path` glob, `has_tag`, `reaches` or `not_reaches` (a traversal over a relationship to a tag). `define_tags` may add new tags using a `tree_sitter` or `semgrep` pattern. `created_by` is `ai` or `user`.
+
+Node types: `service`, `folder`, `file`, `function`, `endpoint`, `finding`.  
+Relationships: `contains`, `calls`, `imports`, `routes_to`, `tests`, `flags`. This list is the proposed answer to OD-2 (§18.2).
+
+#### 21.5 Roles and personal views
+
+A role has a `label`, a list of `layers`, optional per-layer `filters` (`all` or `only_with_findings`) and a `default_zoom` (`services`, `folders`, `files`, `steps`, `code`). Adding a role means adding an entry; no code change is required.
+
+A personal view starts from a `base_role` and may add or remove layers, set a zoom level and focus on a selector.
+
+#### 21.6 Drawings
+
+Drawings are declarative data. A `.plo` never contains executable code, so opening a shared file cannot run anything.
+
+| Type | Required fields | Notes |
+|---|---|---|
+| `group` | `label`, `bind` | Bound to code (service, folder, file, function, endpoint or node); follows the code when it moves |
+| `note` | `text` | Optional `attach` to a drawing id or selector |
+| `arrow` | `from`, `to` | Each end is a drawing id or selector |
+| `shape` | `kind`, `position`, `size` | Free-floating rectangle or ellipse |
+
+Every drawing has `id`, `type` and `author`, and may have `created_by`, `layer`, `style` and `position`. A selector has exactly one key: `service`, `folder`, `file`, `function` (`path::qualified_name`), `endpoint` (`METHOD /route`) or `node_id`.
+
+#### 21.7 Rules the engine enforces
+
+These rules cannot be expressed in JSON Schema and are checked by the deterministic validator (B11) before a `.plo` is saved:
+
+1. Every layer id named in a role, view or drawing exists in `layers`.
+2. Every `base_role` exists in `roles`.
+3. Drawing ids are unique, and every drawing id used as a target exists.
+4. Custom layers and filters must not hide findings produced by the premade `security` layer from any role that includes it.
+5. The file contains no secret values. Security findings record the location and rule only.
+6. AI edits to a `.plo` are limited to layers, views and drawings. Code changes go through the compile flow (diff preview and tests), never through the whiteboard.
+
+#### 21.8 Serialization and signing
+
+- UTF-8 JSON, keys sorted, two-space indentation, LF line endings, trailing newline. This keeps Git diffs readable.
+- The signature is computed over the RFC 8785 (JCS) canonical form of the document with `signature` set to `null`.
+- Unknown fields are rejected. New fields require a new `plo_version`.
+
+#### 21.9 Open questions
+
+- **OD-5: signing keys.** Who holds the signing key, and is a file re-signed on every save or only on export and share?
+- **OD-6: merge driver.** How are conflicting edits to the same drawing or view resolved when two teammates commit changes?
