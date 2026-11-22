@@ -108,7 +108,10 @@ blocks.
 file) as sorted, stable JSON, and `/board load [file]` opens one again. Only a
 person may run either. Loading asks first, is one undo step, changes no project
 files, and its preview lists every change to agent access. In the browser, File →
-Download whiteboard and File → Open whiteboard do the same. The undo history, the operation log, previews and monitor output stay
+Download whiteboard and File → Open whiteboard do the same. The format is
+`spec/whiteboard/whiteboard-v1.schema.json` (handbook §21); its planned sections
+(overlays, roles, views, display, layout) are kept on save but not used yet, and
+saving never overwrites a JSON file that isn't a whiteboard file. The undo history, the operation log, previews and monitor output stay
 local, and `.plovane/.gitignore` excludes them.
 
 ## Calling it from the frontend

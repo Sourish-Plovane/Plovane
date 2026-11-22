@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from backend.whiteboard.ops.boardfile import document
+from backend.whiteboard.ops.boardfile import document, parse
 from whiteboard_helpers import ok, project
 
 
@@ -199,3 +199,67 @@ def test_http_download_and_upload(tmp_path):
     done = client.post("/api/v1/whiteboard/op",
                        json={"op": "board.load", "args": {"content": text}, "confirm": True}).get_json()
     assert done["ok"] and "payments" in ws.board.blocks
+
+
+# Input: tmp_path
+# Output: None
+# Processing: Check that the planned sections of a file are accepted, reported and kept when saving to it again.
+# Changed by: Claude Code
+# Date: 2026-11-22
+def test_planned_sections_are_kept_when_saving_again(tmp_path):
+    ws = busy(tmp_path)
+    ok(ws, "/board save")
+    data = json.loads((tmp_path / "whiteboard.json").read_text())
+    data["overlays"] = {"cyber_security": {"label": "Cyber security", "source": "group"}}
+    data["roles"] = {"cyber": {"label": "Cyber", "overlays": ["cyber_security"], "default_level": 1}}
+    (tmp_path / "whiteboard.json").write_text(json.dumps(data))
+    loaded = ws.command("/board load", confirm=True)["data"]
+    assert loaded["result"]["planned_sections"] == ["overlays", "roles"]
+    assert any("aren't used by Plovane yet" in note for note in loaded["notes"])
+    ok(ws, '/block add service "billing"')
+    saved = ok(ws, "/board save")
+    assert saved["kept_sections"] == ["overlays", "roles"]
+    again = json.loads((tmp_path / "whiteboard.json").read_text())
+    assert again["overlays"] == data["overlays"] and again["roles"] == data["roles"]
+    assert "billing" in again["board"]["blocks"]
+
+
+# Input: tmp_path
+# Output: None
+# Processing: Check that unknown top-level fields are refused and a non-whiteboard file is never overwritten.
+# Changed by: Claude Code
+# Date: 2026-11-22
+def test_unknown_fields_refused_and_foreign_files_not_overwritten(tmp_path):
+    ws = busy(tmp_path)
+    ok(ws, "/board save")
+    data = json.loads((tmp_path / "whiteboard.json").read_text())
+    data["code"] = "print('hi')"
+    (tmp_path / "whiteboard.json").write_text(json.dumps(data))
+    reply = ws.command("/board load", confirm=True)
+    assert reply["error"]["code"] == "INVALID_FILE" and "unknown top-level fields ['code']" in reply["error"]["message"]
+    (tmp_path / "package.json").write_text('{"name": "shop"}\n')
+    assert fails(ws, "/board save package") == "CONFLICT"
+    assert (tmp_path / "package.json").read_text() == '{"name": "shop"}\n'
+
+
+# Input: tmp_path
+# Output: None
+# Processing: Check that a saved file and the spec's example both match the published JSON Schema.
+# Changed by: Claude Code
+# Date: 2026-11-22
+def test_saved_file_and_example_match_the_spec_schema(tmp_path):
+    jsonschema = pytest.importorskip("jsonschema")
+    from pathlib import Path
+
+    spec = Path(__file__).resolve().parents[3] / "spec" / "whiteboard"
+    validator = jsonschema.Draft202012Validator(json.loads((spec / "whiteboard-v1.schema.json").read_text()))
+    ws = busy(tmp_path)
+    ok(ws, "/endpoint add payments POST /charge")
+    ok(ws, "/agent region bot --area 0,0,500,500 --mode read --layer 1", confirm=True)
+    ok(ws, "/board save")
+    saved = json.loads((tmp_path / "whiteboard.json").read_text())
+    assert [e.message for e in validator.iter_errors(saved)] == []
+    example = json.loads((spec / "whiteboard.json").read_text())
+    assert [e.message for e in validator.iter_errors(example)] == []
+    board, planned = parse((spec / "whiteboard.json").read_text())
+    assert "payments" in board.blocks and sorted(planned) == ["display", "layout", "overlays", "roles", "views"]

@@ -340,14 +340,14 @@ def create_app(workspace: Workspace, chat: AgentChat | None = None, *, person_to
     # Date: 2026-11-22
     @app.get("/api/v1/whiteboard/board/file")
     def board_file():
-        from backend.whiteboard.ops.boardfile import DEFAULT_FILE, dumps
+        from backend.whiteboard.ops.boardfile import DEFAULT_FILE, dumps, planned_in
 
         refused = person_only()
         if refused:
             return refused
         with lock:
             workspace.sync()
-            text = dumps(workspace.board)
+            text = dumps(workspace.board, planned_in(workspace.root / DEFAULT_FILE))
         return Response(text, mimetype="application/json",
                         headers={"Content-Disposition": f'attachment; filename="{DEFAULT_FILE}"'})
 

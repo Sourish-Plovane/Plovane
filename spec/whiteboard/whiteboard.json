@@ -1,0 +1,501 @@
+{
+  "board": {
+    "agents": {
+      "claude": {
+        "approvers": [],
+        "block": "agent-claude",
+        "connection": "",
+        "grants": [
+          {
+            "mode": "read-write",
+            "path": "src/payments"
+          }
+        ],
+        "instructions": "",
+        "model": "",
+        "name": "claude",
+        "place": {},
+        "provider": "",
+        "regions": []
+      }
+    },
+    "arrows": {},
+    "blocks": {
+      "agent-claude": {
+        "h": 60,
+        "id": "agent-claude",
+        "kind": "agent",
+        "layer": 0,
+        "meta": {},
+        "name": "claude",
+        "parent": null,
+        "path": null,
+        "preset": "agent",
+        "status": "built",
+        "style": {},
+        "symbol": null,
+        "w": 120,
+        "x": 40,
+        "y": 40
+      },
+      "charge-py": {
+        "h": 60,
+        "id": "charge-py",
+        "kind": "file",
+        "layer": 3,
+        "meta": {
+          "language": "python"
+        },
+        "name": "charge.py",
+        "parent": "src-payments",
+        "path": "src/payments/charge.py",
+        "preset": "file",
+        "status": "built",
+        "style": {},
+        "symbol": null,
+        "w": 160,
+        "x": 20.0,
+        "y": 48.0
+      },
+      "payments": {
+        "h": 100,
+        "id": "payments",
+        "kind": "service",
+        "layer": 1,
+        "meta": {
+          "language": "python"
+        },
+        "name": "payments",
+        "parent": null,
+        "path": "services/payments",
+        "preset": "service",
+        "status": "built",
+        "style": {},
+        "symbol": null,
+        "w": 200,
+        "x": 120,
+        "y": 80
+      },
+      "place-py": {
+        "h": 60,
+        "id": "place-py",
+        "kind": "file",
+        "layer": 3,
+        "meta": {
+          "language": "python"
+        },
+        "name": "place.py",
+        "parent": "src-orders",
+        "path": "src/orders/place.py",
+        "preset": "file",
+        "status": "built",
+        "style": {},
+        "symbol": null,
+        "w": 160,
+        "x": 20.0,
+        "y": 48.0
+      },
+      "refactor-before-launch": {
+        "h": 80,
+        "id": "refactor-before-launch",
+        "kind": "note",
+        "layer": 1,
+        "meta": {},
+        "name": "Refactor before launch",
+        "parent": null,
+        "path": null,
+        "preset": null,
+        "status": "built",
+        "style": {},
+        "symbol": null,
+        "w": 160,
+        "x": 120,
+        "y": 260
+      },
+      "src": {
+        "h": 372.0,
+        "id": "src",
+        "kind": "folder",
+        "layer": 2,
+        "meta": {},
+        "name": "src",
+        "parent": null,
+        "path": "src",
+        "preset": "folder",
+        "status": "built",
+        "style": {},
+        "symbol": null,
+        "w": 260.0,
+        "x": 40.0,
+        "y": 40.0
+      },
+      "src-orders": {
+        "h": 140,
+        "id": "src-orders",
+        "kind": "folder",
+        "layer": 2,
+        "meta": {},
+        "name": "orders",
+        "parent": "src",
+        "path": "src/orders",
+        "preset": "folder",
+        "status": "built",
+        "style": {},
+        "symbol": null,
+        "w": 220,
+        "x": 20.0,
+        "y": 48.0
+      },
+      "src-payments": {
+        "h": 140,
+        "id": "src-payments",
+        "kind": "folder",
+        "layer": 2,
+        "meta": {},
+        "name": "payments",
+        "parent": "src",
+        "path": "src/payments",
+        "preset": "folder",
+        "status": "built",
+        "style": {},
+        "symbol": null,
+        "w": 220,
+        "x": 20.0,
+        "y": 212.0
+      }
+    },
+    "endpoints": {
+      "payments:POST /charge": {
+        "handler": "services/payments/routes.py",
+        "id": "payments:POST /charge",
+        "last_test": null,
+        "method": "POST",
+        "mock": null,
+        "path": "/charge",
+        "request": null,
+        "response": null,
+        "service": "payments",
+        "status": "built"
+      }
+    },
+    "layers": {
+      "0": {
+        "name": "Agents and access",
+        "number": 0,
+        "shows": [
+          "agent"
+        ],
+        "zoom_max": 10,
+        "zoom_min": 0
+      },
+      "1": {
+        "name": "Services and endpoints",
+        "number": 1,
+        "shows": [
+          "service",
+          "server",
+          "external",
+          "database",
+          "queue",
+          "endpoint"
+        ],
+        "zoom_max": 20,
+        "zoom_min": 10
+      },
+      "2": {
+        "name": "Folders",
+        "number": 2,
+        "shows": [
+          "folder",
+          "group",
+          "slot"
+        ],
+        "zoom_max": 40,
+        "zoom_min": 20
+      },
+      "3": {
+        "name": "Files",
+        "number": 3,
+        "shows": [
+          "file"
+        ],
+        "zoom_max": 70,
+        "zoom_min": 40
+      },
+      "4": {
+        "name": "English steps",
+        "number": 4,
+        "shows": [
+          "function",
+          "step"
+        ],
+        "zoom_max": 90,
+        "zoom_min": 70
+      },
+      "5": {
+        "name": "Code",
+        "number": 5,
+        "shows": [
+          "code"
+        ],
+        "zoom_max": 100,
+        "zoom_min": 90
+      }
+    },
+    "presets": {
+      "agent": {
+        "border": "#D93025",
+        "fill": "#FCE8E6",
+        "icon": "robot",
+        "shape": "pill"
+      },
+      "database": {
+        "border": "#188038",
+        "fill": "#E6F4EA",
+        "icon": "database",
+        "shape": "cylinder"
+      },
+      "external": {
+        "border": "#9334E6",
+        "border_style": "dashed",
+        "fill": "#F3E8FD",
+        "icon": "cloud",
+        "radius": 12
+      },
+      "file": {
+        "border": "#5F6368",
+        "fill": "#FFFFFF",
+        "icon": "file",
+        "radius": 4
+      },
+      "folder": {
+        "border": "#F9AB00",
+        "fill": "#FEF7E0",
+        "icon": "folder",
+        "radius": 8
+      },
+      "scan": {
+        "border": "#D93025",
+        "border_style": "dashed",
+        "fill": "#FCE8E6",
+        "opacity": 0.3
+      },
+      "service": {
+        "border": "#1A73E8",
+        "fill": "#E8F0FE",
+        "icon": "server",
+        "radius": 12
+      },
+      "slot": {
+        "border": "#9AA0A6",
+        "border_style": "dashed",
+        "fill": "#FFFFFF",
+        "radius": 8
+      },
+      "step": {
+        "border": "#DADCE0",
+        "fill": "#F1F3F4",
+        "radius": 6
+      }
+    },
+    "templates": {},
+    "version": 1,
+    "view": {
+      "counters": {},
+      "filter": {},
+      "focus": null,
+      "grid": {
+        "size": 20,
+        "snap": true
+      },
+      "highlight": [],
+      "layer": 1,
+      "theme": "light",
+      "zoom": 15
+    }
+  },
+  "display": {
+    "endpoint": {
+      "attach_to": "file_edge",
+      "shape": "port",
+      "show": [
+        "method",
+        "route"
+      ]
+    },
+    "file": {
+      "shape": "rounded",
+      "show": [
+        "name",
+        "language_icon",
+        "line_count"
+      ],
+      "size": {
+        "by": "line_count",
+        "max": [
+          320,
+          140
+        ],
+        "min": [
+          160,
+          60
+        ]
+      }
+    },
+    "folder": {
+      "shape": "container",
+      "show": [
+        "name",
+        "file_count"
+      ]
+    }
+  },
+  "format": "plovane-whiteboard",
+  "layout": {
+    "algorithm": "nested_grid",
+    "collapsed": [
+      "node_modules"
+    ],
+    "overlay_slots": {
+      "badge": "top_right",
+      "chip": "bottom",
+      "icon": "top_left"
+    },
+    "sort_by": "name",
+    "spacing": {
+      "between_blocks": 24,
+      "container_padding": 32
+    }
+  },
+  "overlays": {
+    "agent_access": {
+      "appearance": {
+        "1": "mark",
+        "2": "mark",
+        "3": "mark",
+        "4": "mark"
+      },
+      "channel": "chip",
+      "engine_ref": "plovane.overlays.agent_access@1",
+      "label": "Agent access",
+      "priority": 40,
+      "source": "premade"
+    },
+    "code_vulnerabilities": {
+      "appearance": {
+        "1": "count",
+        "2": "count",
+        "3": "mark",
+        "4": "mark",
+        "5": "detail"
+      },
+      "channel": "border",
+      "engine_ref": "plovane.overlays.code_vulnerabilities@1",
+      "label": "Vulnerabilities in code",
+      "parent": "cyber_security",
+      "priority": 100,
+      "source": "premade",
+      "style": {
+        "color": "red"
+      }
+    },
+    "cyber_security": {
+      "label": "Cyber security",
+      "source": "group"
+    },
+    "leaked_secrets": {
+      "appearance": {
+        "1": "count",
+        "2": "count",
+        "3": "mark",
+        "5": "detail"
+      },
+      "channel": "badge",
+      "engine_ref": "plovane.overlays.leaked_secrets@1",
+      "label": "Leaked secrets",
+      "parent": "cyber_security",
+      "priority": 100,
+      "source": "premade",
+      "style": {
+        "badge": "secret",
+        "color": "red"
+      }
+    },
+    "test_health": {
+      "appearance": {
+        "1": "count",
+        "2": "count",
+        "3": "mark",
+        "4": "mark"
+      },
+      "channel": "fill",
+      "engine_ref": "plovane.overlays.test_health@1",
+      "label": "Test health",
+      "priority": 60,
+      "source": "premade"
+    },
+    "unvalidated_db_writes": {
+      "appearance": {
+        "1": "count",
+        "3": "mark"
+      },
+      "author": "usr_sourish",
+      "channel": "badge",
+      "created_by": "ai",
+      "define_tags": {
+        "db_write": {
+          "engine": "semgrep",
+          "language": "python",
+          "pattern": "$CURSOR.execute(...)"
+        }
+      },
+      "label": "Unvalidated database writes",
+      "match": {
+        "node_type": "endpoint",
+        "not_reaches": {
+          "tag": "input_validation",
+          "via": "calls"
+        },
+        "reaches": {
+          "tag": "db_write",
+          "via": "calls"
+        }
+      },
+      "parent": "cyber_security",
+      "priority": 80,
+      "source": "custom",
+      "style": {
+        "badge": "unvalidated write",
+        "color": "orange"
+      }
+    }
+  },
+  "roles": {
+    "cyber": {
+      "default_level": 1,
+      "label": "Cyber security",
+      "overlays": [
+        "cyber_security"
+      ]
+    },
+    "developer": {
+      "default_level": 3,
+      "label": "Developer",
+      "overlays": [
+        "test_health",
+        "agent_access"
+      ]
+    }
+  },
+  "version": 1,
+  "views": {
+    "usr_sourish": {
+      "base_role": "developer",
+      "focus": "src-payments",
+      "level": 4,
+      "overlays_add": [
+        "unvalidated_db_writes"
+      ]
+    }
+  }
+}

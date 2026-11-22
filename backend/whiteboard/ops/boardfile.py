@@ -4,11 +4,16 @@ The file is plain JSON describing the board (blocks, arrows, endpoints, layers,
 styles, templates, agents and view). It holds no code: code stays in Git.
 Only a person may save or open one. Opening asks first, and its preview lists
 every change to agent access, so a shared file can never grant access quietly.
+
+The format is spec/whiteboard/whiteboard-v1.schema.json (handbook section 21).
+Its planned sections (overlays, roles, views, display, layout) are accepted and
+kept when the file is saved again, but not used yet.
 """
 
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 from backend.whiteboard.engine import Context
@@ -21,6 +26,9 @@ FORMAT_VERSION = 1
 MAX_BYTES = 20 * 1024 * 1024
 LOCAL_ONLY = ("compiles", "alerts")
 """Board fields tied to this machine (pending compile previews, monitor alerts), left out of the file."""
+PLANNED = ("overlays", "roles", "views", "display", "layout")
+"""Sections the spec defines that Plovane does not use yet; kept as they are."""
+TOP_LEVEL = {"format", "version", "board", *PLANNED}
 
 
 # Input: file (Any)
@@ -44,28 +52,28 @@ def file_name(file: Any) -> str:
 # Processing: The whiteboard file's content for a board.
 # Changed by: Claude Code
 # Date: 2026-11-22
-def document(board: Board) -> dict[str, Any]:
+def document(board: Board, planned: dict[str, Any] | None = None) -> dict[str, Any]:
     data = board.to_dict()
     for key in LOCAL_ONLY:
         data.pop(key, None)
-    return {"format": FORMAT, "version": FORMAT_VERSION, "board": data}
+    return {"format": FORMAT, "version": FORMAT_VERSION, "board": data, **(planned or {})}
 
 
-# Input: board (Board)
+# Input: board (Board), planned (dict | None)
 # Output: str
 # Processing: The whiteboard file as text: sorted keys and a fixed layout, so Git diffs show only real changes.
 # Changed by: Claude Code
 # Date: 2026-11-22
-def dumps(board: Board) -> str:
-    return json.dumps(document(board), indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+def dumps(board: Board, planned: dict[str, Any] | None = None) -> str:
+    return json.dumps(document(board, planned), indent=2, sort_keys=True, ensure_ascii=False) + "\n"
 
 
 # Input: text (str)
-# Output: Board
-# Processing: Read a whiteboard file's text into a board, refusing anything that isn't one.
+# Output: tuple[Board, dict[str, Any]]
+# Processing: Read a whiteboard file's text into a board and its planned sections, refusing anything that isn't one.
 # Changed by: Claude Code
 # Date: 2026-11-22
-def parse(text: str) -> Board:
+def parse(text: str) -> tuple[Board, dict[str, Any]]:
     if len(text.encode("utf-8")) > MAX_BYTES:
         raise OpError("INVALID_FILE", f"a whiteboard file is at most {MAX_BYTES // (1024 * 1024)} MB")
     try:
@@ -77,8 +85,16 @@ def parse(text: str) -> Board:
     if data.get("version") != FORMAT_VERSION:
         raise OpError("INVALID_FILE", f"whiteboard file version {data.get('version')!r} is not supported; "
                                       f"this Plovane reads version {FORMAT_VERSION}")
+    unknown = sorted(set(data) - TOP_LEVEL)
+    if unknown:
+        raise OpError("INVALID_FILE", f"unknown top-level fields {unknown}; a version 1 whiteboard file has "
+                                      f"{sorted(TOP_LEVEL)}")
     if not isinstance(data.get("board"), dict):
         raise OpError("INVALID_FILE", "the file has no board")
+    planned = {key: data[key] for key in PLANNED if key in data}
+    bad = sorted(key for key, value in planned.items() if not isinstance(value, dict))
+    if bad:
+        raise OpError("INVALID_FILE", f"{bad} must be JSON objects")
     try:
         board = Board.from_dict(data["board"])
     except (TypeError, ValueError, AttributeError) as exc:
@@ -89,7 +105,36 @@ def parse(text: str) -> Board:
     orphans = sorted(b.id for b in board.blocks.values() if b.parent and b.parent not in board.blocks)
     if orphans:
         raise OpError("INVALID_FILE", f"blocks sit inside blocks that aren't in the file: {orphans[:5]}")
-    return board
+    return board, planned
+
+
+# Input: path (Path)
+# Output: dict[str, Any]
+# Processing: The planned sections of a whiteboard file on disk; none if it is missing or not a valid file.
+# Changed by: Claude Code
+# Date: 2026-11-22
+def planned_in(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        return {}
+    try:
+        return parse(path.read_text(encoding="utf-8"))[1]
+    except OpError:
+        return {}
+
+
+# Input: ctx (Context), name (str)
+# Output: dict[str, Any]
+# Processing: The planned sections of an existing whiteboard file, refusing to overwrite a file that isn't one.
+# Changed by: Claude Code
+# Date: 2026-11-22
+def existing_planned(ctx: Context, name: str) -> dict[str, Any]:
+    if not ctx.fs.exists(name):
+        return {}
+    try:
+        return parse(ctx.fs.read(name))[1]
+    except OpError as exc:
+        raise OpError("CONFLICT", f"{name} exists and isn't a valid whiteboard file ({exc.message}); "
+                                  "fix or move it, or save under another name") from None
 
 
 # Input: before (Board), after (Board)
@@ -117,15 +162,16 @@ def access_changes(before: Board, after: Board) -> list[dict[str, Any]]:
 def save(ctx: Context, file: Any = None) -> dict[str, Any]:
     """Saves the whole whiteboard to a JSON file in the project (whiteboard.json by default)."""
     name = file_name(file)
-    if ctx.fs.is_dir(name):
+    if ctx.fs.path(name, write=True).is_dir():
         raise OpError("INVALID_PATH", f"{name!r} is a folder")
-    text = dumps(ctx.board)
+    planned = existing_planned(ctx, name)
+    text = dumps(ctx.board, planned)
     changed = not ctx.fs.exists(name) or ctx.fs.read(name) != text
     if changed:
         ctx.fs.write(name, text)
     board = ctx.board
     return {"file": name, "saved": changed, "blocks": len(board.blocks), "arrows": len(board.arrows),
-            "endpoints": len(board.endpoints), "agents": len(board.agents)}
+            "endpoints": len(board.endpoints), "agents": len(board.agents), "kept_sections": sorted(planned)}
 
 
 # Input: ctx (Context), file (Any), content (Any)
@@ -144,7 +190,7 @@ def load(ctx: Context, file: Any = None, content: Any = None) -> dict[str, Any]:
     else:
         source = file_name(file)
         text = ctx.fs.read(source)
-    loaded = parse(text)
+    loaded, planned = parse(text)
     for key in LOCAL_ONLY:
         setattr(loaded, key, getattr(ctx.board, key))
     agents = access_changes(ctx.board, loaded)
@@ -157,6 +203,9 @@ def load(ctx: Context, file: Any = None, content: Any = None) -> dict[str, Any]:
     if missing:
         ctx.notes.append(f"{len(missing)} blocks stand for files or folders this project doesn't have, "
                          f"e.g. {missing[0]}")
+    if planned:
+        ctx.notes.append(f"The file's {', '.join(sorted(planned))} sections aren't used by Plovane yet; "
+                         "saving to the same file keeps them.")
     return {"file": source, "blocks": len(loaded.blocks), "arrows": len(loaded.arrows),
             "endpoints": len(loaded.endpoints), "agents": len(loaded.agents),
-            "access_changes": agents, "missing_paths": missing[:20]}
+            "access_changes": agents, "missing_paths": missing[:20], "planned_sections": sorted(planned)}
