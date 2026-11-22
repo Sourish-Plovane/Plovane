@@ -295,6 +295,7 @@ def create_app(workspace: Workspace, chat: AgentChat | None = None, *, person_to
     # Date: 2026-11-09
     def board_reply() -> dict[str, Any]:
         from backend.whiteboard.ops.arrows import arrow_record
+        from backend.whiteboard.overlays import overlay_state
 
         with lock:
             workspace.sync()
@@ -306,6 +307,7 @@ def create_app(workspace: Workspace, chat: AgentChat | None = None, *, person_to
                 "absolute": {b.id: current.absolute(b) for b in current.blocks.values()},
                 "arrows": [arrow_record(a) for a in current.arrows.values()],
                 "access": workspace.access_map(),
+                "overlays": overlay_state(workspace, current, actor()),
                 "seq": bus.seq,
             }
         return {"ok": True, "data": data, "error": None}

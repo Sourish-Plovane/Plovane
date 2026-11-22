@@ -68,6 +68,12 @@ COMMANDS: tuple[Command, ...] = (
     Command("zoom into", "view.zoom_into", ("block",), example="/zoom into payments-service"),
     Command("zoom out", "view.zoom_out", example="/zoom out"),
     Command("zoom", "view.zoom", ("level",), example="/zoom 15  or  /zoom layer 2"),
+    # Overlays and roles
+    Command("overlay list", "overlay.list", example="/overlay list"),
+    Command("overlay on", "overlay.on", ("overlay",), example="/overlay on cyber_security"),
+    Command("overlay off", "overlay.off", ("overlay",), example="/overlay off test_health"),
+    Command("role list", "role.list", example="/role list"),
+    Command("role use", "role.use", ("role",), example="/role use cyber"),
     # Whiteboard file
     Command("board save", "board.save", ("file",), example="/board save  or  /board save designs/v2"),
     Command("board load", "board.load", ("file",), example="/board load  or  /board load designs/v2.json"),

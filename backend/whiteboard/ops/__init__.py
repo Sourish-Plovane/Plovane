@@ -18,6 +18,7 @@ from backend.whiteboard.ops import (  # noqa: F401
     layers,
     library,
     outline,
+    overlays,
     placement,
     sketch,
     project,

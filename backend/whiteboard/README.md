@@ -369,6 +369,11 @@ command answers `needs_confirmation` first.
 | `/zoom into` | `view.zoom_into` | `plovane_view` |  | Zooms into a specific block. | `/zoom into payments-service` |
 | `/zoom out` | `view.zoom_out` | `plovane_view` |  | Moves up one layer. | `/zoom out` |
 | `/zoom` | `view.zoom` | `plovane_view` |  | Jumps to a zoom level or a layer. | `/zoom 15  or  /zoom layer 2` |
+| `/overlay list` | `overlay.list` | `plovane_overlay` |  | Lists the overlays, which are on, and the current role. | `/overlay list` |
+| `/overlay on` | `overlay.on` | `plovane_overlay` |  | Switches an overlay (or every overlay in a group) on in your view. | `/overlay on cyber_security` |
+| `/overlay off` | `overlay.off` | `plovane_overlay` |  | Switches an overlay (or every overlay in a group) off in your view. | `/overlay off test_health` |
+| `/role list` | `role.list` | `plovane_overlay` |  | Lists the roles and which one you are using. | `/role list` |
+| `/role use` | `role.use` | `plovane_overlay` |  | Uses a role (developer, cyber, reviewer, ...): shows that role's overlays. | `/role use cyber` |
 | `/board save` | `board.save` | `plovane_board` |  | Saves the whole whiteboard to a JSON file in the project (whiteboard.json by default). | `/board save  or  /board save designs/v2` |
 | `/board load` | `board.load` | `plovane_board` | yes | Opens a whiteboard file, replacing the current board; changes no project files. | `/board load  or  /board load designs/v2.json` |
 | `/folder create` | `folder.create` | `plovane_project` |  | Creates a real folder in the project and its block on the whiteboard. | `/folder create src/payments --right-of src/auth` |

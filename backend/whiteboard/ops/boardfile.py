@@ -6,8 +6,9 @@ Only a person may save or open one. Opening asks first, and its preview lists
 every change to agent access, so a shared file can never grant access quietly.
 
 The format is spec/whiteboard/whiteboard-v1.schema.json (handbook section 21).
-Its planned sections (overlays, roles, views, display, layout) are accepted and
-kept when the file is saved again, but not used yet.
+Overlays, roles and views live on the board and are written as top-level
+sections. The planned sections (display, layout) are accepted and kept when
+the file is saved again, but not used yet.
 """
 
 from __future__ import annotations
@@ -26,9 +27,11 @@ FORMAT_VERSION = 1
 MAX_BYTES = 20 * 1024 * 1024
 LOCAL_ONLY = ("compiles", "alerts")
 """Board fields tied to this machine (pending compile previews, monitor alerts), left out of the file."""
-PLANNED = ("overlays", "roles", "views", "display", "layout")
+LIFTED = ("overlays", "roles", "views")
+"""Board fields written as top-level sections of the file, as the spec lays it out."""
+PLANNED = ("display", "layout")
 """Sections the spec defines that Plovane does not use yet; kept as they are."""
-TOP_LEVEL = {"format", "version", "board", *PLANNED}
+TOP_LEVEL = {"format", "version", "board", *LIFTED, *PLANNED}
 
 
 # Input: file (Any)
@@ -56,7 +59,8 @@ def document(board: Board, planned: dict[str, Any] | None = None) -> dict[str, A
     data = board.to_dict()
     for key in LOCAL_ONLY:
         data.pop(key, None)
-    return {"format": FORMAT, "version": FORMAT_VERSION, "board": data, **(planned or {})}
+    lifted = {key: data.pop(key) for key in LIFTED}
+    return {"format": FORMAT, "version": FORMAT_VERSION, "board": data, **lifted, **(planned or {})}
 
 
 # Input: board (Board), planned (dict | None)
@@ -92,11 +96,14 @@ def parse(text: str) -> tuple[Board, dict[str, Any]]:
     if not isinstance(data.get("board"), dict):
         raise OpError("INVALID_FILE", "the file has no board")
     planned = {key: data[key] for key in PLANNED if key in data}
-    bad = sorted(key for key, value in planned.items() if not isinstance(value, dict))
+    bad = sorted(key for key in (*LIFTED, *PLANNED) if key in data and not isinstance(data[key], dict))
     if bad:
         raise OpError("INVALID_FILE", f"{bad} must be JSON objects")
+    stray = sorted(key for key in LIFTED if key in data["board"])
+    if stray:
+        raise OpError("INVALID_FILE", f"{stray} belong at the top level of the file, not inside board")
     try:
-        board = Board.from_dict(data["board"])
+        board = Board.from_dict({**data["board"], **{key: data[key] for key in LIFTED if key in data}})
     except (TypeError, ValueError, AttributeError) as exc:
         raise OpError("INVALID_FILE", f"the board in this file is malformed: {exc}") from None
     missing = sorted({ref for a in board.arrows.values() for ref in (a.source, a.target)} - set(board.blocks))

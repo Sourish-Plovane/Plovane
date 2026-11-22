@@ -42,7 +42,7 @@ MODES = {"none": 0, "read": 1, "read-write": 2}
 # Date: 2026-10-22
 def summarise(before: dict[str, Any], after: dict[str, Any], files: dict[str, Any]) -> dict[str, Any]:
     summary: dict[str, Any] = {}
-    for key in ("blocks", "arrows", "endpoints", "agents"):
+    for key in ("blocks", "arrows", "endpoints", "agents", "overlays", "roles", "views"):
         old, new = before.get(key, {}), after.get(key, {})
         added = sorted(set(new) - set(old))
         removed = sorted(set(old) - set(new))
@@ -309,6 +309,10 @@ class Workspace:
         """Called with one event per change: the server turns them into live updates."""
         self.current_command: str | None = None
         """The slash command being run, as typed, so its event can show it."""
+        from backend.whiteboard.overlays import ScanCache
+
+        self.overlay_cache = ScanCache()
+        """File scans for the overlays, reused until a file changes."""
 
     # Input: none
     # Output: bool

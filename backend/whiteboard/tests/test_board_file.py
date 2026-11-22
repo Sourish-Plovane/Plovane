@@ -203,25 +203,29 @@ def test_http_download_and_upload(tmp_path):
 
 # Input: tmp_path
 # Output: None
-# Processing: Check that the planned sections of a file are accepted, reported and kept when saving to it again.
+# Processing: Check that a file's overlays and roles are used, and its planned sections are kept on save.
 # Changed by: Claude Code
 # Date: 2026-11-22
-def test_planned_sections_are_kept_when_saving_again(tmp_path):
+def test_overlays_load_and_planned_sections_are_kept(tmp_path):
     ws = busy(tmp_path)
     ok(ws, "/board save")
     data = json.loads((tmp_path / "whiteboard.json").read_text())
+    assert set(data) >= {"overlays", "roles", "views"} and "overlays" not in data["board"]
     data["overlays"] = {"cyber_security": {"label": "Cyber security", "source": "group"}}
     data["roles"] = {"cyber": {"label": "Cyber", "overlays": ["cyber_security"], "default_level": 1}}
+    data["layout"] = {"algorithm": "nested_grid", "spacing": {"between_blocks": 24, "container_padding": 32},
+                      "overlay_slots": {"badge": "top_right", "chip": "bottom", "icon": "top_left"}}
     (tmp_path / "whiteboard.json").write_text(json.dumps(data))
     loaded = ws.command("/board load", confirm=True)["data"]
-    assert loaded["result"]["planned_sections"] == ["overlays", "roles"]
+    assert loaded["result"]["planned_sections"] == ["layout"]
     assert any("aren't used by Plovane yet" in note for note in loaded["notes"])
+    assert list(ws.board.overlays) == ["cyber_security"] and list(ws.board.roles) == ["cyber"]
     ok(ws, '/block add service "billing"')
     saved = ok(ws, "/board save")
-    assert saved["kept_sections"] == ["overlays", "roles"]
+    assert saved["kept_sections"] == ["layout"]
     again = json.loads((tmp_path / "whiteboard.json").read_text())
     assert again["overlays"] == data["overlays"] and again["roles"] == data["roles"]
-    assert "billing" in again["board"]["blocks"]
+    assert again["layout"] == data["layout"] and "billing" in again["board"]["blocks"]
 
 
 # Input: tmp_path
@@ -262,4 +266,5 @@ def test_saved_file_and_example_match_the_spec_schema(tmp_path):
     example = json.loads((spec / "whiteboard.json").read_text())
     assert [e.message for e in validator.iter_errors(example)] == []
     board, planned = parse((spec / "whiteboard.json").read_text())
-    assert "payments" in board.blocks and sorted(planned) == ["display", "layout", "overlays", "roles", "views"]
+    assert "payments" in board.blocks and sorted(planned) == ["display", "layout"]
+    assert "cyber_security" in board.overlays and "cyber" in board.roles and "usr_sourish" in board.views

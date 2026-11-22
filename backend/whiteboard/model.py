@@ -233,6 +233,12 @@ class Board:
     presets: dict[str, dict[str, Any]] = field(default_factory=dict)
     templates: dict[str, Template] = field(default_factory=dict)
     agents: dict[str, Agent] = field(default_factory=dict)
+    overlays: dict[str, dict[str, Any]] = field(default_factory=dict)
+    """Overlay definitions (handbook section 21.4), keyed by overlay id."""
+    roles: dict[str, dict[str, Any]] = field(default_factory=dict)
+    """Saved sets of overlays with a starting zoom level, keyed by role id."""
+    views: dict[str, dict[str, Any]] = field(default_factory=dict)
+    """Each actor's overlay view: its role plus overlays switched on or off, keyed by actor."""
     view: dict[str, Any] = field(default_factory=dict)
     alerts: list[dict[str, Any]] = field(default_factory=list)
     compiles: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -256,6 +262,8 @@ class Board:
     # Date: 2026-10-22
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Board:
+        from backend.whiteboard.overlays import default_overlays, default_roles
+
         return cls(
             version=data.get("version", BOARD_VERSION),
             layers={int(k): Layer(**v) for k, v in data.get("layers", {}).items()},
@@ -265,6 +273,9 @@ class Board:
             presets=dict(data.get("presets", {})),
             templates={k: Template(**v) for k, v in data.get("templates", {}).items()},
             agents={k: Agent(**v) for k, v in data.get("agents", {}).items()},
+            overlays=dict(data["overlays"]) if "overlays" in data else default_overlays(),
+            roles=dict(data["roles"]) if "roles" in data else default_roles(),
+            views=dict(data.get("views", {})),
             view=dict(data.get("view", {})),
             alerts=list(data.get("alerts", [])),
             compiles=dict(data.get("compiles", {})),
@@ -380,6 +391,8 @@ def default_board() -> Board:
               "focus": None, "highlight": [], "filter": {}, "counters": {}},
     )
     from backend.whiteboard.ops.templates import builtin_templates
+    from backend.whiteboard.overlays import default_overlays, default_roles
 
     board.templates = {t.name: t for t in builtin_templates()}
+    board.overlays, board.roles = default_overlays(), default_roles()
     return board
