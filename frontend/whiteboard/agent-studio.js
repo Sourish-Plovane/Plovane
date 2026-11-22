@@ -44,13 +44,7 @@
   // ======================================================================== Palette =====
   const ITEMS = [
     { kind: 'agent', icon: '✦', label: 'AI agent', tip: 'Drag onto the board to add an AI agent' },
-    { kind: 'service', icon: '⬡', label: 'Service' },
-    { kind: 'database', icon: '▤', label: 'Database' },
-    { kind: 'queue', icon: '⇢', label: 'Queue' },
-    { kind: 'external', icon: '↗', label: 'External API' },
-    { kind: 'folder', icon: '▰', label: 'Folder' },
-    { kind: 'file', icon: '▧', label: 'File' },
-    { kind: 'note', icon: '✎', label: 'Note' },
+    { kind: 'external', icon: '↗', label: 'External API', tip: 'Drag onto the board to add an external API your project calls' },
   ]
   const viewport = $('#canvas-viewport')
   const palette = document.createElement('div')
