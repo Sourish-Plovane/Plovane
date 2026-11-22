@@ -798,6 +798,16 @@ Date: 2026-11-14
   /**
    * Input: none
    * Output: void
+   * Processing: Save the whole board to whiteboard.json in the project, saying plainly whether anything changed.
+   * Changed by: Claude Code
+   * Date: 2026-11-22
+   */
+  async function saveBoard(){try{const r=(await request('command',{method:'POST',body:JSON.stringify({command:'/board save'})})).result||{};
+    const kept=r.kept_sections?.length?` (kept its ${r.kept_sections.join(', ')} sections)`:'';
+    toast(r.saved?`Saved ${r.file}${kept}`:`${r.file} is already up to date`)}catch(e){toast(e.message,true)}}
+  /**
+   * Input: none
+   * Output: void
    * Processing: Download the whole board as whiteboard.json.
    * Changed by: Claude Code
    * Date: 2026-11-22
@@ -831,6 +841,7 @@ Date: 2026-11-14
     if(a==='library'&&window.PlovaneLibrary){window.PlovaneLibrary.open();return true}
     if(a==='ai-run'){showRunDialog();return true}
     if(a==='show-agents'){if(!layout.sideOpen)toggleSide();setTab('agents');return true}
+    if(a==='save-board'){saveBoard();return true}
     if(a==='download-board'){downloadBoard();return true}
     if(a==='open-board'){pickBoardFile();return true}
     if(a==='confirm-board-load'&&pendingBoard){loadBoardText(pendingBoard.text,pendingBoard.name,true);return true}
