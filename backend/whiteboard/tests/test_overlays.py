@@ -228,3 +228,56 @@ def test_board_reply_carries_overlays(tmp_path):
     data = client.get("/api/v1/whiteboard/board").get_json()["data"]["overlays"]
     assert data["view"]["base_role"] == "cyber" and "leaked_secrets" in data["results"]
     assert set(data["defs"]) >= {"cyber_security", "test_health"} and "cyber" in data["roles"]
+
+
+# Input: tmp_path
+# Output: None
+# Processing: Check overlays and roles travel in the .plo file (only when changed), and views stay personal.
+# Changed by: Claude Code
+# Date: 2026-11-22
+def test_overlays_and_roles_travel_in_the_plo_file(tmp_path):
+    import json
+
+    ws = shop(tmp_path)
+    ok(ws, "/board save")
+    plain = json.loads((tmp_path / "whiteboard.plo").read_text())["commands"]
+    assert not any(c.startswith(("/overlay", "/role")) for c in plain), "defaults are not written"
+    custom = {"label": "DB writes", "source": "custom", "created_by": "ai", "author": "usr",
+              "parent": "cyber_security", "match": {"node_type": "endpoint"}, "channel": "badge",
+              "appearance": {"3": "mark"}}
+    ok(ws, f"/overlay put db_writes --data '{json.dumps(custom)}'")
+    ok(ws, '/role put qa --data \'{"label": "QA", "overlays": ["test_health", "db_writes"], "default_level": 2}\'')
+    ok(ws, "/overlay remove library_code")
+    ok(ws, "/role use qa")
+    ok(ws, "/board save")
+    lines = json.loads((tmp_path / "whiteboard.plo").read_text())["commands"]
+    assert "/overlay remove library_code" in lines
+    assert any(c.startswith("/overlay put db_writes") for c in lines)
+    assert any(c.startswith("/role put qa") for c in lines)
+    assert not any("/view" in c or "base_role" in c for c in lines), "personal views stay out of the shared file"
+    ok(ws, "/board save keep")
+    ok(ws, "/overlay remove db_writes")
+    assert not any("db_writes" in c for c in json.loads((tmp_path / "whiteboard.plo").read_text())["commands"])
+    ok(ws, "/board load keep.plo", confirm=True)
+    assert ws.board.overlays["db_writes"] == custom and "library_code" not in ws.board.overlays
+    assert ws.board.roles["qa"]["overlays"] == ["test_health", "db_writes"]
+    assert overlays.view_of(ws.board, "user")["base_role"] == "qa"
+
+
+# Input: tmp_path
+# Output: None
+# Processing: Check bad overlay and role definitions are refused, and agents cannot define them.
+# Changed by: Claude Code
+# Date: 2026-11-22
+def test_bad_definitions_are_refused(tmp_path):
+    ws = shop(tmp_path)
+    bad = {"label": "x", "source": "premade", "channel": "glow", "appearance": {}}
+    import json
+
+    assert ws.command(f"/overlay put x --data '{json.dumps(bad)}'")["error"]["code"] == "INVALID_ARGS"
+    orphan = {"label": "x", "source": "group", "parent": "nothing"}
+    assert ws.command(f"/overlay put x --data '{json.dumps(orphan)}'")["error"]["code"] == "INVALID_ARGS"
+    assert ws.command('/role put r --data \'{"label": "R", "overlays": ["ghost"]}\'')["error"]["code"] == "INVALID_ARGS"
+    ok(ws, "/agent add bot")
+    reply = ws.command('/overlay put y --data \'{"label": "y", "source": "group"}\'', actor="bot")
+    assert reply["error"]["code"] == "FORBIDDEN"

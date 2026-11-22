@@ -14,12 +14,16 @@ Date: 2026-11-14
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   document.body.append($('#autocomplete'));
+  // Whiteboards (#72): every .plo file in the project is one. The page always opens on the main one,
+  // whiteboard.plo; the arrow beside its tab shows the others.
+  const MAIN_BOARD='whiteboard.plo';
+  const tabs={all:[MAIN_BOARD],active:MAIN_BOARD,expanded:false};
   const state = { data:null, commands:[], scale:.86, x:170, y:105, selected:null, tab:'files', online:false, lastPrompt:'', log:[], viewLevel:1, demo:false, drag:null, history:JSON.parse(localStorage.getItem('plovane-prompt-history')||'[]') };
-  const layout = { sideWidth:240, bottomHeight:190, overlap:0, sideOpen:true, bottomOpen:true, ...JSON.parse(localStorage.getItem('plovane-whiteboard-layout')||'{}') };
+  const layout = { sideWidth:240, bottomHeight:190, overlap:0, sideOpen:false, bottomOpen:true, ...JSON.parse(localStorage.getItem('plovane-whiteboard-layout')||'{}'), sideOpen:false };
   const preferences = { gridVisible:true, gridSpacing:20, gridContrast:1, zoomSensitivity:1, panMode:'drag', codeFontSize:12, codeTheme:'auto', ...JSON.parse(localStorage.getItem('plovane-whiteboard-preferences')||'{}') };
   let spacePressed=false;
   // Live activity feed, AI runs by id, blocks to highlight after the next redraw, providers with keys.
-  const activity=[];const runs={};let flashIds=new Set(),refreshTimer=null,providerList=[],pendingBoard=null;
+  const activity=[];const runs={};let flashIds=new Set(),refreshTimer=null,providerList=[];
   const kinds = {agent:'◉',service:'⬡',server:'⬡',external:'↗',database:'▤',queue:'⇢',endpoint:'↗',folder:'▰',group:'▦',file:'▧',function:'ƒ',class:'C',step:'·',code:'⌘',scan:'⌕',note:'✎',slot:'□'};
   const sample = {
     project:'plovane/payments-api', board:{layers:{0:{number:0,name:'Agents and access',zoom_min:0,zoom_max:10,shows:['agent']},1:{number:1,name:'Services and endpoints',zoom_min:10,zoom_max:20,shows:['service','database']},2:{number:2,name:'Folders',zoom_min:20,zoom_max:40,shows:['folder']},3:{number:3,name:'Files',zoom_min:40,zoom_max:70,shows:['file']},4:{number:4,name:'English steps',zoom_min:70,zoom_max:90,shows:['function','step']},5:{number:5,name:'Code',zoom_min:90,zoom_max:100,shows:['code']}},blocks:{},arrows:{},endpoints:{},templates:{},agents:{},alerts:[],view:{}},block_styles:{},absolute:{},arrows:[]
@@ -35,16 +39,73 @@ Date: 2026-11-14
     sample.board.arrows={'a1':{id:'a1',source:'web-app',target:'payments',type:'api',endpoint:'POST /charge',status:'built'},'a2':{id:'a2',source:'payments',target:'postgres',type:'database',status:'built'},'a3':{id:'a3',source:'client-file',target:'routes-file',type:'api',endpoint:'POST /charge',status:'built'},'a4':{id:'a4',source:'routes-file',target:'billing-file',type:'import',status:'built'},'a5':{id:'a5',source:'charge',target:'retry',type:'calls',status:'planned'}};
     sample.absolute={}; Object.values(sample.board.blocks).forEach(b=>sample.absolute[b.id]={x:b.x,y:b.y,w:b.w,h:b.h});sample.board.alerts=[{severity:'medium',message:'Payment amount is not validated before charge',block_id:'billing-file'}]; sample.board.templates={rest_api:{name:'REST API service',builtin:true}};sample.board.agents={};state.demo=true;return sample;
   }
+  /**
+   * Input: path (string), options (object)
+   * Output: Promise<object>
+   * Processing: Call the whiteboard API. A call slower than 0.4 s shows what is happening (busy pill);
+   *   failures come back as plain sentences saying what went wrong and what to do next, never raw errors.
+   * Changed by: Claude Code
+   * Date: 2026-11-21
+   */
   async function request(path, options={}){
-    let response;try{response=await fetch(`${API}/${path}`,{...options,headers:{'Content-Type':'application/json',...(TOKEN?{Authorization:`Bearer ${TOKEN}`}:{}),...(options.headers||{})}})}catch(_){throw new Error('Whiteboard backend unavailable. Run: plovane open')}
-    const envelope=await response.json();if(!response.ok||!envelope.ok)throw new Error(envelope.error?.message||`Request failed (${response.status})`);return envelope.data;
+    const label=busyLabel(path,options),timer=label&&setTimeout(()=>busy(label,1),400);
+    let response;try{response=await fetch(`${API}/${path}`,{...options,headers:{'Content-Type':'application/json','X-Plovane-Board':tabs.active,...(TOKEN?{Authorization:`Bearer ${TOKEN}`}:{}),...(options.headers||{})}})}catch(_){throw new Error("Can't reach the whiteboard server. Is it still running? Start it again with: plovane open")}
+    finally{if(timer){clearTimeout(timer);busy(label,-1)}}
+    let envelope=null;try{envelope=await response.json()}catch(_){}
+    if(!envelope)throw new Error(`The whiteboard server hit an unexpected problem (HTTP ${response.status}). Nothing was changed. Try again; if it keeps happening, look at the terminal running Plovane.`);
+    if(!response.ok||!envelope.ok)throw new Error(friendlyError(envelope.error,response.status));return envelope.data;
   }
+  /**
+   * Input: error (object|undefined), status (number)
+   * Output: string
+   * Processing: One readable sentence for an API error, with the next step for the common cases.
+   * Changed by: Claude Code
+   * Date: 2026-11-21
+   */
+  function friendlyError(error,status){const code=error?.code||'',message=String(error?.message||`Request failed (${status})`);
+    if(code==='INTERNAL'){const what=(message.match(/^(\/[\w ]+?) failed/)||[])[1];return `${what?what+' ':'That '}hit a bug, so nothing was changed. Try again, or undo your last step; if it keeps happening, the details are in the terminal running Plovane.`}
+    if(code==='LLM_UNAVAILABLE')return `${message.replace(/\.$/,'')}. The AI is optional: summaries and line-by-line English also work for free without it.`;
+    return message.charAt(0).toUpperCase()+message.slice(1)}
+  const busyNow=new Map();
+  /**
+   * Input: path (string), options (object)
+   * Output: string|null
+   * Processing: What a slow call is doing, in words, or null for calls that never need a busy pill.
+   * Changed by: Claude Code
+   * Date: 2026-11-21
+   */
+  function busyLabel(path,options){if(!options.method||options.method==='GET')return path.startsWith('library')?'Loading the code library…':null;let body={};try{body=JSON.parse(options.body||'{}')}catch(_){}
+    const text=String(body.command||body.op||'');const words=[[/^\/project import|project\.import/,'Importing your project…'],[/--provider|ask|explain|ai /,'Asking the AI…'],[/^\/summary|code\.summary/,'Writing file summaries…'],[/^\/translate|code\.translate/,'Turning code into English…'],[/^\/board make/,'Building the whiteboard…'],[/^\/frontend start/,'Starting your app…'],[/^\/(security scan|endpoint scan)/,'Scanning the code…'],[/^\/(find|search|library)|library\./,'Searching the code library (the first search loads it, about 10 s)…'],[/^\/blocks|code\.blocks|generate/,'Breaking the code into blocks…']];
+    for(const [re,label] of words)if(re.test(text))return label;return 'Working…'}
+  /**
+   * Input: label (string), delta (number)
+   * Output: void
+   * Processing: Show or hide the busy pill; several slow calls at once show the newest.
+   * Changed by: Claude Code
+   * Date: 2026-11-21
+   */
+  function busy(label,delta){busyNow.set(label,(busyNow.get(label)||0)+delta);if(busyNow.get(label)<=0)busyNow.delete(label);let pill=$('#busy');if(!pill){pill=document.createElement('div');pill.id='busy';pill.className='busy-pill';pill.setAttribute('role','status');document.body.append(pill)}
+    const labels=[...busyNow.keys()];pill.hidden=!labels.length;if(labels.length)pill.innerHTML=`<span class="busy-spin" aria-hidden="true"></span>${esc(labels[labels.length-1])}`}
   function toast(text,error=false){const t=$('#toast');t.textContent=text;t.classList.toggle('error',error);t.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>t.classList.remove('show'),3200)}
   function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
   function styleFor(b){return state.data?.block_styles?.[b.id]||{}}
   function savePreferences(){localStorage.setItem('plovane-whiteboard-preferences',JSON.stringify(preferences))}
   function applyCodePreferences(){document.documentElement.style.setProperty('--code-font-size',`${preferences.codeFontSize}px`);document.body.dataset.codeTheme=preferences.codeTheme}
-  function updateGrid(){const z=state.scale;const base=Math.max(8,Math.min(48,preferences.gridSpacing*z));const major=base*5;const v=$('#canvas-viewport'),dark=document.body.dataset.theme==='dark',fade=Math.max(.25,Math.min(1,preferences.gridContrast)),minorColor=dark?`rgba(120,128,145,${.34*fade})`:`rgba(140,148,162,${.28*fade})`,majorColor=dark?`rgba(95,103,120,${.34*fade})`:`rgba(160,168,182,${.28*fade})`;v.style.backgroundImage=preferences.gridVisible?`radial-gradient(circle, ${minorColor} ${Math.max(.55,z*.8)}px, transparent ${Math.max(.8,z*.95)}px),linear-gradient(to right, transparent ${major-1}px,${majorColor} ${major-1}px,${majorColor} ${major}px,transparent ${major}px),linear-gradient(to bottom, transparent ${major-1}px,${majorColor} ${major-1}px,${majorColor} ${major}px,transparent ${major}px)`:'none';v.style.backgroundSize=`${base}px ${base}px,${major}px ${major}px,${major}px ${major}px`;v.style.backgroundPosition=`${state.x}px ${state.y}px,${state.x}px ${state.y}px,${state.x}px ${state.y}px`;$('#zoom-label').textContent=`${Math.round(z*100)}%`}
+  const gridPaint={anchor:0,period:0,key:''};
+  /**
+   * Input: none
+   * Output: void
+   * Processing: Draw the dot grid on its own layer. The pattern is painted once per zoom range and then only
+   *   moved and scaled with a GPU transform, so zooming and panning never repaint the whole canvas.
+   * Changed by: Claude Code
+   * Date: 2026-11-21
+   */
+  function updateGrid(){const v=$('#canvas-viewport');$('#zoom-label').textContent=`${Math.round(state.scale*100)}%`;let layer=$('#grid-layer');if(!layer){layer=document.createElement('div');layer.id='grid-layer';layer.setAttribute('aria-hidden','true');v.prepend(layer)}v.style.backgroundImage='none';
+    if(!preferences.gridVisible){layer.hidden=true;return}layer.hidden=false;const dark=document.body.dataset.theme==='dark',key=`${dark}|${preferences.gridSpacing}|${preferences.gridContrast}`;let k=state.scale/(gridPaint.anchor||state.scale);
+    if(!gridPaint.anchor||k<.85||k>1.25||gridPaint.key!==key){const z=state.scale,base=Math.max(8,Math.min(48,preferences.gridSpacing*z)),major=base*5,fade=Math.max(.25,Math.min(1,preferences.gridContrast)),minorColor=dark?`rgba(120,128,145,${.34*fade})`:`rgba(140,148,162,${.28*fade})`,majorColor=dark?`rgba(95,103,120,${.34*fade})`:`rgba(160,168,182,${.28*fade})`;
+      layer.style.backgroundImage=`radial-gradient(circle, ${minorColor} ${Math.max(.55,z*.8)}px, transparent ${Math.max(.8,z*.95)}px),linear-gradient(to right, transparent ${major-1}px,${majorColor} ${major-1}px,${majorColor} ${major}px,transparent ${major}px),linear-gradient(to bottom, transparent ${major-1}px,${majorColor} ${major-1}px,${majorColor} ${major}px,transparent ${major}px)`;layer.style.backgroundSize=`${base}px ${base}px,${major}px ${major}px,${major}px ${major}px`;
+      Object.assign(gridPaint,{anchor:z,period:major,key});k=1}
+    const P=gridPaint.period*k,tx=((state.x%P)+P)%P-P,ty=((state.y%P)+P)%P-P;layer.style.transform=`translate(${tx}px,${ty}px) scale(${k})`}
   /* ---- Nested zoom: the project as boxes inside boxes ----
    * The canvas always looks at one block (the focus, or the whole project).
    * Its children are cards; each card already shows its own children as
@@ -55,6 +116,22 @@ Date: 2026-11-14
   const FRAME_W=1600,ENTER_AT=.7,LEAVE_AT=.42,HIDDEN=new Set(['agent','scan']);
   const KIND_ORDER={service:0,server:0,endpoint:1,database:1,queue:1,external:1,folder:2,slot:2,file:3,class:4,function:4,group:4,step:4,code:5,note:6};
   const nest={stack:[],items:new Map(),code:{},target:null,anim:0,lastAnchor:null};
+  // Multi-whiteboard: the main board plus sub-whiteboards promoted from folders. Each remembers its
+  // own zoom path and camera. Switching boards saves the current one's view and restores the next.
+  const boardsStore=(()=>{try{return JSON.parse(localStorage.getItem('plovane-boards')||'')||{}}catch(_){return {}}})();
+  const boards={list:boardsStore.list||[{id:'main',name:'Main whiteboard',root:null,parent:null,at:Date.now()}],active:boardsStore.active||'main',views:boardsStore.views||{}};
+  if(!boards.list.find(b=>b.id===boards.active))boards.active='main';
+  function saveBoards(){localStorage.setItem('plovane-boards',JSON.stringify(boards))}
+  function currentBoard(){return boards.list.find(b=>b.id===boards.active)||boards.list[0]}
+  function subboardFor(folderId){return boards.list.find(b=>b.root===folderId)}
+  function captureView(){return {stack:nest.stack.map(e=>({...e})),scale:state.scale,x:state.x,y:state.y}}
+  function switchBoard(id,{animate=true}={}){if(!boards.list.find(b=>b.id===id))return;boards.views[boards.active]=captureView();boards.active=id;const target=currentBoard(),saved=boards.views[id],all=boardBlocks(),v=$('#canvas-viewport');state.selected=null;hidePopup();
+    if(saved&&saved.stack&&saved.stack.length){nest.stack=saved.stack.map(e=>({...e}));state.scale=saved.scale;state.x=saved.x;state.y=saved.y;render()}
+    else{const ratio=Math.max(.45,Math.min(1,(v.clientHeight||600)/(v.clientWidth||1000)));nest.stack=target.root&&all[target.root]?[{id:target.root,w:FRAME_W,h:FRAME_W*ratio}]:[];focusEntry();render();fit(animate)}
+    saveBoards();fadeIn()}
+  function createSubBoard(folderBlock){if(!folderBlock)return null;const found=subboardFor(folderBlock.id);if(found)return found;const id='wb-'+Math.random().toString(36).slice(2,8);const board={id,name:folderBlock.name||folderBlock.id,root:folderBlock.id,parent:boards.active,at:Date.now()};boards.list.push(board);saveBoards();return board}
+  function deleteSubBoard(id){const i=boards.list.findIndex(b=>b.id===id);if(i<1)return;boards.list.splice(i,1);delete boards.views[id];if(boards.active===id)boards.active='main';saveBoards()}
+  function boardChain(id){const chain=[];let cur=boards.list.find(b=>b.id===id),g=0;while(cur&&g++<20){chain.unshift(cur);cur=cur.parent?boards.list.find(b=>b.id===cur.parent):null}return chain}
   /**
    * Input: b (object)
    * Output: object
@@ -179,35 +256,38 @@ Date: 2026-11-14
    * Changed by: Claude Code
    * Date: 2026-11-10
    */
+  function badgeOf(b){if(b.meta?.source==='ai')return `<span class="nest-badge ai">✦ ${esc({anthropic:'claude',user:'you'}[b.meta.by]||b.meta.by||'AI')}</span>`;if(['generated','new','unverified'].includes(b.status))return '<span class="nest-badge gen">Generated</span>';if(b.status==='missing')return '<span class="nest-badge gen">Missing</span>';return ''}
   /**
    * Input: name (string)
    * Output: number
-   * Processing: A stable hue for an agent, so its chips are the same colour everywhere.
+   * Processing: A steady hue for an agent, so its chips look the same everywhere.
    * Changed by: Claude Code
-   * Date: 2026-11-22
+   * Date: 2026-11-14
    */
   function agentHue(name){let h=0;for(const c of String(name))h=(h*31+c.charCodeAt(0))%360;return h}
   /**
-   * Input: id (string)
+   * Input: id (string), max (number)
    * Output: string
-   * Processing: Chips for the agents that can reach a block: ✎ can change it, 👁 can only read it.
+   * Processing: Chips for the agents that may reach a block: ✎ read-write, 👁 read only (#71).
    * Changed by: Claude Code
-   * Date: 2026-11-22
+   * Date: 2026-11-14
    */
-  function accessChips(id){const reach=state.data?.access?.[id];if(!reach)return '';const names=Object.keys(reach).sort();
-    const chips=names.slice(0,3).map(n=>{const rw=reach[n]==='read-write';return `<span class="agent-chip ${rw?'rw':'ro'}" style="--hue:${agentHue(n)}" title="${esc(n)} can ${rw?'read and change':'only read'} this">${rw?'✎':'👁'} ${esc(n)}</span>`}).join('');
-    const more=names.length>3?`<span class="agent-chip more" title="${esc(names.slice(3).join(', '))}">+${names.length-3}</span>`:'';return `<span class="agent-chips">${chips}${more}</span>`}
+  function agentChips(id,max=3){const who=Object.entries(state.data?.access?.[id]||{});if(!who.length)return '';
+    const chip=([name,mode])=>`<span class="agent-chip ${mode==='read-write'?'rw':'ro'}" style="--hue:${agentHue(name)}" title="${esc(name)} can ${mode==='read-write'?'read and change':'read'} this">${mode==='read-write'?'✎':'👁'} ${esc(name)}</span>`;
+    const extra=who.length>max?`<span class="agent-chip more" title="${esc(who.slice(max).map(([n,m])=>`${n}: ${m}`).join(', '))}">+${who.length-max}</span>`:'';
+    return `<span class="agent-chips">${who.slice(0,max).map(chip).join('')}${extra}</span>`}
   /**
    * Input: none
    * Output: void
-   * Processing: The top bar's strip of every agent on the board with its overall access; clicking opens the Agents tab.
+   * Processing: The top bar's list of agents connected to this whiteboard, with where each may work.
    * Changed by: Claude Code
-   * Date: 2026-11-22
+   * Date: 2026-11-14
    */
-  function renderAgentStrip(){const host=$('#agent-strip');if(!host)return;const agents=Object.values(state.data?.board?.agents||{});
-    host.innerHTML=agents.map(a=>{const all=[...(a.grants||[]),...(a.regions||[])],rw=all.some(g=>g.mode==='read-write'),any=all.some(g=>g.mode!=='none'),cls=rw?'rw':any?'ro':'none';
-      return `<button class="agent-chip ${cls}" style="--hue:${agentHue(a.name)}" data-action="show-agents" title="${esc(a.name)}: ${esc(grantsText(a))}">${rw?'✎':any?'👁':'○'} ${esc(a.name)}</button>`}).join('')}
-  function badgeOf(b){if(b.meta?.source==='ai')return `<span class="nest-badge ai">✦ ${esc({anthropic:'claude',user:'you'}[b.meta.by]||b.meta.by||'AI')}</span>`;if(['generated','new','unverified'].includes(b.status))return '<span class="nest-badge gen">Generated</span>';if(b.status==='missing')return '<span class="nest-badge gen">Missing</span>';return ''}
+  function renderAgentStrip(){const host=$('#agent-strip');if(!host)return;const agents=(state.data?.board||state.data||{}).agents||{},names=Object.keys(agents).sort();
+    if(!names.length){host.innerHTML='<span class="agent-strip-empty" title="Add one with: plovane agent add claude --access read-write">No agents</span>';return}
+    host.innerHTML=names.map(name=>{const a=agents[name],grants=(a.grants||[]).filter(g=>g.mode!=='none'),rw=grants.some(g=>g.mode==='read-write')||(a.regions||[]).some(r=>r.mode==='read-write'),any=grants.length||(a.regions||[]).length;
+      const where=[...grants.map(g=>`${g.mode} ${g.path==='.'||!g.path?'whole project':g.path}`),...(a.regions||[]).map(r=>`${r.mode} region on layer ${r.layer??'any'}`)].join('\n')||'no access yet';
+      return `<button class="agent-chip ${any?(rw?'rw':'ro'):'none'}" style="--hue:${agentHue(name)}" data-action="agent-access" data-agent="${esc(name)}" title="${esc(name)}\n${esc(where)}">${any?(rw?'✎':'👁'):'○'} ${esc(name)}</button>`}).join('')}
   /**
    * Input: b (object), r (object)
    * Output: string
@@ -216,7 +296,7 @@ Date: 2026-11-14
    * Date: 2026-11-10
    */
   function tileHTML(b,r){const font=Math.min(r.w*.075,r.h*.24),n=childrenOf(b.id).length,hint=n?`${n} inside`:codeSource(b)?'{ } code':'';
-    return `<div class="nest-tile ${esc(b.kind)}-tile" data-tile="${esc(b.id)}" style="--w:${r.w};left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px;font-size:${font}px"><b>${kinds[b.kind]||'□'} ${esc(b.name||b.id)}</b>${accessChips(b.id)}<small>${esc(hint)}</small></div>`}
+    return `<div class="nest-tile ${esc(b.kind)}-tile" data-tile="${esc(b.id)}" style="--w:${r.w};left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px;font-size:${font}px"><b>${kinds[b.kind]||'□'} ${esc(b.name||b.id)}</b><small>${esc(hint)}</small>${agentChips(b.id,2)}</div>`}
   /**
    * Input: b (object), r (object)
    * Output: string
@@ -228,7 +308,7 @@ Date: 2026-11-14
     if(kids.length)grid(kids.length,inner).forEach((cell,i)=>{inside+=tileHTML(kids[i],cell);nest.items.set(kids[i].id,{level:2,rect:cell,parent:b.id})});
     else if(codeSource(b))inside=codeHTML(codeSource(b),inner,false).html;
     else inside=`<div class="nest-empty" style="left:${inner.x}px;top:${inner.y+inner.h*.35}px;width:${inner.w}px;font-size:${font*.7}px">${esc(summaryOf(b)||b.kind)}</div>`;
-    return `<article class="nest-card ${esc(b.kind)}-card ${state.selected===b.id?'selected':''}" data-block="${esc(b.id)}" style="--w:${r.w};left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px"><header style="height:${inner.head}px;font-size:${font}px"><span class="nest-icon">${kinds[b.kind]||'□'}</span><span class="nest-name">${esc(b.name||b.id)}</span>${badgeOf(b)}${accessChips(b.id)}<small>${esc(b.kind)}${summaryOf(b)?' · '+esc(summaryOf(b)):''}</small></header></article>${inside}`}
+    return `<article class="nest-card ${esc(b.kind)}-card ${state.selected===b.id?'selected':''}" data-block="${esc(b.id)}" style="--w:${r.w};left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px"><header style="height:${inner.head}px;font-size:${font}px"><span class="nest-icon">${kinds[b.kind]||'□'}</span><span class="nest-name">${esc(b.name||b.id)}</span>${badgeOf(b)}${agentChips(b.id)}<small>${esc(b.kind)}${summaryOf(b)?' · '+esc(summaryOf(b)):''}</small></header></article>${inside}`}
   /**
    * Input: none
    * Output: object
@@ -241,32 +321,36 @@ Date: 2026-11-14
   /**
    * Input: none
    * Output: void
-   * Processing: Redraw the focus frame, its cards, their tiles and the arrows between cards.
+   * Processing: Redraw the focus frame, its cards, their tiles and the arrows between cards; an empty board says what to do first.
    * Changed by: Claude Code
-   * Date: 2026-11-10
+   * Date: 2026-11-21
    */
   function render(){if(!state.data)return;const top=focusEntry(),all=boardBlocks(),focus=top.id?all[top.id]:null,kids=childrenOf(top.id);nest.items=new Map();
     let frame={x:0,y:0,w:top.w,h:top.h},inner=innerOf(frame),html='',leafCode=!kids.length&&focus&&codeSource(focus);
     if(leafCode){if(top.h0==null)top.h0=top.h;const code=codeHTML(codeSource(focus),inner,true,innerOf({x:0,y:0,w:top.w,h:top.h0}));if(code.height){top.h=Math.max(top.h,inner.head+code.height+inner.w*.03);frame.h=top.h}html+=code.html}
     else if(kids.length)grid(kids.length,inner).forEach((cell,i)=>{nest.items.set(kids[i].id,{level:1,rect:cell});html+=cardHTML(kids[i],cell)});
-    else html+=`<div class="nest-empty big" style="left:0;top:${frame.h*.42}px;width:${frame.w}px;font-size:${frame.w/55}px">${focus?'Nothing inside this block yet.':'No project files on the board yet.'}<br><button data-action="${focus?'generate-blocks':'import'}">${focus?'✦ Generate blocks with AI':'Import project files'}</button></div>`;
+    else html+=`<div class="nest-empty big" style="left:0;top:${frame.h*.42}px;width:${frame.w}px;font-size:${frame.w/55}px">${focus?'Nothing inside this block yet.<br><button data-action="generate-blocks">✦ Generate blocks with AI</button>':state.emptyProject?`This folder has no code yet.<div class="empty-steps">Start by <button data-action="new-file">＋ creating a file</button>, or describe what to build in the box below and press ↑.<br><small>Already have code somewhere else? Open that folder instead: <code>plovane open --dir &lt;folder&gt;</code></small></div>`:'No project files on the board yet.<br><button data-action="import">Import project files</button>'}</div>`;
     top.leaf=!!leafCode;
     const title=focus?`${kinds[focus.kind]||'□'} ${esc(focus.name||focus.id)}`:`▰ ${esc(projectName())}`,sub=focus?summaryOf(focus):'Scroll over a block to zoom into it';
-    $('#blocks').innerHTML=`<section class="nest-frame ${leafCode?'code-frame':''}" style="width:${frame.w}px;height:${frame.h}px"><header style="height:${inner.head}px;font-size:${inner.head*.3}px"><b>${title}</b>${focus?badgeOf(focus)+accessChips(focus.id):''}<small>${esc(sub)}</small></header></section>${html}`;
-    drawArrows(frame);bindCards();renderCrumbs();renderFocusBar();renderAgentStrip();renderMinimap();renderSidebar();applyCamera();
+    $('#blocks').innerHTML=`<section class="nest-frame ${leafCode?'code-frame':''}" style="width:${frame.w}px;height:${frame.h}px"><header style="height:${inner.head}px;font-size:${inner.head*.3}px"><b>${title}</b>${focus?badgeOf(focus)+agentChips(focus.id,5):''}<small>${esc(sub)}</small></header></section>${html}`;
+    drawArrows(frame);bindCards();renderAgentStrip();renderCrumbs();renderFocusBar();renderMinimap();renderSidebar();applyCamera();window.PlovaneLive?.afterRender?.();
     $('#change-count').textContent=state.log.length?`${state.log.length} recent ${state.log.length===1?'change':'changes'}`:'No changes yet'}
   /**
    * Input: frame (object)
    * Output: void
    * Processing: Arrows between the cards in view; an arrow to a block deeper inside goes to the card holding it.
+   *   Arrows between the same two cards become one, labelled with its route or "N API routes"; a very short
+   *   arrow (cards side by side) curves up so it can be seen and clicked.
    * Changed by: Claude Code
-   * Date: 2026-11-10
+   * Date: 2026-11-21
    */
   function drawArrows(frame){const all=boardBlocks(),board=state.data.board||state.data,holder=id=>{let b=all[id],guard=0;while(b&&guard++<20){const it=nest.items.get(b.id);if(it&&it.level===1)return b.id;b=all[b.parent]}return null};
     const edge=(r,tx,ty)=>{const cx=r.x+r.w/2,cy=r.y+r.h/2,dx=tx-cx,dy=ty-cy,k=1/Math.max(Math.abs(dx)/(r.w/2)||0,Math.abs(dy)/(r.h/2)||0,1e-6);return [cx+dx*Math.min(k,1),cy+dy*Math.min(k,1)]};
     const seen=new Set(),arrows=state.data.arrows?.length?state.data.arrows:Object.values(board.arrows||{});
-    const paths=arrows.map(a=>{const s=holder(a.source||a.source_node_id),t=holder(a.target||a.target_node_id);if(!s||!t||s===t||seen.has(s+'>'+t))return '';seen.add(s+'>'+t);const A=nest.items.get(s).rect,B=nest.items.get(t).rect,[x1,y1]=edge(A,B.x+B.w/2,B.y+B.h/2),[x2,y2]=edge(B,A.x+A.w/2,A.y+A.h/2),cx=(x1+x2)/2,cy=(y1+y2)/2,label=a.endpoint||a.label||(a.type==='api'?'API':a.type||'');
-      return `<path class="${esc(a.type||'calls')} ${esc(a.status||'')}" d="M ${x1} ${y1} L ${x2} ${y2}" marker-end="url(#arrowhead)"/><text x="${cx}" y="${cy-frame.w/250}" text-anchor="middle" style="font-size:${frame.w/130}px">${esc(label)}</text>`}).join('');
+    const groups=new Map();arrows.forEach(a=>{const s=holder(a.source||a.from||a.source_node_id),t=holder(a.target||a.to||a.target_node_id);if(!s||!t||s===t)return;const key=s+'>'+t;if(!groups.has(key))groups.set(key,{s,t,first:a,endpoints:[]});if(a.endpoint&&!groups.get(key).endpoints.includes(a.endpoint))groups.get(key).endpoints.push(a.endpoint)});
+    const short=ep=>String(ep).replace(/^[^:]*:/,'');
+    const paths=[...groups.values()].map(({s,t,first:a,endpoints})=>{const A=nest.items.get(s).rect,B=nest.items.get(t).rect,[x1,y1]=edge(A,B.x+B.w/2,B.y+B.h/2),[x2,y2]=edge(B,A.x+A.w/2,A.y+A.h/2),bulge=Math.hypot(x2-x1,y2-y1)<frame.w*.05?frame.w*.035:0,cx=(x1+x2)/2,cy=(y1+y2)/2-bulge,label=endpoints.length>1?`${endpoints.length} API routes`:endpoints.length?short(endpoints[0]):(a.label||(a.type==='api'?'API':a.type||''));
+      const tag=`data-endpoint="${esc(endpoints.join('|'))}" data-source="${esc(s)}" data-target="${esc(t)}"`;return `<path class="${esc(a.type||'calls')} ${esc(a.status||'')}" ${tag} d="${bulge?`M ${x1} ${y1} Q ${cx} ${cy-bulge} ${x2} ${y2}`:`M ${x1} ${y1} L ${x2} ${y2}`}" marker-end="url(#arrowhead)"/><text ${tag} x="${cx}" y="${cy-frame.w/250}" text-anchor="middle" style="font-size:${frame.w/130}px">${esc(label)}</text>`}).join('');
     $('#connections').setAttribute('width',frame.w);$('#connections').setAttribute('height',frame.h);
     $('#connections').innerHTML=paths+`<defs><marker id="arrowhead" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="#aaa3ca"/></marker></defs>`}
   /**
@@ -285,7 +369,7 @@ Date: 2026-11-14
    * Changed by: Claude Code
    * Date: 2026-11-10
    */
-  function renderCrumbs(){const all=boardBlocks();$('#breadcrumbs').innerHTML=nest.stack.map((e,i)=>{const name=e.id?(all[e.id]?.name||e.id):projectName();return `${i?'<span class="crumb-sep">/</span>':''}<button class="crumb ${i===nest.stack.length-1?'current':''}" data-action="crumb" data-crumb="${i}">${esc(name)}</button>`}).join('')}
+  function renderCrumbs(){const all=boardBlocks(),chain=boardChain(boards.active).slice(0,-1);const parents=chain.map(b=>`<button class="crumb board-crumb" data-action="switch-board" data-board="${esc(b.id)}" title="Switch to ${esc(b.name)}">▦ ${esc(b.name)}</button><span class="crumb-sep">/</span>`).join('');$('#breadcrumbs').innerHTML=parents+nest.stack.map((e,i)=>{const name=e.id?(all[e.id]?.name||e.id):currentBoard().name||projectName();return `${i?'<span class="crumb-sep">/</span>':''}<button class="crumb ${i===nest.stack.length-1?'current':''}${!i&&currentBoard().parent?' board-crumb':''}" data-action="crumb" data-crumb="${i}">${!i&&currentBoard().parent?'▦ ':''}${esc(name)}</button>`}).join('')}
   /**
    * Input: none
    * Output: void
@@ -293,16 +377,17 @@ Date: 2026-11-14
    * Changed by: Claude Code
    * Date: 2026-11-10
    */
-  function renderFocusBar(){const top=nest.stack[nest.stack.length-1],b=top?.id?boardBlocks()[top.id]:null,bar=$('#focus-bar');if(!bar)return;const src=b&&(b.path||b.meta?.file),code=b&&(codeSource(b)||b.kind==='file');
-    bar.innerHTML=`${nest.stack.length>1?'<button data-action="zoom-up" title="Up one level (Esc)">↑ Up</button>':''}<span class="focus-name">${b?`${kinds[b.kind]||'□'} ${esc(b.name)}`:'▰ '+esc(projectName())}</span>${b&&src&&b.kind!=='folder'?'<button data-action="generate-blocks" title="Let Claude or DeepSeek group this code into blocks">✦ AI blocks</button>':''}${b&&b.kind==='folder'?'<button data-action="generate-blocks" title="Outline every file in this folder">✦ AI blocks for folder</button>':''}${b&&b.kind==='file'?'<button data-action="split-functions" title="One block per function, no AI needed">ƒ Functions</button>':''}${code?'<button data-action="edit-code" title="Open the code to read or edit">✎ Edit code</button>':''}${b?'<button data-action="focus-info">ⓘ</button>':''}`}
+  function renderFocusBar(){const top=nest.stack[nest.stack.length-1],b=top?.id?boardBlocks()[top.id]:null,bar=$('#focus-bar');if(!bar)return;const src=b&&(b.path||b.meta?.file),code=b&&(codeSource(b)||b.kind==='file'),folderSub=b&&b.kind==='folder'&&subboardFor(b.id);const canLeave=nest.stack.length>1||!!currentBoard().parent;
+    bar.innerHTML=`${canLeave?'<button data-action="zoom-up" title="Up one level (Esc)">↑ Up</button>':''}<span class="focus-name">${b?`${kinds[b.kind]||'□'} ${esc(b.name)}`:'▰ '+esc(currentBoard().name||projectName())}</span>${b&&b.kind==='folder'&&!folderSub?'<button data-action="make-subboard" title="Turn this folder into its own whiteboard (creates a .plo marker). Zoom in to open it; zoom out past the root to leave.">▦ Make sub-whiteboard</button>':''}${folderSub?`<button data-action="open-subboard" data-board="${esc(folderSub.id)}" title="Open the sub-whiteboard for this folder">▦ Open ${esc(folderSub.name)}</button>`:''}${b&&src&&b.kind!=='folder'?'<button data-action="generate-blocks" title="Let Claude or DeepSeek group this code into blocks">✦ AI blocks</button>':''}${b&&b.kind==='folder'?'<button data-action="generate-blocks" title="Outline every file in this folder">✦ AI blocks for folder</button>':''}${b&&b.kind==='file'?'<button data-action="split-functions" title="One block per function, no AI needed">ƒ Functions</button>':''}${code?'<button data-action="edit-code" title="Open the code to read or edit">✎ Edit code</button>':''}${b?'<button data-action="focus-info">ⓘ</button>':''}`}
   /**
    * Input: none
    * Output: object
-   * Processing: The canvas size in screen pixels.
+   * Processing: The canvas size, as last measured by the ResizeObserver (reading it never forces a layout).
    * Changed by: Claude Code
-   * Date: 2026-11-10
+   * Date: 2026-11-21
    */
-  function viewSize(){const v=$('#canvas-viewport');return {w:v.clientWidth||1000,h:v.clientHeight||600}}
+  let viewCache=null;
+  function viewSize(){if(viewCache)return viewCache;const v=$('#canvas-viewport');return {w:v.clientWidth||1000,h:v.clientHeight||600}}
   /**
    * Input: none
    * Output: void
@@ -322,11 +407,12 @@ Date: 2026-11-14
   /**
    * Input: s (number)
    * Output: number
-   * Processing: Keep the zoom where the focus is still findable and code still readable.
+   * Processing: Keep the zoom where the focus is still findable and code still readable (a folder
+   *   stops at 8x the screen, so zooming into a gap cannot run away).
    * Changed by: Claude Code
-   * Date: 2026-11-10
+   * Date: 2026-11-21
    */
-  function clampScale(s){const top=focusEntry(),v=viewSize(),min=nest.stack.length>1?1e-6:v.w*.25/top.w,max=top.leaf?40/(top.w/95):v.w*30/top.w;return Math.max(min,Math.min(max,s))}
+  function clampScale(s){const top=focusEntry(),v=viewSize(),canLeave=nest.stack.length>1||!!currentBoard().parent,min=canLeave?1e-6:v.w*.25/top.w,max=top.leaf?40/(top.w/95):v.w*8/top.w;return Math.max(min,Math.min(max,s))}
   /**
    * Input: f (number), dx (number), dy (number)
    * Output: void
@@ -338,11 +424,12 @@ Date: 2026-11-14
   /**
    * Input: id (string), rect (object)
    * Output: void
-   * Processing: Make a card the focus, keeping it exactly where it is on screen.
+   * Processing: Make a card the focus, keeping it exactly where it is on screen; a file, or a folder that
+   *   ends up partly off screen, then glides to fit the screen.
    * Changed by: Claude Code
-   * Date: 2026-11-10
+   * Date: 2026-11-21
    */
-  function enter(id,rect){const f=FRAME_W/rect.w;remap(f,rect.x,rect.y);nest.stack.push({id,w:FRAME_W,h:rect.h*f});state.selected=null;hidePopup();render();fadeIn()}
+  function enter(id,rect){const sub=subboardFor(id);if(sub&&sub.id!==boards.active){switchBoard(sub.id);toast(`Entered ${sub.name} whiteboard. Zoom out past the root to return.`);return}const f=FRAME_W/rect.w;remap(f,rect.x,rect.y);nest.stack.push({id,w:FRAME_W,h:rect.h*f});state.selected=null;hidePopup();render();fadeIn();const v=viewSize(),top=focusEntry(),x0=state.x,x1=state.x+top.w*state.scale;if(top.leaf||x0<-v.w*.05||x1>v.w*1.05||state.y+top.h*state.scale<v.h*.3||state.y>v.h*.5)fit(true)}
   /**
    * Input: none
    * Output: boolean
@@ -350,7 +437,7 @@ Date: 2026-11-14
    * Changed by: Claude Code
    * Date: 2026-11-10
    */
-  function leave(){if(nest.stack.length<2)return false;const child=nest.stack.pop();render();const it=nest.items.get(child.id);if(!it){fit();return true}const r=it.rect,f=child.w/r.w;for(const c of [state,nest.target]){if(!c)continue;c.scale*=f;c.x-=r.x*c.scale;c.y-=r.y*c.scale}hidePopup();render();fadeIn();return true}
+  function leave(){if(nest.stack.length<2){const cb=currentBoard();if(cb.parent){switchBoard(cb.parent);toast(`Back to ${currentBoard().name}.`);return true}return false}const child=nest.stack.pop();render();const it=nest.items.get(child.id);if(!it){fit();return true}const r=it.rect,f=child.w/r.w;for(const c of [state,nest.target]){if(!c)continue;c.scale*=f;c.x-=r.x*c.scale;c.y-=r.y*c.scale}hidePopup();render();fadeIn();return true}
   /**
    * Input: none
    * Output: void
@@ -362,13 +449,14 @@ Date: 2026-11-14
   /**
    * Input: dir (number), ax (number), ay (number)
    * Output: void
-   * Processing: After zooming, enter the card under the pointer once it fills the screen, or leave once the frame is small.
+   * Processing: After zooming, enter the card under the pointer (or the nearest one, when the pointer
+   *   is over a gap) once it fills the screen, or leave once the frame is small.
    * Changed by: Claude Code
-   * Date: 2026-11-10
+   * Date: 2026-11-21
    */
-  function checkDepth(dir,ax,ay){const v=viewSize(),top=focusEntry();
-    if(dir<0&&nest.stack.length>1&&top.w*state.scale<LEAVE_AT*v.w&&(top.leaf||top.h*state.scale<LEAVE_AT*v.h)){leave();return}
-    if(dir>0){const wx=(ax-state.x)/state.scale,wy=(ay-state.y)/state.scale;for(const [id,it] of nest.items){const r=it.rect;if(it.level!==1||wx<r.x||wy<r.y||wx>r.x+r.w||wy>r.y+r.h||!enterable(id))continue;if(r.w*state.scale>ENTER_AT*v.w||r.h*state.scale>ENTER_AT*v.h)enter(id,r);return}}}
+  function checkDepth(dir,ax,ay){const v=viewSize(),top=focusEntry(),canLeave=nest.stack.length>1||!!currentBoard().parent;
+    if(dir<0&&canLeave&&top.w*state.scale<LEAVE_AT*v.w&&(top.leaf||top.h*state.scale<LEAVE_AT*v.h)){leave();return}
+    if(dir>0){const wx=(ax-state.x)/state.scale,wy=(ay-state.y)/state.scale;let best=null,bestGap=Infinity;for(const [id,it] of nest.items){const r=it.rect;if(it.level!==1||!enterable(id))continue;const gap=Math.hypot(Math.max(r.x-wx,0,wx-r.x-r.w),Math.max(r.y-wy,0,wy-r.y-r.h));if(gap<bestGap){best=[id,r];bestGap=gap}}if(best){const [id,r]=best;if(r.w*state.scale>ENTER_AT*v.w||r.h*state.scale>ENTER_AT*v.h)enter(id,r)}}}
   /**
    * Input: none
    * Output: boolean
@@ -398,11 +486,11 @@ Date: 2026-11-14
   /**
    * Input: animate (boolean)
    * Output: void
-   * Processing: Fit the focus in the canvas (code frames show from the top).
+   * Processing: Fit the focus in the canvas, clear of the tool palette on the left (code frames show from the top).
    * Changed by: Claude Code
-   * Date: 2026-11-10
+   * Date: 2026-11-21
    */
-  function fit(animate=false){if(!state.data)return;if(reducedMotion())animate=false;const top=focusEntry(),v=viewSize(),head=104,room={w:v.w-24,h:Math.max(120,v.h-head-16)},visibleH=top.leaf?Math.min(top.h,top.w*room.h/room.w):top.h,s=Math.min(room.w/top.w,room.h/visibleH),goal={scale:s,x:(v.w-top.w*s)/2,y:head+(top.leaf?0:(room.h-top.h*s)/2)};
+  function fit(animate=false){if(!state.data)return;state.fitted=true;if(reducedMotion())animate=false;const top=focusEntry(),v=viewSize(),head=104,pal=$('.studio-palette'),vp=$('#canvas-viewport').getBoundingClientRect(),left=pal&&pal.offsetParent?Math.max(12,pal.getBoundingClientRect().right-vp.left+10):12,room={w:v.w-left-12,h:Math.max(120,v.h-head-16)},visibleH=top.leaf?Math.min(top.h,top.w*room.h/room.w):top.h,s=Math.min(room.w/top.w,room.h/visibleH),goal={scale:s,x:left+(room.w-top.w*s)/2,y:head+(top.leaf?0:(room.h-top.h*s)/2)};
     if(animate){nest.target=goal;nest.lastAnchor=null;if(!nest.anim)nest.anim=requestAnimationFrame(stepCamera)}else{nest.target=null;Object.assign(state,goal);applyCamera()}}
   /**
    * Input: id (string)
@@ -522,7 +610,7 @@ Date: 2026-11-14
   function openBlock(id){const board=state.data.board||state.data,b=board.blocks?.[id];if(!b)return;state.selected=id;const p=position(b),arrows=(state.data.arrows||Object.values(board.arrows||{})).filter(a=>a.source===id||a.target===id);let body=`<div class="row"><b>${esc(b.kind)}</b> · ${esc(b.status||'verified')}<br><span class="muted">${esc(b.path||b.id)} · Layer ${b.layer}</span></div><div class="row">Position ${Math.round(p.x)}, ${Math.round(p.y)} · ${p.w||b.w} × ${p.h||b.h}</div>`;if(b.kind==='code'||b.kind==='function')body+=`<div class="row">Source · ${esc(b.path||b.meta?.file||b.name)}</div><button data-action="open-code" data-block="${esc(id)}">Show code</button>`;if(b.kind==='file')body+=`<div class="row">Source · ${esc(b.path||b.name)}</div><button data-action="open-code" data-block="${esc(id)}">Open source</button>`;body+=`<div class="row"><b>Connections (${arrows.length})</b><br>${arrows.map(a=>`${esc(a.type)} · ${esc(a.endpoint||`${a.source} → ${a.target}`)} · ${esc(a.status)}`).join('<br>')||'No connections'}</div><div class="row">Provenance · ${b.status==='generated'?'Generated code awaiting approval':'Verified library code'}<br><span class="muted">${esc(b.meta?.prompt||'Prompt provenance available in project history')} · ${Number(b.meta?.tokens||0)} tokens</span></div>`;openModal(b.name,body,'BLOCK DETAILS');render()}
   function record(prompt,data){const entry={prompt,at:new Date().toISOString(),tokens:Math.max(1,Math.ceil(prompt.trim().split(/\s+/).length*1.35)),result:data?.result?.message||data?.result?.id||'Command completed',kind:'prompt'};state.log.unshift(entry);state.log=state.log.slice(0,100);state.lastPrompt=prompt;localStorage.setItem('plovane-prompt-history',JSON.stringify(state.log));$('#token-count').textContent=`${state.log.reduce((n,x)=>n+x.tokens,0)} tokens`;$('#change-count').textContent=`${state.log.length} recent ${state.log.length===1?'change':'changes'}`;render()}
   async function runCommand(command,confirm=false,prompt=command){try{const data=await request('command',{method:'POST',body:JSON.stringify({command,confirm})});if(data.status==='needs_confirmation'){openModal('Review before applying',`<p>${esc(data.message||'This command needs confirmation.')}</p><pre>${esc(JSON.stringify(data.preview||{},null,2))}</pre><div class="modal-actions"><button class="secondary" data-action="close-modal">Cancel</button><button data-action="confirm-command" data-command="${esc(command)}">Review & apply</button></div>`,'CONFIRMATION REQUIRED');return}record(prompt,data);await refresh();const changed=Object.keys(data.changes||{}).length>0;if(!changed&&data.result&&!(data.result.diff||data.diff)){openModal(command.split(' ').slice(0,2).join(' '),`${data.notes?`<div class="row">${esc([].concat(data.notes).join(' '))}</div>`:''}<pre>${esc(JSON.stringify(data.result,null,2))}</pre>`,'RESULT');return}toast(data.result?.message||data.result?.id||'Change applied to project graph.');const result=data.result||{};if(result.diff||data.diff){const diff=result.diff||data.diff,next=result.next||'';openModal('Review generated changes',`<p>Review this generated diff before it changes project files. Affected tests run in the backend sandbox.</p><pre>${esc(diff)}</pre>${result.tests?`<div class="row">Tests · ${result.tests.passed===false?'failed':'passed'} · ${esc(JSON.stringify(result.tests))}</div>`:''}<div class="modal-actions"><button class="secondary" data-action="close-modal">Keep reviewing</button>${next.startsWith('/compile apply')?`<button data-action="apply-compile" data-command="${esc(next)}">Approve & apply</button>`:''}</div>`,'GENERATED CODE');}}catch(e){toast(e.message,true)}}
-  async function refresh(){try{state.data=await request('board');state.online=true;state.demo=false;$('#breadcrumbs').title=state.data.project||'';showProject();if(await autoImport())state.data=await request('board');render();applyFlash();return true}catch(e){state.data=demoBoard();state.online=false;render();return false}}
+  async function refresh(){try{state.data=await request('board');state.online=true;state.demo=false;$('#breadcrumbs').title=state.data.project||'';showProject();renderTabs();if(state.data.file_error&&state.data.file_error!==refresh.lastError)toast(state.data.file_error,true);refresh.lastError=state.data.file_error;if(await autoImport())state.data=await request('board');render();applyFlash();return true}catch(e){state.data=demoBoard();state.online=false;render();return false}}
   async function history(action){try{await request(action,{method:'POST',body:'{}'});await refresh();toast(`${action} complete.`)}catch(e){toast(e.message,true)}}
   function promptCommand(text){
     const v=text.trim();if(!v)return;
@@ -535,7 +623,7 @@ Date: 2026-11-14
     if(state.selected)return `/block edit ${state.selected} "${v.replaceAll('"','\\"')}"`;
     return `/rank "${v.replaceAll('"','\\"')}" --k 5`;
   }
-  function submitPrompt(){const input=$('#prompt-input'),text=input.value.trim();if(!text)return;if(/^\/agent\s+add\b/i.test(promptCommand(text)||'')){input.value='';resizePrompt();openCli(promptCommand(text)+' ');toast('Agents are added in the Plovane CLI. Press Enter there to add it.');return}input.value='';resizePrompt();$('#autocomplete').hidden=true;if(text.startsWith('/'))runCommand(text,false,text);else planPrompt(text)}
+  function submitPrompt(){const input=$('#prompt-input'),text=input.value.trim();if(!text)return;if(/^\/filetree\b/i.test(text)){input.value='';resizePrompt();$('#autocomplete').hidden=true;layout.sideOpen=!layout.sideOpen;applyLayout();toast(`File tree ${layout.sideOpen?'opened':'closed'}.`);return}if(/^\/whiteboards?\b/i.test(text)){input.value='';resizePrompt();$('#autocomplete').hidden=true;openMissionControl();return}if(/^\/agent\s+add\b/i.test(promptCommand(text)||'')){input.value='';resizePrompt();openCli(promptCommand(text)+' ');toast('Agents are added in the Plovane CLI. Press Enter there to add it.');return}input.value='';resizePrompt();$('#autocomplete').hidden=true;if(text.startsWith('/'))runCommand(text,false,text);else planPrompt(text)}
   async function planPrompt(prompt){try{const plan=await request('prompt/plan',{method:'POST',body:JSON.stringify({prompt,provider:$('#provider-select')?.value||'anthropic'})});state.pendingPrompts=state.pendingPrompts||{};state.pendingPrompts[plan.plan_id]={prompt,tokens:plan.tokens||{}};state.history.unshift(prompt);state.history=state.history.slice(0,40);localStorage.setItem('plovane-prompt-history',JSON.stringify(state.history));const candidates=plan.library_candidates||[];const library=candidates.length?`<div class="row"><b>Verified library candidates</b><br>${candidates.map(x=>`${esc(x.name||x.block_id)} · ${esc(x.block_id)} · score ${esc(x.score??'n/a')}`).join('<br>')}</div>`:'<div class="row">No verified library match cleared the cutoff. Plan uses new operations.</div>';openModal('Review AI plan',`<p>${esc(plan.summary||'Review the proposed operations before applying them.')}</p>${library}<div class="row"><b>Planned commands</b><pre>${esc(plan.commands.join('\n'))}</pre></div><div class="row"><b>Server preview</b><pre>${esc(JSON.stringify(plan.preview,null,2))}</pre></div><div class="row">${esc(providerLabel(plan.provider))} tokens · ${Number(plan.tokens?.input_tokens||0)} input · ${Number(plan.tokens?.output_tokens||0)} output</div><div class="modal-actions"><button class="secondary" data-action="close-modal">Cancel</button><button data-action="approve-prompt-plan" data-plan-id="${esc(plan.plan_id)}">Approve and apply</button></div>`,'APPROVAL REQUIRED')}catch(error){toast(error.message,true)}}
   async function applyPromptPlan(planId,confirm=false){const plan=state.pendingPrompts?.[planId];if(!plan)return;try{const data=await request('prompt/apply',{method:'POST',body:JSON.stringify({plan_id:planId,confirm})});if(data.status==='needs_confirmation'){openModal('Confirm risky operations',`<p>${esc(data.message||'These operations need confirmation.')}</p><pre>${esc(JSON.stringify(data.preview||{},null,2))}</pre><div class="modal-actions"><button class="secondary" data-action="close-modal">Cancel</button><button data-action="confirm-prompt-plan" data-plan-id="${esc(planId)}">Confirm and apply</button></div>`,'CONFIRMATION REQUIRED');return}$('#modal').close();const tokens=Number(plan.tokens?.input_tokens||0)+Number(plan.tokens?.output_tokens||0);state.log.unshift({prompt:plan.prompt,at:new Date().toISOString(),tokens,token_usage:plan.tokens,kind:'prompt',result:'Approved AI plan'});state.log=state.log.slice(0,100);localStorage.setItem('plovane-prompt-history',JSON.stringify(state.log));$('#token-count').textContent=`${state.log.reduce((n,x)=>n+(x.tokens||0),0)} tokens`;await refresh();toast('Approved plan saved to the project graph and files.')}catch(error){toast(error.message,true)}}
   function applyLayout(){const root=document.documentElement;root.style.setProperty('--sidebar-width',`${layout.sideWidth}px`);root.style.setProperty('--sidebar-visible-width',`${layout.sideOpen?layout.sideWidth:0}px`);root.style.setProperty('--prompt-height',`${layout.bottomOpen?layout.bottomHeight:0}px`);root.style.setProperty('--corner-overlap',`${layout.sideOpen&&layout.bottomOpen?layout.overlap:0}px`);$('#sidebar').classList.toggle('collapsed',!layout.sideOpen);$('.prompt-dock').classList.toggle('closed',!layout.bottomOpen);if(!layout.bottomOpen){$('#cli-panel').classList.remove('open');$('.prompt-dock').classList.remove('cli-open');document.body.classList.remove('cli-open');const button=$('[data-action="toggle-cli"]');button.classList.remove('active');button.setAttribute('aria-expanded','false')}localStorage.setItem('plovane-whiteboard-layout',JSON.stringify(layout))}
@@ -548,7 +636,7 @@ Date: 2026-11-14
   function bindPanelResize(handle,kind){let start=null;handle.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();start={x:e.clientX,y:e.clientY,width:layout.sideWidth,height:layout.bottomHeight,overlap:layout.overlap};handle.setPointerCapture(e.pointerId)});handle.addEventListener('pointermove',e=>{if(!start)return;if(kind==='side'){const width=start.width+e.clientX-start.x;if(width<80){layout.sideOpen=false}else{layout.sideOpen=true;layout.sideWidth=Math.max(180,Math.min(440,width))}}else if(kind==='bottom'){const height=start.height+start.y-e.clientY,maximum=Math.max(100,Math.min(innerHeight*.55,innerHeight-448));if(height<80){layout.bottomOpen=false}else{layout.bottomOpen=true;layout.bottomHeight=Math.max(100,Math.min(maximum,height))}}else{layout.overlap=Math.max(0,Math.min(180,start.overlap+start.x-e.clientX))}applyLayout()});const stop=()=>{start=null};handle.addEventListener('pointerup',stop);handle.addEventListener('pointercancel',stop)}
   bindPanelResize($('#side-resize'),'side');bindPanelResize($('#bottom-resize'),'bottom');bindPanelResize($('#corner-resize'),'corner');applyLayout();setTheme(localStorage.getItem('plovane-theme')||'light');setAccent(localStorage.getItem('plovane-accent')||'purple');applyCodePreferences();$('#workspace-name').textContent=localStorage.getItem('plovane-workspace-name')||'Payments API';
   function setTab(tab){state.tab=tab;$$('.side-tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));renderSidebar()}
-  function menuClick(action){if(action==='toggle-cli'){const panel=$('#cli-panel'),open=!panel.classList.contains('open'),button=$('[data-action="toggle-cli"]');panel.classList.toggle('open',open);$('.prompt-dock').classList.toggle('cli-open',open);document.body.classList.toggle('cli-open',open);button.classList.toggle('active',open);button.setAttribute('aria-expanded',String(open));if(open)$('#cli-panel iframe').contentWindow.postMessage({type:'plovane-cli-focus'},location.origin)}else if(action==='home'){if(window.plovaneDesktop?.goHome)window.plovaneDesktop.goHome().catch(error=>toast(error.message,true));else toast('Home page opens inside the Plovane desktop app.',true)}else if(action==='undo'||action==='redo')history(action);else if(action==='zoom-in')zoomAt(state.scale*1.18);else if(action==='zoom-out')zoomAt(state.scale/1.18);else if(action==='fit')fit(true);else if(action==='toggle-sidebar')toggleSide();else if(action==='toggle-bottom-bar')toggleBottom();else if(action==='settings')openSettings();else if(action==='edit-workspace-name'){const current=$('#workspace-name').textContent,name=prompt('Workspace name',current);if(name?.trim()){const value=name.trim();$('#workspace-name').textContent=value;localStorage.setItem('plovane-workspace-name',value)}}else if(action==='close-modal')$('#modal').close();else if(action==='snapshot')runCommand('/snapshot "whiteboard snapshot"');else if(action==='import')runCommand('/project import');else if(action==='new-file'){const path=prompt('New file path','src/new_module.py');if(path)runCommand(`/file create ${path}`)}else if(action==='save')runCommand('/snapshot "whiteboard snapshot"');else if(action==='github')showGit();else if(action==='human-edit'){const note=prompt('Describe the edit you made by hand','Manual edit');if(note!==null)runCommand(`/snapshot "human edit: ${(note||'manual edit').replaceAll('"','\'')}"`)}else if(action==='commands'||action==='command-list')showCommands();else if(action==='history')showHistory();else if(action==='shortcuts')openModal('Keyboard shortcuts','<div class="row">Enter · Run prompt</div><div class="row">/ · Browse slash commands</div><div class="row">⌘ Z · Undo</div><div class="row">⇧ ⌘ Z · Redo</div><div class="row">Scroll · Zoom canvas</div><div class="row">Drag canvas · Pan</div>','HELP');else if(action==='about')openModal('Plovane Whiteboard','<p>An agentic coding workspace. Verified library code, the project graph, and your prompts meet on one infinite canvas.</p>','ABOUT');else if(action==='attach')showAttach();else if(action==='sidebar-menu')openModal('Workspace options','<button data-command="/project import">Import existing project</button> &nbsp; <button data-command="/history">View project history</button>','WORKSPACE');else if(action==='approve-change'){$('#modal').close();toast('Approval flow requires a previewed compile. Use /compile then /compile apply.')}else if(action==='connect'&&state.selected){const from=state.selected,to=prompt('Connect to block (name or id):');if(to)runCommand(`/connect ${from} -> ${to} --type api`)}else if(action==='edit'&&state.selected){const b=state.data.board.blocks[state.selected],name=prompt('New block name',b?.name||'');if(name)runCommand(`/block rename ${state.selected} "${name}"`)}else if(action==='info'&&state.selected)openBlock(state.selected);else if(action==='open-code'&&state.selected)showCode(state.selected)}
+  function menuClick(action){if(action==='toggle-cli'){const panel=$('#cli-panel'),open=!panel.classList.contains('open'),button=$('[data-action="toggle-cli"]');panel.classList.toggle('open',open);$('.prompt-dock').classList.toggle('cli-open',open);document.body.classList.toggle('cli-open',open);button.classList.toggle('active',open);button.setAttribute('aria-expanded',String(open));if(open)$('#cli-panel iframe').contentWindow.postMessage({type:'plovane-cli-focus'},location.origin)}else if(action==='home'){if(window.plovaneDesktop?.goHome)window.plovaneDesktop.goHome().catch(error=>toast(error.message,true));else toast('Home page opens inside the Plovane desktop app.',true)}else if(action==='undo'||action==='redo')history(action);else if(action==='zoom-in')zoomAt(state.scale*1.18);else if(action==='zoom-out')zoomAt(state.scale/1.18);else if(action==='fit')fit(true);else if(action==='toggle-sidebar')toggleSide();else if(action==='toggle-bottom-bar')toggleBottom();else if(action==='settings')openSettings();else if(action==='edit-workspace-name'){const current=$('#workspace-name').textContent,name=prompt('Workspace name',current);if(name?.trim()){const value=name.trim();$('#workspace-name').textContent=value;localStorage.setItem('plovane-workspace-name',value)}}else if(action==='close-modal')$('#modal').close();else if(action==='snapshot')runCommand('/snapshot "whiteboard snapshot"');else if(action==='import')runCommand('/project import');else if(action==='new-file'){const path=prompt('New file path','src/new_module.py');if(path)runCommand(`/file create ${path}`)}else if(action==='save')runCommand('/snapshot "whiteboard snapshot"');else if(action==='github')showGit();else if(action==='human-edit'){const note=prompt('Describe the edit you made by hand','Manual edit');if(note!==null)runCommand(`/snapshot "human edit: ${(note||'manual edit').replaceAll('"','\'')}"`)}else if(action==='commands'||action==='command-list')showCommands();else if(action==='history')showHistory();else if(action==='shortcuts')openModal('Keyboard shortcuts','<div class="row">Enter · Run prompt</div><div class="row">/ · Browse slash commands</div><div class="row">/filetree · Toggle the file tree sidebar (closed by default)</div><div class="row">/whiteboards · Open Mission Control</div><div class="row">⌃⇧ Space · Toggle Mission Control (all whiteboards)</div><div class="row">⌘ Z · Undo</div><div class="row">⇧ ⌘ Z · Redo</div><div class="row">Scroll · Zoom canvas</div><div class="row">Drag canvas · Pan</div>','HELP');else if(action==='about')openModal('Plovane Whiteboard','<p>An agentic coding workspace. Verified library code, the project graph, and your prompts meet on one infinite canvas.</p>','ABOUT');else if(action==='attach')showAttach();else if(action==='sidebar-menu')openModal('Workspace options','<button data-command="/project import">Import existing project</button> &nbsp; <button data-command="/history">View project history</button>','WORKSPACE');else if(action==='approve-change'){$('#modal').close();toast('Approval flow requires a previewed compile. Use /compile then /compile apply.')}else if(action==='connect'&&state.selected){const from=state.selected,to=prompt('Connect to block (name or id):');if(to)runCommand(`/connect ${from} -> ${to} --type api`)}else if(action==='edit'&&state.selected){const b=state.data.board.blocks[state.selected],name=prompt('New block name',b?.name||'');if(name)runCommand(`/block rename ${state.selected} "${name}"`)}else if(action==='info'&&state.selected)openBlock(state.selected);else if(action==='open-code'&&state.selected)showCode(state.selected)}
   function showCommands(){const list=state.commands;openModal('Slash commands',list.length?list.map(c=>`<div class="row"><code>${esc(c.command)}</code> <span class="muted">${esc(c.summary||'')}</span><br><button data-run-example="${esc(c.example||c.command)}">${esc(c.example||c.command)}</button></div>`).join(''):'<p>Connect to the whiteboard backend to load its full command reference.</p>','COMMAND REFERENCE')}
   async function showHistory(){try{const result=await request('log?last=100'),entries=result.entries||[];const rows=entries.map(x=>({prompt:x.args?.prompt||x.op||'Operation',tokens:x.args?.token_usage?.input_tokens||0,at:x.at,kind:x.op==='prompt.provenance'?'Prompt':'operation'}));const all=[...state.log,...rows].sort((a,b)=>new Date(b.at||0)-new Date(a.at||0));openModal('Project history',all.map(x=>`<div class="row"><b>${x.kind==='human'?'Human edit':x.kind==='operation'?'Backend operation':'Prompt'}</b> · ${esc(x.tokens||0)} tokens<br>${esc(x.prompt||'')}<br><span class="muted">${x.at?new Date(x.at).toLocaleString():''}</span></div>`).join('')||'<p>No project changes recorded yet.</p>','SERVER HISTORY')}catch(error){toast(error.message,true)}}
   function handleAction(node){if(extraAction(node))return;if(node.dataset.action==='approve-prompt-plan')applyPromptPlan(node.dataset.planId);else if(node.dataset.action==='confirm-prompt-plan')applyPromptPlan(node.dataset.planId,true);else if(node.dataset.action==='confirm-command'||node.dataset.action==='apply-compile')runCommand(node.dataset.command,node.dataset.action==='confirm-command'||node.dataset.action==='apply-compile');else if(node.dataset.command)runCommand(node.dataset.command);else if(node.dataset.action)menuClick(node.dataset.action);else if(node.dataset.runExample)runCommand(node.dataset.runExample)}
@@ -572,14 +660,23 @@ Date: 2026-11-14
   });
   const workspaceName=$('#workspace-name');workspaceName.addEventListener('blur',()=>{const value=workspaceName.textContent.trim()||'Payments API';workspaceName.textContent=value;localStorage.setItem('plovane-workspace-name',value)});workspaceName.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();workspaceName.blur()}if(e.key==='Escape'){workspaceName.textContent=localStorage.getItem('plovane-workspace-name')||'Payments API';workspaceName.blur()}});
   $('#send-prompt').onclick=submitPrompt;$('#prompt-input').addEventListener('input',()=>{resizePrompt();autocomplete()});$('#prompt-input').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();submitPrompt()}if(e.key==='Escape')$('#autocomplete').hidden=true});$('#autocomplete').onclick=e=>{const b=e.target.closest('[data-example]');if(b){$('#prompt-input').value=b.dataset.example;$('#autocomplete').hidden=true;$('#prompt-input').focus()}};
-  const viewport=$('#canvas-viewport');viewport.addEventListener('wheel',e=>{e.preventDefault();const r=viewport.getBoundingClientRect(),top=focusEntry();if(top.leaf&&!e.ctrlKey&&!e.metaKey){nest.target=null;state.x-=e.deltaX;state.y-=e.deltaY;applyCamera();return}zoomAt(state.scale*Math.exp(-e.deltaY*(e.ctrlKey?.01:.0015)*preferences.zoomSensitivity),e.clientX-r.left,e.clientY-r.top)},{passive:false});
+  const viewport=$('#canvas-viewport');viewport.addEventListener('wheel',e=>{e.preventDefault();state.fitted=false;const r=viewport.getBoundingClientRect(),top=focusEntry();if(top.leaf&&!e.ctrlKey&&!e.metaKey){nest.target=null;state.x-=e.deltaX;state.y-=e.deltaY;applyCamera();return}zoomAt(state.scale*Math.exp(-e.deltaY*(e.ctrlKey?.01:.0015)*preferences.zoomSensitivity),e.clientX-r.left,e.clientY-r.top)},{passive:false});
   viewport.addEventListener('pointerdown',e=>{if(e.button!==0||e.target.closest('.zoom-controls,.minimap,.selection-popup,.focus-bar,button,.code-editor')||(preferences.panMode==='space'&&!spacePressed))return;state.drag={x:e.clientX,y:e.clientY,sx:state.x,sy:state.y,id:e.pointerId,moved:false}});
-  viewport.addEventListener('pointermove',e=>{const d=state.drag;if(!d)return;if(!d.moved&&Math.hypot(e.clientX-d.x,e.clientY-d.y)<4)return;if(!d.moved){d.moved=true;viewport.classList.add('panning');viewport.setPointerCapture(d.id);hidePopup()}state.x=d.sx+e.clientX-d.x;state.y=d.sy+e.clientY-d.y;applyTransform()});
+  viewport.addEventListener('pointermove',e=>{const d=state.drag;if(!d)return;if(!d.moved&&Math.hypot(e.clientX-d.x,e.clientY-d.y)<4)return;if(!d.moved){d.moved=true;state.fitted=false;viewport.classList.add('panning');viewport.setPointerCapture(d.id);hidePopup()}state.x=d.sx+e.clientX-d.x;state.y=d.sy+e.clientY-d.y;applyTransform()});
   viewport.addEventListener('pointerup',()=>{if(state.drag?.moved){const stop=ev=>{ev.stopPropagation();ev.preventDefault()};window.addEventListener('click',stop,{capture:true,once:true});setTimeout(()=>window.removeEventListener('click',stop,{capture:true}),0)}state.drag=null;viewport.classList.remove('panning')});
   viewport.addEventListener('click',e=>{if(!e.target.closest('.nest-card,.nest-tile,.selection-popup,.focus-bar')){state.selected=null;$$('#blocks .nest-card.selected').forEach(x=>x.classList.toggle('selected',false));hidePopup()}});
-  viewport.addEventListener('dblclick',e=>{if(!e.target.closest('.nest-card,.nest-tile,.focus-bar'))fit(true)});window.addEventListener('resize',()=>{if(nest.stack.length===1)nest.stack=[];render()});window.addEventListener('keydown',e=>{if(e.code==='Space'&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)){spacePressed=true;if(preferences.panMode==='space')e.preventDefault()}if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'){e.preventDefault();history(e.shiftKey?'redo':'undo')}if(e.key==='/'&&document.activeElement!==$('#prompt-input')){$('#prompt-input').focus();$('#prompt-input').value='/';autocomplete()}if(e.key==='Escape'){$$('.menu-wrap').forEach(x=>x.classList.toggle('open',false));if(!$('#modal').open&&$('#code-editor').hidden&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)&&leave())fit(true)}});window.addEventListener('keyup',e=>{if(e.code==='Space')spacePressed=false});
+  /**
+   * Input: none (watches the canvas size)
+   * Output: void
+   * Processing: Remember the canvas size, and fit the board again when it changes (the stylesheets arriving
+   *   after the first draw, the window or a side panel resizing), unless the person has moved the camera since.
+   * Changed by: Claude Code
+   * Date: 2026-11-21
+   */
+  let lastViewport={w:0,h:0};new ResizeObserver(()=>{viewCache={w:viewport.clientWidth||1000,h:viewport.clientHeight||600};const v=viewCache;if(Math.abs(v.w-lastViewport.w)<2&&Math.abs(v.h-lastViewport.h)<2)return;lastViewport=v;if(!state.data||state.fitted===false)return;if(nest.stack.length===1)nest.stack=[];render();fit(false)}).observe(viewport);
+  viewport.addEventListener('dblclick',e=>{if(!e.target.closest('.nest-card,.nest-tile,.focus-bar'))fit(true)});window.addEventListener('resize',()=>{if(nest.stack.length===1)nest.stack=[];render()});window.addEventListener('keydown',e=>{if(e.code==='Space'&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)){spacePressed=true;if(preferences.panMode==='space')e.preventDefault()}if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'){e.preventDefault();history(e.shiftKey?'redo':'undo')}if(e.key==='/'&&document.activeElement!==$('#prompt-input')){$('#prompt-input').focus();$('#prompt-input').value='/';autocomplete()}if(e.key==='Escape'){$$('.menu-wrap').forEach(x=>x.classList.toggle('open',false));if(!$('#mission-control').hidden){closeMissionControl();return}if(!$('#modal').open&&$('#code-editor').hidden&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)&&leave())fit(true)}if(e.code==='Space'&&e.ctrlKey&&e.shiftKey&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)){e.preventDefault();$('#mission-control').hidden?openMissionControl():closeMissionControl()}});window.addEventListener('keyup',e=>{if(e.code==='Space')spacePressed=false});
   const promptHistory=state.history;state.log=promptHistory.slice(0,100);$('#token-count').textContent=`${state.log.reduce((n,x)=>n+(x.tokens||0),0)} tokens`;
-  (async()=>{try{state.commands=(await request('commands')).commands||[]}catch(_){}await refresh();fit();if(!state.online)toast('Demo graph shown. Run "plovane open" in your project to load it.',true);else{connectEvents();loadProviders()}})();
+  (async()=>{try{state.commands=(await request('commands')).commands||[]}catch(_){}await loadBoards();await refresh();fit();if(!state.online)toast('Demo graph shown. Run "plovane open" in your project to load it.',true);else{connectEvents();loadProviders()}})();
 
   /* ---- Live updates, AI agents and connectors ---- */
   /**
@@ -648,8 +745,8 @@ Date: 2026-11-14
   function connectEvents(){if(!window.EventSource)return;const source=new EventSource(`${API}/events${TOKEN?`?token=${encodeURIComponent(TOKEN)}`:''}`);
     const schedule=()=>{clearTimeout(refreshTimer);refreshTimer=setTimeout(refresh,120)};
     source.addEventListener('hello',()=>liveStatus('● Live','on'));
-    source.addEventListener('change',ev=>{const e=JSON.parse(ev.data);pushActivity(e);(e.changes?.files||[]).forEach(f=>delete nest.code[f]);const b=e.changes?.blocks||{};[...(b.added||[]),...(b.changed||[])].forEach(id=>flashIds.add(id));if(e.actor&&e.actor!=='user')toast(`${e.actor}: ${e.command||e.op}`);schedule()});
-    source.addEventListener('external',ev=>{pushActivity(JSON.parse(ev.data));nest.code={};schedule()});
+    source.addEventListener('change',ev=>{const e=JSON.parse(ev.data);pushActivity(e);if(e.op==='board.new'||e.op==='board.make')loadBoards();if(e.board&&e.board!==tabs.active&&!e.changes?.agents){if(e.actor&&e.actor!=='user')toast(`${e.actor} in ${boardLabel(e.board)}: ${e.command||e.op}`);return}(e.changes?.files||[]).forEach(f=>delete nest.code[f]);const b=e.changes?.blocks||{};[...(b.added||[]),...(b.changed||[])].forEach(id=>flashIds.add(id));if(e.actor&&e.actor!=='user')toast(`${e.actor}: ${e.command||e.op}`);schedule()});
+    source.addEventListener('external',ev=>{const e=JSON.parse(ev.data);pushActivity(e);loadBoards();if(e.board&&e.board!==tabs.active&&e.board!==MAIN_BOARD)return;nest.code={};schedule()});
     source.addEventListener('agent',ev=>agentEvent(JSON.parse(ev.data)));
     source.onerror=()=>liveStatus('○ Reconnecting…','off')}
   /**
@@ -695,11 +792,11 @@ Date: 2026-11-14
   /**
    * Input: none
    * Output: Promise<void>
-   * Processing: Load which AI providers have keys and fill the provider picker.
+   * Processing: Load which AI providers have keys and fill the provider picker, choosing one that has a key.
    * Changed by: Claude Code
-   * Date: 2026-11-09
+   * Date: 2026-11-21
    */
-  async function loadProviders(){try{providerList=(await request('providers')).providers||[];const sel=$('#provider-select');if(sel){const keep=sel.value||localStorage.getItem('plovane-provider')||'anthropic';sel.innerHTML=providerList.map(p=>`<option value="${esc(p.provider)}">${esc(p.label)}${p.configured?'':' (no key)'}</option>`).join('');sel.value=providerList.some(p=>p.provider===keep)?keep:'anthropic'}}catch(_){}}
+  async function loadProviders(){try{providerList=(await request('providers')).providers||[];const sel=$('#provider-select');if(sel){const keep=sel.value||localStorage.getItem('plovane-provider')||'anthropic';sel.innerHTML=providerList.map(p=>`<option value="${esc(p.provider)}">${esc(p.label)}${p.configured?'':' (no key)'}</option>`).join('');const ready=providerList.filter(p=>p.configured),pick=ready.find(p=>p.provider===keep)||ready[0]||providerList.find(p=>p.provider===keep)||providerList[0];if(pick){sel.value=pick.provider;localStorage.setItem('plovane-provider',pick.provider)}sel.title=ready.length?'The AI used for prompts, summaries and explanations':'No AI key yet: summaries, line-by-line English and the rest work for free. Add a key to use the AI (optional).'}}catch(_){}}
   /**
    * Input: none
    * Output: Promise<void>
@@ -795,56 +892,30 @@ Date: 2026-11-14
    * Changed by: Claude Code
    * Date: 2026-11-09
    */
-  /**
-   * Input: none
-   * Output: void
-   * Processing: Save the whole board to whiteboard.json in the project, saying plainly whether anything changed.
-   * Changed by: Claude Code
-   * Date: 2026-11-22
-   */
-  async function saveBoard(){try{const r=(await request('command',{method:'POST',body:JSON.stringify({command:'/board save'})})).result||{};
-    const kept=r.kept_sections?.length?` (kept its ${r.kept_sections.join(', ')} sections)`:'';
-    toast(r.saved?`Saved ${r.file}${kept}`:`${r.file} is already up to date`)}catch(e){toast(e.message,true)}}
-  /**
-   * Input: none
-   * Output: void
-   * Processing: Download the whole board as whiteboard.json.
-   * Changed by: Claude Code
-   * Date: 2026-11-22
-   */
-  async function downloadBoard(){try{const response=await fetch(`${API}/board/file`,{headers:TOKEN?{Authorization:`Bearer ${TOKEN}`}:{}});
-    if(!response.ok){const e=await response.json().catch(()=>({}));throw new Error(e.error?.message||`Download failed (${response.status})`)}
-    const url=URL.createObjectURL(await response.blob()),link=document.createElement('a');link.href=url;link.download='whiteboard.json';document.body.append(link);link.click();link.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),1000);toast('Whiteboard downloaded as whiteboard.json')}catch(e){toast(e.message,true)}}
-  /**
-   * Input: none
-   * Output: void
-   * Processing: Let the person pick a whiteboard file from disk and open it.
-   * Changed by: Claude Code
-   * Date: 2026-11-22
-   */
-  function pickBoardFile(){const input=document.createElement('input');input.type='file';input.accept='.json,application/json';
-    input.onchange=async()=>{const file=input.files?.[0];if(file)loadBoardText(await file.text(),file.name)};input.click()}
-  /**
-   * Input: text (string), name (string), confirm (boolean)
-   * Output: void
-   * Processing: Open a whiteboard file's text: first show what it changes (including agent access), then apply on confirm.
-   * Changed by: Claude Code
-   * Date: 2026-11-22
-   */
-  async function loadBoardText(text,name,confirm=false){try{const data=await request('op',{method:'POST',body:JSON.stringify({op:'board.load',args:{content:text},confirm})});
-    if(data.status==='needs_confirmation'){pendingBoard={text,name};const r=data.preview?.result||{},notes=[].concat(data.preview?.notes||[]).filter(n=>!n.startsWith('Agent access changes'));
-      const access=(r.access_changes||[]).map(c=>`<div class="row"><b>${esc(c.agent)}</b>: ${esc(c.before?grantsText(c.before):'not on this board')} → ${esc(c.after?grantsText(c.after):'removed')}</div>`).join('');
-      openModal(`Open ${name}?`,`<p>This replaces the current whiteboard with ${r.blocks} blocks, ${r.arrows} arrows and ${r.agents} agents. No project files change, and Undo puts the current board back.</p>${access?`<p><b>Agent access will change. Check this before opening:</b></p>${access}`:''}${notes.map(n=>`<div class="row">${esc(n)}</div>`).join('')}<div class="modal-actions"><button class="secondary" data-action="close-modal">Cancel</button><button data-action="confirm-board-load">Open whiteboard</button></div>`,'OPEN WHITEBOARD');return}
-    pendingBoard=null;$('#modal').close();toast(`Opened ${name}`);await refresh()}catch(e){toast(e.message,true)}}
+  // Whiteboards (#72): each is a .plo file (JSON full of commands) in its own tab; download, open, create.
+  async function saveBoardFile(){try{const data=await request('board/file');const blob=new Blob([JSON.stringify(data.file,null,1)+'\n'],{type:'application/json'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=data.name;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(link.href),1000);toast(`Saved ${data.file.commands.length} commands to ${data.name}.`)}catch(e){toast(e.message,true)}}
+  function boardLabel(file){return file===MAIN_BOARD?'whiteboard':file.replace(/\.plo$/,'').split('/').pop()}
+  function renderTabs(){const box=$('#board-tabs');if(!box)return;const others=tabs.all.filter(f=>f!==MAIN_BOARD);
+    const shown=tabs.expanded?tabs.all:[MAIN_BOARD,...(tabs.active!==MAIN_BOARD?[tabs.active]:[])];
+    box.innerHTML=shown.map(f=>`<span class="board-tab ${f===tabs.active?'active':''} ${f===MAIN_BOARD?'main':''}" role="tab" aria-selected="${f===tabs.active}"><button data-action="board-tab" data-board="${esc(f)}" title="${esc(f)}">${esc(boardLabel(f))}</button></span>`).join('')
+      +(others.length?`<button class="board-tab-arrow ${tabs.expanded?'open':''}" data-action="board-arrow" aria-expanded="${tabs.expanded}" title="${tabs.expanded?'Hide the other whiteboards':`Show the other whiteboards (${others.length})`}" aria-label="${tabs.expanded?'Hide':'Show'} the other whiteboards">${tabs.expanded?'‹':'›'}${tabs.expanded?'':`<span>${others.length}</span>`}</button>`:'')
+      +(tabs.expanded?'<button class="board-tab-add" data-action="board-open" title="Open or create a whiteboard" aria-label="Open or create a whiteboard">+</button>':'')}
+  async function loadBoards(){try{tabs.all=(await request('boards')).boards||[MAIN_BOARD]}catch(_){}if(!tabs.all.includes(tabs.active))tabs.active=MAIN_BOARD;renderTabs()}
+  async function toggleBoards(){tabs.expanded=!tabs.expanded;if(tabs.expanded)await loadBoards();else renderTabs()}
+  async function switchPlo(file){if(!file)return;if($('#modal').open)$('#modal').close();if(!tabs.all.includes(file))tabs.all.push(file);if(file!==MAIN_BOARD)tabs.expanded=true;tabs.active=file;nest.stack=[];nest.code={};state.selected=null;renderTabs();await refresh();fit()}
+  async function openBoardMenu(){let known=[];try{known=(await request('boards')).boards||[]}catch(e){toast(e.message,true);return}tabs.all=known;const rows=known.map(f=>`<button class="board-pick ${f===tabs.active?'open':''}" data-action="board-tab" data-board="${esc(f)}"><b>${esc(boardLabel(f))}</b><small>${esc(f)}${f===MAIN_BOARD?' · main':''}${f===tabs.active?' · showing':''}</small></button>`).join('');openModal('Open a whiteboard',`<p>Each whiteboard is a .plo file in the project. The main one, whiteboard.plo, opens first; the arrow beside it shows the others. They share the project's code and agents.</p><div class="board-picks">${rows}</div><div class="modal-actions"><button class="secondary" data-action="board-import">Import a .plo file…</button><button data-action="board-new">New whiteboard…</button></div>`,'WHITEBOARDS')}
+  async function newBoard(){const name=prompt('Name the new whiteboard (saved as NAME.plo in the project):','designs/new');if(!name)return;try{const data=await request('command',{method:'POST',body:JSON.stringify({command:`/board new ${JSON.stringify(name.trim())}`})});await switchPlo(data.result.board);toast(`Created ${data.result.board}.`)}catch(e){toast(e.message,true)}}
+  function importBoardFile(){const input=document.createElement('input');input.type='file';input.accept='.plo,.json';input.onchange=async()=>{const file=input.files[0];if(!file)return;try{const content=await file.text();const name=prompt('Save it in the project as:',file.name.replace(/\.(plo|json)$/,''));if(!name)return;const data=await request('op',{method:'POST',body:JSON.stringify({op:'board.new',args:{path:name.trim(),content}})});await switchPlo(data.result.board);toast(`Opened ${file.name} as ${data.result.board}.`)}catch(e){toast(e.message,true)}};input.click()}
   function extraAction(node){const a=node.dataset.action,d=node.dataset;if(!a)return false;
     if(a==='library'&&window.PlovaneLibrary){window.PlovaneLibrary.open();return true}
+    if(a==='board-save'){saveBoardFile();return true}
+    if(a==='board-open'){openBoardMenu();return true}
+    if(a==='board-new'){newBoard();return true}
+    if(a==='board-import'){importBoardFile();return true}
+    if(a==='board-tab'){switchPlo(d.board);return true}
+    if(a==='board-arrow'){toggleBoards();return true}
+    if(a==='agent-access'){if(!layout.sideOpen){layout.sideOpen=true;applyLayout()}setTab('agents');return true}
     if(a==='ai-run'){showRunDialog();return true}
-    if(a==='show-agents'){if(!layout.sideOpen)toggleSide();setTab('agents');return true}
-    if(a==='save-board'){saveBoard();return true}
-    if(a==='download-board'){downloadBoard();return true}
-    if(a==='open-board'){pickBoardFile();return true}
-    if(a==='confirm-board-load'&&pendingBoard){loadBoardText(pendingBoard.text,pendingBoard.name,true);return true}
     if(a==='ai-run-start'){startRun();return true}
     if(a==='connections'){showConnections();return true}
     if(a==='account'){showConnections();return true}
@@ -863,6 +934,13 @@ Date: 2026-11-14
     if(a==='zoom-into'){hidePopup();flyInto(d.block||state.selected);return true}
     if(a==='zoom-up'){if(leave())fit(true);return true}
     if(a==='crumb'){nest.stack=nest.stack.slice(0,Number(d.crumb)+1);state.selected=null;render();fit();fadeIn();return true}
+    if(a==='switch-board'){switchBoard(d.board);return true}
+    if(a==='make-subboard'){const b=actionBlock();if(!b||b.kind!=='folder'){toast('Zoom into a folder first.',true);return true}const sub=createSubBoard(b);toast(`Made "${sub.name}" into a sub-whiteboard.`);switchBoard(sub.id);return true}
+    if(a==='open-subboard'){switchBoard(d.board);return true}
+    if(a==='mission-control'){openMissionControl();return true}
+    if(a==='mission-close'){closeMissionControl();return true}
+    if(a==='mission-pick'){closeMissionControl();switchBoard(d.board);return true}
+    if(a==='mission-delete'){if(confirm(`Delete sub-whiteboard "${(boards.list.find(b=>b.id===d.board)||{}).name||d.board}"? Its own content is removed; the folder remains.`)){deleteSubBoard(d.board);renderMissionControl()}return true}
     if(a==='generate-blocks'){hidePopup();generateBlocks(actionBlock());return true}
     if(a==='split-functions'){splitFunctions(actionBlock());return true}
     if(a==='edit-code'){hidePopup();editCode(actionBlock());return true}
@@ -882,13 +960,23 @@ Date: 2026-11-14
   function hidePopup(){$('#selection-popup').classList.toggle('show',false)}
   /**
    * Input: none
-   * Output: Promise<boolean>
-   * Processing: Put the project's real folders and files on an empty board, once per project.
+   * Output: void
+   * Processing: Build the Mission Control grid: a card per whiteboard with a live preview of its blocks.
    * Changed by: Claude Code
-   * Date: 2026-11-10
+   * Date: 2026-11-15
    */
-  async function autoImport(){const blocks=Object.values(state.data?.board?.blocks||{}),key=`plovane-imported:${state.data?.project||''}`;if(blocks.some(b=>['file','folder'].includes(b.kind))||localStorage.getItem(key))return false;localStorage.setItem(key,'1');try{const data=await request('command',{method:'POST',body:JSON.stringify({command:'/project import'})});toast(`Imported ${data.result?.files_found||0} project files.`);return true}catch(e){toast(e.message,true);return false}}
+  function renderMissionControl(){const host=$('#mc-grid');if(!host)return;const all=boardBlocks();boards.views[boards.active]=captureView();host.innerHTML=boards.list.map(b=>{const rootId=b.root,root=rootId?all[rootId]:null,kids=rootId?childrenOf(rootId):childrenOf(null),W=300,H=180,pad=12;const preview=kids.slice(0,12),cells=preview.length?grid(preview.length,{x:pad,y:pad,w:W-2*pad,h:H-2*pad}):[];const tiles=preview.map((k,i)=>{const c=cells[i];return `<rect x="${c.x}" y="${c.y}" width="${c.w}" height="${c.h}" rx="4" class="mc-rect ${esc(k.kind||'block')}"></rect><text x="${c.x+c.w/2}" y="${c.y+c.h/2+3}" text-anchor="middle" class="mc-label">${esc((k.name||k.id||'').slice(0,14))}</text>`}).join('');const parents=boardChain(b.id).slice(0,-1).map(x=>x.name).join(' › '),isActive=b.id===boards.active;return `<article class="mc-card ${isActive?'active':''}" data-action="mission-pick" data-board="${esc(b.id)}" tabindex="0" role="button" aria-label="Open ${esc(b.name)}"><div class="mc-preview"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${preview.length?tiles:`<text x="${W/2}" y="${H/2}" text-anchor="middle" class="mc-empty">Empty</text>`}</svg></div><footer><div><b>▦ ${esc(b.name)}</b>${isActive?'<span class="mc-badge">Active</span>':''}</div><small>${parents?esc(parents)+' · ':''}${preview.length} blocks${root?' · '+esc(root.path||root.kind):''}</small></footer>${b.id!=='main'?`<button class="mc-del" data-action="mission-delete" data-board="${esc(b.id)}" aria-label="Delete">×</button>`:''}</article>`}).join('')}
+  function openMissionControl(){renderMissionControl();const mc=$('#mission-control');mc.hidden=false;mc.setAttribute('aria-hidden','false');document.body.classList.add('mission-open')}
+  function closeMissionControl(){const mc=$('#mission-control');mc.hidden=true;mc.setAttribute('aria-hidden','true');document.body.classList.remove('mission-open')}
+  /**
+   * Input: none
+   * Output: Promise<boolean>
+   * Processing: Put the project's real folders and files on an empty board, once per project; an empty folder gets first-step help instead.
+   * Changed by: Claude Code
+   * Date: 2026-11-21
+   */
+  async function autoImport(){if(tabs.active!==MAIN_BOARD)return false;const blocks=Object.values(state.data?.board?.blocks||{}),key=`plovane-imported:${state.data?.project||''}`;if(blocks.some(b=>['file','folder'].includes(b.kind))||localStorage.getItem(key))return false;localStorage.setItem(key,'1');try{const data=await request('command',{method:'POST',body:JSON.stringify({command:'/project import'})});const r=data.result||{};state.emptyProject=!r.files_found;if(r.files_found)toast(`Imported ${r.files_found} files`+(r.routes_found?`, found ${r.routes_found} API routes`:'')+'. Scroll over a folder to zoom in.');return true}catch(e){toast(e.message,true);return false}}
   const editorArea=$('#code-editor textarea');editorArea.addEventListener('input',syncGutter);editorArea.addEventListener('scroll',syncGutter);editorArea.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='s'){e.preventDefault();saveCode()}else if(e.key==='Escape'){e.preventDefault();closeEditor()}else if(e.key==='Tab'){e.preventDefault();editorArea.setRangeText('    ',editorArea.selectionStart,editorArea.selectionEnd,'end');syncGutter()}e.stopPropagation()});
   // Used by code-view.js (file panel, quick open) and agent-chat.js (chat with an agent).
-  window.PlovaneWhiteboard={request,refresh,runCommand,render,position,toast,flyTo,get focus(){return focusEntry().id||null},get board(){return state.data},get commands(){return state.commands},get view(){return{scale:state.scale,x:state.x,y:state.y}},setView(x,y,scale){state.x=x;state.y=y;state.scale=scale;applyTransform()}};
+  window.PlovaneWhiteboard={request,refresh,runCommand,render,position,toast,flyTo,quoteArg,openModal,blocks:()=>boardBlocks(),get items(){return nest.items},get focus(){const top=nest.stack[nest.stack.length-1];return top?.id||null},get plo(){return tabs.active},get focus(){return focusEntry().id||null},get board(){return state.data},get commands(){return state.commands},get view(){return{scale:state.scale,x:state.x,y:state.y}},setView(x,y,scale){state.x=x;state.y=y;state.scale=scale;applyTransform()}};
 })();

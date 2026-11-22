@@ -132,3 +132,115 @@ def use_role(ctx: Context, role: str) -> dict[str, Any]:
     ctx.board.views[ctx.actor] = {"base_role": rid, "overlays_add": [], "overlays_remove": []}
     return {"role": rid, "active": active(ctx.board, ctx.actor),
             "default_level": ctx.board.roles[rid].get("default_level")}
+
+
+OVERLAY_SOURCES = ("group", "premade", "custom")
+CHANNELS = ("fill", "border", "badge", "chip", "icon", "port", "arrows", "line_highlight")
+APPEARANCES = ("hidden", "count", "mark", "detail")
+
+
+# Input: value (Any), name (str)
+# Output: dict[str, Any]
+# Processing: A JSON object argument: already data (from MCP), or JSON text (from a command line or .plo file).
+# Changed by: Claude Code
+# Date: 2026-11-22
+def json_object(value: Any, name: str) -> dict[str, Any]:
+    from backend.whiteboard.ops.boardfile import parsed
+
+    return parsed(value, name, dict)
+
+
+# Input: ctx (Context), overlay (str), data (Any)
+# Output: dict[str, Any]
+# Processing: Define or replace one overlay exactly, after checking its shape (handbook section 21.4).
+# Changed by: Claude Code
+# Date: 2026-11-22
+@operation("overlay.put", command="/overlay put", tool="plovane_overlay_put", group="plovane_overlay", agents=False)
+def overlay_put(ctx: Context, overlay: str, data: Any) -> dict[str, Any]:
+    """Defines or replaces one overlay (used by .plo files); people only."""
+    oid = str(overlay).strip()
+    if not oid.replace("_", "").isalnum() or not oid[:1].isalpha() or oid.lower() != oid:
+        raise OpError("INVALID_ARGS", "an overlay id is lowercase letters, digits and _, starting with a letter")
+    spec = json_object(data, "data")
+    if not isinstance(spec.get("label"), str) or not spec["label"].strip():
+        raise OpError("INVALID_ARGS", "an overlay needs a label")
+    if spec.get("source") not in OVERLAY_SOURCES:
+        raise OpError("INVALID_ARGS", f"an overlay's source is one of {list(OVERLAY_SOURCES)}")
+    parent = spec.get("parent")
+    if parent is not None and ctx.board.overlays.get(parent, {}).get("source") != "group":
+        raise OpError("INVALID_ARGS", f"parent {parent!r} must be a group overlay defined before this one")
+    if spec["source"] != "group":
+        if spec.get("channel") not in CHANNELS:
+            raise OpError("INVALID_ARGS", f"an overlay's channel is one of {list(CHANNELS)}")
+        appearance = spec.get("appearance")
+        if not isinstance(appearance, dict) or any(not str(k).isdigit() or v not in APPEARANCES
+                                                   for k, v in appearance.items()):
+            raise OpError("INVALID_ARGS", "appearance maps zoom level numbers to hidden, count, mark or detail")
+    ctx.board.overlays[oid] = spec
+    return {"overlay": oid, "source": spec["source"]}
+
+
+# Input: ctx (Context), overlay (str)
+# Output: dict[str, Any]
+# Processing: Remove one overlay and anything inside it; roles and views stop naming them.
+# Changed by: Claude Code
+# Date: 2026-11-22
+@operation("overlay.remove", command="/overlay remove", tool="plovane_overlay_remove", group="plovane_overlay",
+           agents=False)
+def overlay_remove(ctx: Context, overlay: str) -> dict[str, Any]:
+    """Removes an overlay (and the overlays inside a group); people only."""
+    oid = known(ctx, overlay)
+    gone, frontier = {oid}, [oid]
+    while frontier:
+        current = frontier.pop()
+        for child, spec in ctx.board.overlays.items():
+            if spec.get("parent") == current and child not in gone:
+                gone.add(child)
+                frontier.append(child)
+    for name in gone:
+        ctx.board.overlays.pop(name, None)
+    for role in ctx.board.roles.values():
+        role["overlays"] = [o for o in role.get("overlays", []) if o not in gone]
+    for view in ctx.board.views.values():
+        for key in ("overlays_add", "overlays_remove"):
+            view[key] = [o for o in view.get(key, []) if o not in gone]
+    return {"removed": sorted(gone)}
+
+
+# Input: ctx (Context), role (str), data (Any)
+# Output: dict[str, Any]
+# Processing: Define or replace one role exactly.
+# Changed by: Claude Code
+# Date: 2026-11-22
+@operation("role.put", command="/role put", tool="plovane_role_put", group="plovane_overlay", agents=False)
+def role_put(ctx: Context, role: str, data: Any) -> dict[str, Any]:
+    """Defines or replaces one role (used by .plo files); people only."""
+    rid = str(role).strip()
+    spec = json_object(data, "data")
+    if not rid or not isinstance(spec.get("label"), str):
+        raise OpError("INVALID_ARGS", "a role needs an id and a label")
+    names = spec.get("overlays", [])
+    if not isinstance(names, list) or not all(isinstance(n, str) for n in names):
+        raise OpError("INVALID_ARGS", "a role's overlays is a list of overlay ids")
+    unknown = [n for n in names if n not in ctx.board.overlays]
+    if unknown:
+        raise OpError("INVALID_ARGS", f"role {rid!r} names overlays that don't exist: {unknown}")
+    if not isinstance(spec.get("default_level", 0), int):
+        raise OpError("INVALID_ARGS", "a role's default_level is a zoom level number")
+    ctx.board.roles[rid] = spec
+    return {"role": rid, "overlays": names}
+
+
+# Input: ctx (Context), role (str)
+# Output: dict[str, Any]
+# Processing: Remove one role; views that used it fall back to the first role.
+# Changed by: Claude Code
+# Date: 2026-11-22
+@operation("role.remove", command="/role remove", tool="plovane_role_remove", group="plovane_overlay", agents=False)
+def role_remove(ctx: Context, role: str) -> dict[str, Any]:
+    """Removes a role; people only."""
+    rid = str(role).strip()
+    if rid not in ctx.board.roles:
+        raise OpError("NOT_FOUND", f"no role {rid!r}; roles: {sorted(ctx.board.roles)}")
+    del ctx.board.roles[rid]
+    return {"removed": rid}

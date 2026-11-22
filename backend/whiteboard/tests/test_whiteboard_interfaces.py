@@ -68,7 +68,7 @@ def test_http_errors_use_the_envelope_and_status(client):
 # Date: 2026-10-22
 def test_http_lists_every_command_for_the_frontend(client):
     listing = client.get("/api/v1/whiteboard/commands").get_json()["data"]["commands"]
-    assert len(listing) == 109
+    assert len(listing) == 137
     grant = next(c for c in listing if c["command"] == "/agent grant")
     assert grant["confirms"] and grant["people_only"]
 
@@ -81,7 +81,7 @@ def test_http_lists_every_command_for_the_frontend(client):
 def test_mcp_groups_hide_people_only_commands():
     groups = mcp_tools.groups()
     assert len(groups) == 16
-    assert set(groups["plovane_agent"]) == {"show", "log"}
+    assert set(groups["plovane_agent"]) == {"show", "log", "working", "done", "activity"}  # never add/grant/revoke
     assert groups["plovane_overlay"]["on"] == "overlay.on" and groups["plovane_overlay"]["role_use"] == "role.use"
     assert groups["plovane_block"]["add"] == "block.add"
     assert groups["plovane_style"]["preset_define"] == "preset.define"
