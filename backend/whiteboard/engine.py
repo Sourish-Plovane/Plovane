@@ -403,6 +403,24 @@ class Workspace:
             raise OpError("LLM_UNAVAILABLE", reply["error"])
         return reply
 
+    # Input: none
+    # Output: dict[str, dict[str, str]]
+    # Processing: For each block, the agents that can reach it and how ("read" or "read-write"), by the enforced rules.
+    # Changed by: Claude Code
+    # Date: 2026-11-22
+    def access_map(self) -> dict[str, dict[str, str]]:
+        names = {level: mode for mode, level in MODES.items()}
+        reach: dict[str, dict[str, str]] = {}
+        for agent in sorted(self.board.agents):
+            viewer = Context(self, FileJournal(self.root), agent, dry_run=True, confirmed=False)
+            for block in self.board.blocks.values():
+                if block.kind == "agent":
+                    continue
+                level = viewer.access(block)
+                if level >= MODES["read"]:
+                    reach.setdefault(block.id, {})[agent] = names[level]
+        return reach
+
     # Input: op (str)
     # Output: OpSpec
     # Processing: Look up an operation, or NOT_FOUND naming close ones.

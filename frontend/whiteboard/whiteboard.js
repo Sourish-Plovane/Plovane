@@ -19,7 +19,7 @@ Date: 2026-11-14
   const preferences = { gridVisible:true, gridSpacing:20, gridContrast:1, zoomSensitivity:1, panMode:'drag', codeFontSize:12, codeTheme:'auto', ...JSON.parse(localStorage.getItem('plovane-whiteboard-preferences')||'{}') };
   let spacePressed=false;
   // Live activity feed, AI runs by id, blocks to highlight after the next redraw, providers with keys.
-  const activity=[];const runs={};let flashIds=new Set(),refreshTimer=null,providerList=[];
+  const activity=[];const runs={};let flashIds=new Set(),refreshTimer=null,providerList=[],pendingBoard=null;
   const kinds = {agent:'◉',service:'⬡',server:'⬡',external:'↗',database:'▤',queue:'⇢',endpoint:'↗',folder:'▰',group:'▦',file:'▧',function:'ƒ',class:'C',step:'·',code:'⌘',scan:'⌕',note:'✎',slot:'□'};
   const sample = {
     project:'plovane/payments-api', board:{layers:{0:{number:0,name:'Agents and access',zoom_min:0,zoom_max:10,shows:['agent']},1:{number:1,name:'Services and endpoints',zoom_min:10,zoom_max:20,shows:['service','database']},2:{number:2,name:'Folders',zoom_min:20,zoom_max:40,shows:['folder']},3:{number:3,name:'Files',zoom_min:40,zoom_max:70,shows:['file']},4:{number:4,name:'English steps',zoom_min:70,zoom_max:90,shows:['function','step']},5:{number:5,name:'Code',zoom_min:90,zoom_max:100,shows:['code']}},blocks:{},arrows:{},endpoints:{},templates:{},agents:{},alerts:[],view:{}},block_styles:{},absolute:{},arrows:[]
@@ -179,6 +179,34 @@ Date: 2026-11-14
    * Changed by: Claude Code
    * Date: 2026-11-10
    */
+  /**
+   * Input: name (string)
+   * Output: number
+   * Processing: A stable hue for an agent, so its chips are the same colour everywhere.
+   * Changed by: Claude Code
+   * Date: 2026-11-22
+   */
+  function agentHue(name){let h=0;for(const c of String(name))h=(h*31+c.charCodeAt(0))%360;return h}
+  /**
+   * Input: id (string)
+   * Output: string
+   * Processing: Chips for the agents that can reach a block: ✎ can change it, 👁 can only read it.
+   * Changed by: Claude Code
+   * Date: 2026-11-22
+   */
+  function accessChips(id){const reach=state.data?.access?.[id];if(!reach)return '';const names=Object.keys(reach).sort();
+    const chips=names.slice(0,3).map(n=>{const rw=reach[n]==='read-write';return `<span class="agent-chip ${rw?'rw':'ro'}" style="--hue:${agentHue(n)}" title="${esc(n)} can ${rw?'read and change':'only read'} this">${rw?'✎':'👁'} ${esc(n)}</span>`}).join('');
+    const more=names.length>3?`<span class="agent-chip more" title="${esc(names.slice(3).join(', '))}">+${names.length-3}</span>`:'';return `<span class="agent-chips">${chips}${more}</span>`}
+  /**
+   * Input: none
+   * Output: void
+   * Processing: The top bar's strip of every agent on the board with its overall access; clicking opens the Agents tab.
+   * Changed by: Claude Code
+   * Date: 2026-11-22
+   */
+  function renderAgentStrip(){const host=$('#agent-strip');if(!host)return;const agents=Object.values(state.data?.board?.agents||{});
+    host.innerHTML=agents.map(a=>{const all=[...(a.grants||[]),...(a.regions||[])],rw=all.some(g=>g.mode==='read-write'),any=all.some(g=>g.mode!=='none'),cls=rw?'rw':any?'ro':'none';
+      return `<button class="agent-chip ${cls}" style="--hue:${agentHue(a.name)}" data-action="show-agents" title="${esc(a.name)}: ${esc(grantsText(a))}">${rw?'✎':any?'👁':'○'} ${esc(a.name)}</button>`}).join('')}
   function badgeOf(b){if(b.meta?.source==='ai')return `<span class="nest-badge ai">✦ ${esc({anthropic:'claude',user:'you'}[b.meta.by]||b.meta.by||'AI')}</span>`;if(['generated','new','unverified'].includes(b.status))return '<span class="nest-badge gen">Generated</span>';if(b.status==='missing')return '<span class="nest-badge gen">Missing</span>';return ''}
   /**
    * Input: b (object), r (object)
@@ -188,7 +216,7 @@ Date: 2026-11-14
    * Date: 2026-11-10
    */
   function tileHTML(b,r){const font=Math.min(r.w*.075,r.h*.24),n=childrenOf(b.id).length,hint=n?`${n} inside`:codeSource(b)?'{ } code':'';
-    return `<div class="nest-tile ${esc(b.kind)}-tile" data-tile="${esc(b.id)}" style="--w:${r.w};left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px;font-size:${font}px"><b>${kinds[b.kind]||'□'} ${esc(b.name||b.id)}</b><small>${esc(hint)}</small></div>`}
+    return `<div class="nest-tile ${esc(b.kind)}-tile" data-tile="${esc(b.id)}" style="--w:${r.w};left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px;font-size:${font}px"><b>${kinds[b.kind]||'□'} ${esc(b.name||b.id)}</b>${accessChips(b.id)}<small>${esc(hint)}</small></div>`}
   /**
    * Input: b (object), r (object)
    * Output: string
@@ -200,7 +228,7 @@ Date: 2026-11-14
     if(kids.length)grid(kids.length,inner).forEach((cell,i)=>{inside+=tileHTML(kids[i],cell);nest.items.set(kids[i].id,{level:2,rect:cell,parent:b.id})});
     else if(codeSource(b))inside=codeHTML(codeSource(b),inner,false).html;
     else inside=`<div class="nest-empty" style="left:${inner.x}px;top:${inner.y+inner.h*.35}px;width:${inner.w}px;font-size:${font*.7}px">${esc(summaryOf(b)||b.kind)}</div>`;
-    return `<article class="nest-card ${esc(b.kind)}-card ${state.selected===b.id?'selected':''}" data-block="${esc(b.id)}" style="--w:${r.w};left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px"><header style="height:${inner.head}px;font-size:${font}px"><span class="nest-icon">${kinds[b.kind]||'□'}</span><span class="nest-name">${esc(b.name||b.id)}</span>${badgeOf(b)}<small>${esc(b.kind)}${summaryOf(b)?' · '+esc(summaryOf(b)):''}</small></header></article>${inside}`}
+    return `<article class="nest-card ${esc(b.kind)}-card ${state.selected===b.id?'selected':''}" data-block="${esc(b.id)}" style="--w:${r.w};left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px"><header style="height:${inner.head}px;font-size:${font}px"><span class="nest-icon">${kinds[b.kind]||'□'}</span><span class="nest-name">${esc(b.name||b.id)}</span>${badgeOf(b)}${accessChips(b.id)}<small>${esc(b.kind)}${summaryOf(b)?' · '+esc(summaryOf(b)):''}</small></header></article>${inside}`}
   /**
    * Input: none
    * Output: object
@@ -224,8 +252,8 @@ Date: 2026-11-14
     else html+=`<div class="nest-empty big" style="left:0;top:${frame.h*.42}px;width:${frame.w}px;font-size:${frame.w/55}px">${focus?'Nothing inside this block yet.':'No project files on the board yet.'}<br><button data-action="${focus?'generate-blocks':'import'}">${focus?'✦ Generate blocks with AI':'Import project files'}</button></div>`;
     top.leaf=!!leafCode;
     const title=focus?`${kinds[focus.kind]||'□'} ${esc(focus.name||focus.id)}`:`▰ ${esc(projectName())}`,sub=focus?summaryOf(focus):'Scroll over a block to zoom into it';
-    $('#blocks').innerHTML=`<section class="nest-frame ${leafCode?'code-frame':''}" style="width:${frame.w}px;height:${frame.h}px"><header style="height:${inner.head}px;font-size:${inner.head*.3}px"><b>${title}</b>${focus?badgeOf(focus):''}<small>${esc(sub)}</small></header></section>${html}`;
-    drawArrows(frame);bindCards();renderCrumbs();renderFocusBar();renderMinimap();renderSidebar();applyCamera();
+    $('#blocks').innerHTML=`<section class="nest-frame ${leafCode?'code-frame':''}" style="width:${frame.w}px;height:${frame.h}px"><header style="height:${inner.head}px;font-size:${inner.head*.3}px"><b>${title}</b>${focus?badgeOf(focus)+accessChips(focus.id):''}<small>${esc(sub)}</small></header></section>${html}`;
+    drawArrows(frame);bindCards();renderCrumbs();renderFocusBar();renderAgentStrip();renderMinimap();renderSidebar();applyCamera();
     $('#change-count').textContent=state.log.length?`${state.log.length} recent ${state.log.length===1?'change':'changes'}`:'No changes yet'}
   /**
    * Input: frame (object)
@@ -767,9 +795,45 @@ Date: 2026-11-14
    * Changed by: Claude Code
    * Date: 2026-11-09
    */
+  /**
+   * Input: none
+   * Output: void
+   * Processing: Download the whole board as whiteboard.json.
+   * Changed by: Claude Code
+   * Date: 2026-11-22
+   */
+  async function downloadBoard(){try{const response=await fetch(`${API}/board/file`,{headers:TOKEN?{Authorization:`Bearer ${TOKEN}`}:{}});
+    if(!response.ok){const e=await response.json().catch(()=>({}));throw new Error(e.error?.message||`Download failed (${response.status})`)}
+    const url=URL.createObjectURL(await response.blob()),link=document.createElement('a');link.href=url;link.download='whiteboard.json';document.body.append(link);link.click();link.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);toast('Whiteboard downloaded as whiteboard.json')}catch(e){toast(e.message,true)}}
+  /**
+   * Input: none
+   * Output: void
+   * Processing: Let the person pick a whiteboard file from disk and open it.
+   * Changed by: Claude Code
+   * Date: 2026-11-22
+   */
+  function pickBoardFile(){const input=document.createElement('input');input.type='file';input.accept='.json,application/json';
+    input.onchange=async()=>{const file=input.files?.[0];if(file)loadBoardText(await file.text(),file.name)};input.click()}
+  /**
+   * Input: text (string), name (string), confirm (boolean)
+   * Output: void
+   * Processing: Open a whiteboard file's text: first show what it changes (including agent access), then apply on confirm.
+   * Changed by: Claude Code
+   * Date: 2026-11-22
+   */
+  async function loadBoardText(text,name,confirm=false){try{const data=await request('op',{method:'POST',body:JSON.stringify({op:'board.load',args:{content:text},confirm})});
+    if(data.status==='needs_confirmation'){pendingBoard={text,name};const r=data.preview?.result||{},notes=[].concat(data.preview?.notes||[]).filter(n=>!n.startsWith('Agent access changes'));
+      const access=(r.access_changes||[]).map(c=>`<div class="row"><b>${esc(c.agent)}</b>: ${esc(c.before?grantsText(c.before):'not on this board')} → ${esc(c.after?grantsText(c.after):'removed')}</div>`).join('');
+      openModal(`Open ${name}?`,`<p>This replaces the current whiteboard with ${r.blocks} blocks, ${r.arrows} arrows and ${r.agents} agents. No project files change, and Undo puts the current board back.</p>${access?`<p><b>Agent access will change. Check this before opening:</b></p>${access}`:''}${notes.map(n=>`<div class="row">${esc(n)}</div>`).join('')}<div class="modal-actions"><button class="secondary" data-action="close-modal">Cancel</button><button data-action="confirm-board-load">Open whiteboard</button></div>`,'OPEN WHITEBOARD');return}
+    pendingBoard=null;$('#modal').close();toast(`Opened ${name}`);await refresh()}catch(e){toast(e.message,true)}}
   function extraAction(node){const a=node.dataset.action,d=node.dataset;if(!a)return false;
     if(a==='library'&&window.PlovaneLibrary){window.PlovaneLibrary.open();return true}
     if(a==='ai-run'){showRunDialog();return true}
+    if(a==='show-agents'){if(!layout.sideOpen)toggleSide();setTab('agents');return true}
+    if(a==='download-board'){downloadBoard();return true}
+    if(a==='open-board'){pickBoardFile();return true}
+    if(a==='confirm-board-load'&&pendingBoard){loadBoardText(pendingBoard.text,pendingBoard.name,true);return true}
     if(a==='ai-run-start'){startRun();return true}
     if(a==='connections'){showConnections();return true}
     if(a==='account'){showConnections();return true}

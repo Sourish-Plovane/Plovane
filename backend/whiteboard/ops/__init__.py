@@ -9,6 +9,7 @@ from backend.whiteboard.ops import (  # noqa: F401
     arrows,
     batch,
     blocks,
+    boardfile,
     code,
     endpoints,
     english,

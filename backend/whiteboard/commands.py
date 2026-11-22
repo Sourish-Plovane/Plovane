@@ -68,6 +68,9 @@ COMMANDS: tuple[Command, ...] = (
     Command("zoom into", "view.zoom_into", ("block",), example="/zoom into payments-service"),
     Command("zoom out", "view.zoom_out", example="/zoom out"),
     Command("zoom", "view.zoom", ("level",), example="/zoom 15  or  /zoom layer 2"),
+    # Whiteboard file
+    Command("board save", "board.save", ("file",), example="/board save  or  /board save designs/v2"),
+    Command("board load", "board.load", ("file",), example="/board load  or  /board load designs/v2.json"),
     # Project structure
     Command("folder create", "folder.create", ("path",), example="/folder create src/payments --right-of src/auth"),
     Command("file create", "file.create", ("path",),

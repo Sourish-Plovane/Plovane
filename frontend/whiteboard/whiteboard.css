@@ -1746,3 +1746,15 @@ body[data-theme="dark"] .nest-code, body[data-theme="dark"] .code-editor textare
 body[data-theme="dark"] .focus-bar, body[data-theme="dark"] .code-editor, body[data-theme="dark"] .focus-bar button, body[data-theme="dark"] .editor-gutter { background:#22252d; color:#e5e7ee; border-color:#383c47; }
 body[data-theme="dark"] .breadcrumbs .crumb.current { color:#e5e7ee; }
 @media (prefers-reduced-motion: reduce) { #blocks.nest-fade > * { animation:none; } .nest-card { transition:none; } }
+
+/* Agent access chips (issue #71): which AI agents can reach each block. */
+.agent-chips { display:inline-flex; gap:.3em; margin-left:.4em; vertical-align:middle; flex-wrap:nowrap; }
+.agent-chip { display:inline-flex; align-items:center; gap:.25em; font-size:.55em; font-weight:600; line-height:1; padding:.2em .5em; border-radius:999px; border:1px solid hsl(var(--hue,220) 55% 45%); color:hsl(var(--hue,220) 55% 32%); background:hsl(var(--hue,220) 70% 95%); white-space:nowrap; }
+.agent-chip.ro { border-style:dashed; background:transparent; }
+.agent-chip.none { opacity:.6; border-style:dotted; background:transparent; }
+.agent-chip.more { --hue:220; }
+.nest-tile .agent-chips { display:flex; margin:.15em 0; opacity:clamp(0, calc((var(--w) * var(--z) - 50) / 70), 1); }
+#agent-strip { display:flex; gap:6px; align-items:center; margin-right:8px; max-width:40vw; overflow:hidden; }
+#agent-strip .agent-chip { font-size:12px; padding:3px 8px; cursor:pointer; }
+body[data-theme="dark"] .agent-chip { color:hsl(var(--hue,220) 70% 78%); background:hsl(var(--hue,220) 35% 20%); }
+body[data-theme="dark"] .agent-chip.ro, body[data-theme="dark"] .agent-chip.none { background:transparent; }

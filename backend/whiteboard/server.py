@@ -305,6 +305,7 @@ def create_app(workspace: Workspace, chat: AgentChat | None = None, *, person_to
                 "block_styles": {b.id: current.resolved_style(b) for b in current.blocks.values()},
                 "absolute": {b.id: current.absolute(b) for b in current.blocks.values()},
                 "arrows": [arrow_record(a) for a in current.arrows.values()],
+                "access": workspace.access_map(),
                 "seq": bus.seq,
             }
         return {"ok": True, "data": data, "error": None}
@@ -331,6 +332,24 @@ def create_app(workspace: Workspace, chat: AgentChat | None = None, *, person_to
     @app.get("/api/v1/whiteboard/board")
     def board():
         return send(board_reply())
+
+    # Input: none
+    # Output: tuple
+    # Processing: The whole board as a whiteboard.json download; only the person may take it.
+    # Changed by: Claude Code
+    # Date: 2026-11-22
+    @app.get("/api/v1/whiteboard/board/file")
+    def board_file():
+        from backend.whiteboard.ops.boardfile import DEFAULT_FILE, dumps
+
+        refused = person_only()
+        if refused:
+            return refused
+        with lock:
+            workspace.sync()
+            text = dumps(workspace.board)
+        return Response(text, mimetype="application/json",
+                        headers={"Content-Disposition": f'attachment; filename="{DEFAULT_FILE}"'})
 
     # Input: none
     # Output: tuple

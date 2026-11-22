@@ -62,6 +62,7 @@ whiteboard/
     ├── endpoints.py   API endpoints, client calls, tests, mocks, OpenAPI
     ├── templates.py   reusable layouts with library-filled slots
     ├── batch.py       many operations as one
+    ├── boardfile.py   /board save and /board load: the whole board as whiteboard.json
     ├── agents.py      agent access by path and by canvas region
     ├── library.py     /rank, /insert, /palette, /suggest, /save, /cite
     ├── code.py        open, diff, explain
@@ -101,7 +102,13 @@ The board is saved in the project as `.plovane/board.json` and committed with
 the code. The code in Git is the source of truth: the board stores only what
 code can't hold (positions, styles, layers, endpoints, presets).
 `/project import` maps an existing project's folders, files and imports onto
-blocks. The undo history, the operation log, previews and monitor output stay
+blocks.
+
+`/board save [file]` writes the whole board to `whiteboard.json` (or the named
+file) as sorted, stable JSON, and `/board load [file]` opens one again. Only a
+person may run either. Loading asks first, is one undo step, changes no project
+files, and its preview lists every change to agent access. In the browser, File →
+Download whiteboard and File → Open whiteboard do the same. The undo history, the operation log, previews and monitor output stay
 local, and `.plovane/.gitignore` excludes them.
 
 ## Calling it from the frontend
@@ -359,6 +366,8 @@ command answers `needs_confirmation` first.
 | `/zoom into` | `view.zoom_into` | `plovane_view` |  | Zooms into a specific block. | `/zoom into payments-service` |
 | `/zoom out` | `view.zoom_out` | `plovane_view` |  | Moves up one layer. | `/zoom out` |
 | `/zoom` | `view.zoom` | `plovane_view` |  | Jumps to a zoom level or a layer. | `/zoom 15  or  /zoom layer 2` |
+| `/board save` | `board.save` | `plovane_board` |  | Saves the whole whiteboard to a JSON file in the project (whiteboard.json by default). | `/board save  or  /board save designs/v2` |
+| `/board load` | `board.load` | `plovane_board` | yes | Opens a whiteboard file, replacing the current board; changes no project files. | `/board load  or  /board load designs/v2.json` |
 | `/folder create` | `folder.create` | `plovane_project` |  | Creates a real folder in the project and its block on the whiteboard. | `/folder create src/payments --right-of src/auth` |
 | `/file create` | `file.create` | `plovane_project` |  | Creates a real file, optionally from a starter template. | `/file create src/payments/charge.py --template python-module` |
 | `/file save` | `file.save` | `plovane_project` |  | Saves edited text to a file; refuses if it changed on disk since it was opened (base: its text or version). | `/file save src/app.py --content "..."` |
