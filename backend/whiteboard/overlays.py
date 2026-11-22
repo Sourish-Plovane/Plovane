@@ -39,7 +39,7 @@ def default_overlays() -> dict[str, dict[str, Any]]:
         "code_vulnerabilities": {
             "label": "Vulnerabilities in code", "source": "premade", "parent": "cyber_security",
             "engine_ref": "plovane.overlays.code_vulnerabilities@1", "channel": "border", "priority": 100,
-            "appearance": dict(everywhere), "style": {"color": "red"}},
+            "appearance": dict(everywhere), "style": {"color": "red", "badge": "risky code"}},
         "leaked_secrets": {
             "label": "Leaked secrets", "source": "premade", "parent": "cyber_security",
             "engine_ref": "plovane.overlays.leaked_secrets@1", "channel": "badge", "priority": 100,

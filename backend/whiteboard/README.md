@@ -48,6 +48,7 @@ whiteboard/
 ├── server.py        local HTTP API for the desktop app and CLI (127.0.0.1:8700), live events, AI runs
 ├── auth.py          person and agent tokens: who is calling the server
 ├── events.py        live change events, streamed to the whiteboard as Server-Sent Events
+├── overlays.py      the overlay engine: default overlays and roles, premade analyzers, roll-up, scan cache
 ├── llm_agent.py     drives the whiteboard with Claude, DeepSeek or OpenAI over the API (tool-use loop)
 ├── mcp_tools.py     grouped MCP tools for AI agents (registered by backend/mcp_server/); forward to the running server
 └── ops/             one module per command category
@@ -56,6 +57,7 @@ whiteboard/
     ├── blocks.py      add, move, group, split, merge, rename, delete, info
     ├── english.py     English step blocks, /compile, /block replace
     ├── outline.py     /blocks generate: Claude or DeepSeek groups a file's code into nested blocks
+    ├── overlays.py    /overlay list|on|off|put|remove and /role list|use|put|remove
     ├── placement.py   coordinates, relative placement, align, distribute, grid, size
     ├── style.py       styles, presets, themes
     ├── arrows.py      connections, trace, dependencies
@@ -298,6 +300,29 @@ Endpoints, all under `/api/v1/whiteboard/`:
 | `POST agent/run` `{"prompt", "provider", "model"?, "agent"?, "access"?, "max_steps"?}` | person | start a run in the background |
 | `GET agent/runs`, `GET agent/runs/<id>` | anyone | run status, steps and result |
 | `POST agent/runs/<id>/stop` | person | stop after the current step |
+
+## Overlays
+
+Overlays draw extra information on top of whatever the board shows: security
+findings, endpoints, test health, agent access and verified library code.
+They are worked out from the code and the board by premade analyzers
+(`overlays.py`), never by an AI, so switching them costs no tokens; file scans
+are cached until a file changes. Handbook §21.4 defines them.
+
+```
+/role use cyber                  show the Cyber security role's overlays
+/overlay on test_health          add one overlay to your view
+/overlay off cyber_security      switch a whole group off
+/overlay list                    every overlay and whether it is on, off or mixed
+```
+
+Each person and agent has their own view (a role plus what they switched on
+or off). Views stay local and are never written to the shared `.plo`. Overlay
+and role definitions that differ from the defaults travel in the `.plo` as
+`/overlay put` and `/role put` lines (people only). The board reply carries
+`overlays`: the definitions, roles, the caller's view, which overlays are on,
+and per-block results with rolled-up counts. In the desktop app, the
+**◫ Overlays** button in the top bar opens the panel.
 
 ## Whiteboard files (.plo)
 

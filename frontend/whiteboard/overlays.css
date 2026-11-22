@@ -1,0 +1,47 @@
+/* Overlays: information drawn on top of the board (handbook section 21.4). */
+
+/* fill: a tint over the block's own background, so it works in light and dark mode */
+.nest-card.ov-fill, .nest-tile.ov-fill { background-image: linear-gradient(var(--ov-tint), var(--ov-tint)); }
+.ov-fill-tested { --ov-tint: rgba(24, 128, 56, .07); }
+.ov-fill-untested { --ov-tint: rgba(227, 116, 0, .12); }
+.ov-fill-failing { --ov-tint: rgba(217, 48, 37, .16); }
+
+/* border: the highest-priority overlay's colour around the block */
+.nest-card.ov-border, .nest-tile.ov-border { outline: .22em solid var(--ov-border); outline-offset: -.22em; }
+
+/* badges and ports sit in the header after the name and status badge */
+.ov-marks { display: inline-flex; gap: .3em; margin-left: .4em; vertical-align: middle; flex-wrap: nowrap; max-width: 100%; overflow: hidden; }
+.ov-badge, .ov-port { display: inline-flex; align-items: center; font-size: .5em; font-weight: 600; line-height: 1; padding: .25em .55em;
+  border-radius: 999px; white-space: nowrap; max-width: 22em; overflow: hidden; text-overflow: ellipsis; }
+.ov-badge { color: var(--c); border: 1px solid var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); }
+.ov-badge.more { --c: #5f6368; }
+.ov-port { color: #1a73e8; border: 1px dashed #1a73e8; background: transparent; }
+.ov-icon { display: inline-flex; align-items: center; justify-content: center; min-width: 1.2em; height: 1.2em; margin-right: .3em; padding: 0 .2em;
+  border-radius: 999px; font-size: .6em; font-weight: 700; color: #fff; background: var(--c); vertical-align: middle; }
+.ov-icon i { font-style: normal; margin-left: .15em; }
+.nest-tile .ov-marks { display: flex; margin: .15em 0; opacity: clamp(0, calc((var(--w) * var(--z) - 50) / 70), 1); }
+
+/* the Overlays side-bar tab */
+.ov-role { display: flex; align-items: center; gap: 8px; margin: 6px 12px 10px; font-size: 12px; color: var(--muted, #5f6368); }
+.ov-role select { flex: 1; font: inherit; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line, #dadce0); background: transparent; color: inherit; }
+.ov-tree { display: flex; flex-direction: column; gap: 2px; margin: 0 6px; }
+.ov-row { display: flex; align-items: center; gap: 7px; padding: 5px 6px 5px calc(6px + var(--depth) * 18px); border-radius: 6px; font-size: 13px; cursor: pointer; }
+.ov-row:hover { background: rgba(127, 127, 127, .08); }
+.ov-row input { margin: 0; }
+.ov-swatch { width: 18px; text-align: center; color: var(--c); font-size: 12px; }
+.ov-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov-count { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: rgba(217, 48, 37, .12); color: #d93025; }
+.ov-tag { font-size: 10px; padding: 1px 6px; border-radius: 999px; border: 1px solid currentColor; opacity: .7; }
+.ov-note { display: block; margin: -2px 12px 4px 46px; font-size: 11px; opacity: .7; }
+.ov-hint { margin: 12px; font-size: 11px; line-height: 1.4; opacity: .65; }
+body[data-theme="dark"] .ov-count { background: rgba(242, 139, 130, .18); color: #f28b82; }
+body[data-theme="dark"] .ov-port { color: #8ab4f8; border-color: #8ab4f8; }
+
+/* the top-bar button and its drop-down panel */
+.ov-open { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; margin-right: 6px; border-radius: 8px;
+  border: 1px solid var(--line, #dadce0); background: transparent; color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
+.ov-open:hover { background: rgba(127, 127, 127, .08); }
+.ov-open-count { font-size: 11px; font-weight: 700; min-width: 18px; padding: 1px 6px; border-radius: 999px; background: #7357e8; color: #fff; }
+.ov-pop { position: fixed; z-index: 60; width: 320px; max-height: 70vh; overflow: auto; padding: 8px 0 4px; border-radius: 12px;
+  border: 1px solid var(--line, #dadce0); background: var(--panel, #fff); color: inherit; box-shadow: 0 12px 32px rgba(0, 0, 0, .16); }
+body[data-theme="dark"] .ov-pop { background: #1f2229; border-color: #3a3f4b; }

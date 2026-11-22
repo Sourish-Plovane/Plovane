@@ -272,7 +272,7 @@ Date: 2026-11-14
    * Changed by: Claude Code
    * Date: 2026-11-14
    */
-  function agentChips(id,max=3){const who=Object.entries(state.data?.access?.[id]||{});if(!who.length)return '';
+  function agentChips(id,max=3){if(window.PlovaneOverlays&&!window.PlovaneOverlays.isOn('agent_access'))return '';const who=Object.entries(state.data?.access?.[id]||{});if(!who.length)return '';
     const chip=([name,mode])=>`<span class="agent-chip ${mode==='read-write'?'rw':'ro'}" style="--hue:${agentHue(name)}" title="${esc(name)} can ${mode==='read-write'?'read and change':'read'} this">${mode==='read-write'?'✎':'👁'} ${esc(name)}</span>`;
     const extra=who.length>max?`<span class="agent-chip more" title="${esc(who.slice(max).map(([n,m])=>`${n}: ${m}`).join(', '))}">+${who.length-max}</span>`:'';
     return `<span class="agent-chips">${who.slice(0,max).map(chip).join('')}${extra}</span>`}
@@ -295,8 +295,16 @@ Date: 2026-11-14
    * Changed by: Claude Code
    * Date: 2026-11-10
    */
-  function tileHTML(b,r){const font=Math.min(r.w*.075,r.h*.24),n=childrenOf(b.id).length,hint=n?`${n} inside`:codeSource(b)?'{ } code':'';
-    return `<div class="nest-tile ${esc(b.kind)}-tile" data-tile="${esc(b.id)}" style="--w:${r.w};left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px;font-size:${font}px"><b>${kinds[b.kind]||'□'} ${esc(b.name||b.id)}</b><small>${esc(hint)}</small>${agentChips(b.id,2)}</div>`}
+  function tileHTML(b,r){const font=Math.min(r.w*.075,r.h*.24),n=childrenOf(b.id).length,hint=n?`${n} inside`:codeSource(b)?'{ } code':'',o=overlayOf(b);
+    return `<div class="nest-tile ${esc(b.kind)}-tile${o.cls}" data-tile="${esc(b.id)}" title="${esc(o.tip)}" style="${o.style}--w:${r.w};left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px;font-size:${font}px"><b>${kinds[b.kind]||'□'} ${esc(b.name||b.id)}</b>${o.html}<small>${esc(hint)}</small>${agentChips(b.id,2)}</div>`}
+  /**
+   * Input: b (object)
+   * Output: object
+   * Processing: What the switched-on overlays draw on a block (overlays.js); nothing when it is not loaded.
+   * Changed by: Claude Code
+   * Date: 2026-11-22
+   */
+  function overlayOf(b){return window.PlovaneOverlays?.decorate(b)||{cls:'',style:'',html:'',tip:''}}
   /**
    * Input: b (object), r (object)
    * Output: string
@@ -308,7 +316,8 @@ Date: 2026-11-14
     if(kids.length)grid(kids.length,inner).forEach((cell,i)=>{inside+=tileHTML(kids[i],cell);nest.items.set(kids[i].id,{level:2,rect:cell,parent:b.id})});
     else if(codeSource(b))inside=codeHTML(codeSource(b),inner,false).html;
     else inside=`<div class="nest-empty" style="left:${inner.x}px;top:${inner.y+inner.h*.35}px;width:${inner.w}px;font-size:${font*.7}px">${esc(summaryOf(b)||b.kind)}</div>`;
-    return `<article class="nest-card ${esc(b.kind)}-card ${state.selected===b.id?'selected':''}" data-block="${esc(b.id)}" style="--w:${r.w};left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px"><header style="height:${inner.head}px;font-size:${font}px"><span class="nest-icon">${kinds[b.kind]||'□'}</span><span class="nest-name">${esc(b.name||b.id)}</span>${badgeOf(b)}${agentChips(b.id)}<small>${esc(b.kind)}${summaryOf(b)?' · '+esc(summaryOf(b)):''}</small></header></article>${inside}`}
+    const o=overlayOf(b);
+    return `<article class="nest-card ${esc(b.kind)}-card ${state.selected===b.id?'selected':''}${o.cls}" data-block="${esc(b.id)}" title="${esc(o.tip)}" style="${o.style}--w:${r.w};left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px"><header style="height:${inner.head}px;font-size:${font}px"><span class="nest-icon">${kinds[b.kind]||'□'}</span><span class="nest-name">${esc(b.name||b.id)}</span>${badgeOf(b)}${o.html}${agentChips(b.id)}<small>${esc(b.kind)}${summaryOf(b)?' · '+esc(summaryOf(b)):''}</small></header></article>${inside}`}
   /**
    * Input: none
    * Output: object
@@ -332,8 +341,8 @@ Date: 2026-11-14
     else html+=`<div class="nest-empty big" style="left:0;top:${frame.h*.42}px;width:${frame.w}px;font-size:${frame.w/55}px">${focus?'Nothing inside this block yet.<br><button data-action="generate-blocks">✦ Generate blocks with AI</button>':state.emptyProject?`This folder has no code yet.<div class="empty-steps">Start by <button data-action="new-file">＋ creating a file</button>, or describe what to build in the box below and press ↑.<br><small>Already have code somewhere else? Open that folder instead: <code>plovane open --dir &lt;folder&gt;</code></small></div>`:'No project files on the board yet.<br><button data-action="import">Import project files</button>'}</div>`;
     top.leaf=!!leafCode;
     const title=focus?`${kinds[focus.kind]||'□'} ${esc(focus.name||focus.id)}`:`▰ ${esc(projectName())}`,sub=focus?summaryOf(focus):'Scroll over a block to zoom into it';
-    $('#blocks').innerHTML=`<section class="nest-frame ${leafCode?'code-frame':''}" style="width:${frame.w}px;height:${frame.h}px"><header style="height:${inner.head}px;font-size:${inner.head*.3}px"><b>${title}</b>${focus?badgeOf(focus)+agentChips(focus.id,5):''}<small>${esc(sub)}</small></header></section>${html}`;
-    drawArrows(frame);bindCards();renderAgentStrip();renderCrumbs();renderFocusBar();renderMinimap();renderSidebar();applyCamera();window.PlovaneLive?.afterRender?.();
+    $('#blocks').innerHTML=`<section class="nest-frame ${leafCode?'code-frame':''}" style="width:${frame.w}px;height:${frame.h}px"><header style="height:${inner.head}px;font-size:${inner.head*.3}px"><b>${title}</b>${focus?badgeOf(focus)+overlayOf(focus).html+agentChips(focus.id,5):''}<small>${esc(sub)}</small></header></section>${html}`;
+    drawArrows(frame);bindCards();renderAgentStrip();renderCrumbs();renderFocusBar();renderMinimap();renderSidebar();applyCamera();window.PlovaneLive?.afterRender?.();window.PlovaneOverlays?.afterRender?.();
     $('#change-count').textContent=state.log.length?`${state.log.length} recent ${state.log.length===1?'change':'changes'}`:'No changes yet'}
   /**
    * Input: frame (object)
@@ -592,6 +601,8 @@ Date: 2026-11-14
     if(state.tab==='files'&&window.PlovaneWorkbench){host.innerHTML=window.PlovaneWorkbench.explorerHTML()}else if(state.tab==='files'){
       const folders=blocks.filter(b=>b.kind==='folder'),files=blocks.filter(b=>b.kind==='file');
       host.innerHTML=`<div class="side-section-title">PROJECT FILES <button data-action="new-file">＋</button></div><div class="tree-row selected"><span class="tree-icon">⌄</span><span class="tree-icon">▰</span>${esc(projectName())}</div>${folders.map(f=>`<div class="tree-row tree-indent" data-open="${esc(f.id)}"><span class="tree-icon">⌄</span><span class="tree-icon">▰</span>${esc(f.name)}</div>${files.filter(x=>inFolder(x,f)).map(x=>`<div class="tree-row tree-indent" data-open="${esc(x.id)}"><span class="tree-icon file">▧</span>${esc(x.name)}<span class="tree-count">${x.status==='generated'?'●':''}</span></div>`).join('')}`).join('')}${files.filter(x=>!folders.some(f=>inFolder(x,f))).map(x=>`<div class="tree-row tree-indent" data-open="${esc(x.id)}"><span class="tree-icon file">▧</span>${esc(x.name)}</div>`).join('')}${folders.length||files.length?'':'<div class="empty-state">No files on the board yet. Use File › Import project, or ＋ to create one.</div>'}`;
+    }else if(state.tab==='overlays'&&window.PlovaneOverlays){
+      host.innerHTML=window.PlovaneOverlays.panelHTML();
     }else if(state.tab==='agents'){
       host.innerHTML=agentsPanel(board);
     }else if(state.tab==='activity'){

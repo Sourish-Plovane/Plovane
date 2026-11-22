@@ -158,7 +158,7 @@ Owner totals: Nirmal owns 8 blocks (B03, B05, B07, B08, B09, B11, B13, B16), Sou
 | Library admission | `submission_id`, `code_block`, `verification` (`status`, `revision`); acknowledgement: `block_id`, `status` | §14 | — |
 | Contribution | `contribution_id`, `user_id`, `source` (manual_submission / completed_project), `code_blocks[]`; outcome adds `credit_outcome` | §15 | — |
 | Authentication | login and registration: `email`, `password`, `machine_id`; login response: `user_id`, `session_token`, `expires_at` | §8.3 | — |
-| Whiteboard file (`whiteboard.json`) | `format`, `version`, `board`; planned: `overlays`, `roles`, `views`, `display`, `layout` | §21, `spec/whiteboard/whiteboard-v1.schema.json` | B01, B03, B04 |
+| Whiteboard file (`.plo`) | `format`, `version`, `commands` (board-only commands); overlay and role data in `/overlay put` and `/role put` | §21, `spec/whiteboard/plo-v1.schema.json` | B01, B03, B04 |
 
 
 Status values and what they mean. The same word appears in several places, so check the context:
@@ -247,10 +247,10 @@ These are findings from comparing the diagram with the handbook. They are for th
 | OD-2 | §18.2 | Diagram relationship types | Which relationship values must the diagram schema support? Only `calls` appears as an example. |
 | OD-3 | §18.3 | Contribution credit units | Which credit types and units will the contribution outcome expose? `compute` is only an example. |
 | OD-4 | §18.4 | Engineering confirmation | Owners must confirm hybrid AI/backend allocations, authentication payloads and operation-specific schemas. |
-| OD-5 | §21.10 | `.plo` name and signing | When does `whiteboard.json` become `.plo`, who holds the signing key, and when is a file signed? |
-| OD-6 | §21.10 | Whiteboard merge conflicts | How are conflicting edits to the same block, agent or view resolved between teammates? |
-| OD-7 | §21.10 | Zoom level naming in code | Rename `board.layers` and the `/layer` commands to "levels", so "overlay" means only §21.4. |
-| OD-8 | §21.1 | Whiteboard file format | **Decided 22 Nov 2026:** a description of the board, not a list of commands. |
+| OD-5 | §21.8 | `.plo` signing | Who holds the signing key, and is a file signed on every save or only when shared? |
+| OD-6 | §21.8 | Whiteboard merge conflicts | How are conflicting edits to the same block, agent or overlay in a `.plo` resolved between teammates? |
+| OD-7 | §21.8 | Zoom level naming in code | Rename `board.layers` and the `/layer` commands to "levels", so "overlay" means only §21.4. |
+| OD-8 | §21.1 | Whiteboard file format | **Decided 22 Nov 2026:** `.plo` files of commands, several whiteboards per project. |
 
 
 
@@ -643,7 +643,7 @@ The same blocks and connections as JSON, for tools and AI assistants.
 
 ## Part B — Handbook v0.1 (full text, sections 1 to 20)
 
-Part B reproduces the handbook text. One correction was applied: the cross-reference in §5.4 now points to §18.2. Section 21 (the whiteboard file, zoom levels and overlays) was added after v0.1.
+Part B reproduces the handbook text. One correction was applied: the cross-reference in §5.4 now points to §18.2. Section 21 (whiteboard `.plo` files, zoom levels and overlays) was added after v0.1.
 
 ### 1. Purpose and scope
 
@@ -1699,39 +1699,50 @@ This handbook is intended to establish a common language for inter-block communi
 
 ---
 
-### 21. Whiteboard file (`whiteboard.json`), zoom levels and overlays
+### 21. Whiteboard files (`.plo`), zoom levels and overlays
 
-**Status:** Format decided (OD-8, 22 November 2026). The `board` part is built; the overlay, role, display and layout parts are planned. Confidential internal specification; do not publish.  
-**Schema:** `spec/whiteboard/whiteboard-v1.schema.json` (JSON Schema 2020-12)  
-**Example:** `spec/whiteboard/whiteboard.json`  
-**Code:** `backend/whiteboard/ops/boardfile.py` (`/board save`, `/board load`)
+**Status:** Built. Format decided (OD-8, 22 November 2026): `.plo` files of commands, several whiteboards per project. Confidential internal specification; do not publish.  
+**Schema:** `spec/whiteboard/plo-v1.schema.json` (JSON Schema 2020-12)  
+**Example:** `spec/whiteboard/whiteboard.plo`  
+**Code:**
+- `backend/whiteboard/ops/boardfile.py`: `.plo` files.
+- `backend/whiteboard/overlays.py`: the overlay engine.
+- `backend/whiteboard/ops/overlays.py`: overlay and role commands.
+- `frontend/whiteboard/overlays.js`: drawing and the panel.
 
-#### 21.1 Purpose
+#### 21.1 Whiteboard files
 
-A project's whiteboard can be saved to one file, `whiteboard.json` by default, in the project. The file describes everything needed to draw the same whiteboard on another machine: the zoom levels, the blocks and arrows, endpoints, styles, agents and their access, and, once built, the overlays and roles.
+Every whiteboard is a `.plo` file in the project. The main one is `whiteboard.plo`; others, such as `designs/payments.plo`, open as tabs. A `.plo` is JSON holding the **commands that rebuild the whiteboard on an empty board**:
+
+```json
+{"format": "plovane-whiteboard", "version": 1,
+ "commands": ["/block put src --kind folder --name src ...", "/overlay put db_writes --data '{...}'", "..."]}
+```
 
 - **Code is never in the file.** Code stays in Git, which remains the source of truth.
-- **Anything computed from the code is never in the file.** Scan results, English summaries and the code graph are rebuilt from the code.
-- **`.plovane/board.json` is the live working copy.** The engine saves every change there automatically. `whiteboard.json` is the copy a person chooses to save and share.
+- **Only board commands are allowed.** A file may only contain the board-only commands listed in `LOADABLE` (the `put` commands, layers, presets, styles, overlays and roles). Opening a file someone sent you can change the board but never project code.
+- **Always up to date.** The engine rewrites a whiteboard's `.plo` after every change, without a timestamp, so Git diffs show only real changes. It rebuilds the board when the file changes underneath it (after `git pull`, a teammate's edit, or a hand edit).
+- **Agents and access live only in `whiteboard.plo`.** Agents belong to the whole project, and every other whiteboard shares them.
+- **People only.** Agents can't run `/board load` or the `put` commands, so they can't change their own access through a file.
 
-**Decision (OD-8):** the file is a **description** of the board, not a list of commands that rebuild it. A description is exact, can be checked against a schema, and reads clearly in a Git diff.
+**Decision (OD-8):** commands rather than a description. Each line restores one thing exactly, and the same commands people and agents type are what the file replays.
+
+The full command reference for files (`/boards`, `/board new|save|load|make`) is in `backend/whiteboard/README.md`.
 
 #### 21.2 Two different kinds of "layer"
-
-Plovane has two separate ideas that have both been called "layers". This handbook uses a different word for each:
 
 | Term | What it means | How many at once | Example |
 |---|---|---|---|
 | **Zoom level** | How deep you are looking into the project | Exactly one, chosen by the zoom | Folders, Files, Code |
 | **Overlay** | A set of information drawn on top of the board, like a filter | Any number, stacked | Cyber security, Test health |
 
-Zoom levels decide **which blocks** are on screen. Overlays decide **what extra information** is drawn on those blocks. Any overlay can be on at any zoom level.
+Zoom levels decide **which blocks** are on screen. Overlays decide **what extra information** is drawn on them. Any overlay can be on at any zoom level.
 
-> **Naming in the current code.** The code calls zoom levels "layers" (`board.layers`, `backend/whiteboard/ops/layers.py`, the `/layer` commands). Renaming them is OD-7.
+> **Naming in the current code.** The code calls zoom levels "layers" (`board.layers`, `/layer` commands). Renaming them is OD-7.
 
-#### 21.3 Zoom levels (built: `board.layers`)
+#### 21.3 Zoom levels
 
-The zoom runs from 0 (fully zoomed out) to 100 (fully zoomed in). Each zoom level covers one range and shows certain kinds of block. Ranges don't overlap, so exactly one level is active at any zoom. The defaults:
+The zoom runs from 0 (fully zoomed out) to 100 (fully zoomed in), and exactly one level is active at a time:
 
 | # | Name | Zoom | Shows |
 |---|---|---|---|
@@ -1742,110 +1753,91 @@ The zoom runs from 0 (fully zoomed out) to 100 (fully zoomed in). Each zoom leve
 | 4 | English steps | 70–90 | functions and their plain-English steps |
 | 5 | Code | 90–100 | the real code |
 
-Elsewhere in the file, a zoom level is referred to by its number.
+Overlays and roles refer to a zoom level by its number.
 
-#### 21.4 Overlays (planned: `overlays`)
+#### 21.4 Overlays (built)
 
-An **overlay** is a set of information that can be switched on or off and is drawn on top of whatever blocks the current zoom level shows.
-
-- **Any number can be on at once.** They stack.
-- **They cost no AI tokens to show.** Overlays are computed by Plovane's premade functions from the code (parsing, security scanners, test results), not by an AI. Switching one on or off only filters data that is already computed.
-- **They don't change the code.**
+An **overlay** is information switched on top of the board. Overlays are computed by Plovane's premade analyzers from the code and the board, never by an AI, so switching them costs no tokens. File scans are cached and redone only for files that change.
 
 | Kind | `source` | What it is |
 |---|---|---|
 | **Group** | `group` | A folder of overlays. Draws nothing itself. |
-| **Premade** | `premade` | Built into Plovane. `engine_ref` names the analyzer, e.g. `plovane.overlays.leaked_secrets@1`. |
-| **Custom** | `custom` | A rule (`match`) over the code graph, written once by an AI or a user, then run like a premade overlay. |
+| **Premade** | `premade` | Built into Plovane; `engine_ref` names its analyzer. |
+| **Custom** | `custom` | A rule (`match`) over the code graph, written by an AI or a user. It can be defined and saved today; running it waits for the rule engine. |
 
-**Groups and sub-overlays.** An overlay sits inside a group by naming it as its `parent`. For example, *Cyber security* contains *Vulnerabilities in code*, *Leaked secrets* and *Unvalidated database writes*. Switching a group off hides all its children. Switching it on shows the children that were on before, because each child remembers its own state. A group with some children on and some off shows a "mixed" state.
+**Default overlays** (every board starts with these):
 
-**Appearance per zoom level.** `appearance` says how much a drawing overlay shows at each zoom level, keyed by level number. Levels not listed are hidden.
-
-| Appearance | What is drawn | Typical level |
+| Overlay | Channel | What it finds |
 |---|---|---|
-| `hidden` | Nothing | |
-| `count` | A summary number, e.g. "3 issues" | Services, Folders |
-| `mark` | A mark on each affected block, e.g. a red border | Files, English steps |
-| `detail` | The exact place and details, e.g. the highlighted line and rule | Code |
+| **Cyber security** (group) | | Contains the next three |
+| Vulnerabilities in code | border (red) | `eval`, shell commands, disabled TLS checks, unsafe loading (the `/scan` rules) |
+| Leaked secrets | badge | Keys, tokens and passwords in source. The location and rule only, never the value. |
+| Endpoints with no login check | badge | Endpoints whose handler code shows no sign of checking the caller |
+| API endpoints | port | Each service's endpoints and the file handling each one |
+| Test health | fill | Each file: failing (from `/health --run-tests`), tested (a test file names or imports it) or untested |
+| Agent access | chip | Which agents can reach each block (✎ change, 👁 read) |
+| Verified library code | icon | Blocks inserted from the verified library |
 
-**Roll-up rule:** information found deep in the code is counted on everything that contains it. A leaked secret on line 42 of `charge.py` is a highlighted line at the Code level, a mark on its function and file, and part of the count on its folder and service. Zooming out summarises a problem instead of hiding it.
+**Groups.** An overlay sits inside a group by naming it as its `parent`. Switching a group switches everything inside it, and a group with only some children on shows a "mixed" state.
 
-**Stacking.** Each overlay draws one **channel**, which is a kind of visual mark:
+**Appearance per zoom level.** `appearance` maps a level number to `hidden`, `count`, `mark` or `detail`; levels not listed are hidden. For example, a leaked secret shows as:
+- "1 secret" on its folder (`count`),
+- a "secret" badge on its file (`mark`),
+- the exact line at the Code level (`detail`).
 
-| Channel | Where it draws | Typical overlay |
+**Roll-up rule.** A result found on a function or file is counted on every block that contains it, so zooming out summarises a problem instead of hiding it. Counting is per place, so a finding on a function and its file, or a line that matches two rules, counts once. Test health instead shows the worst state inside a folder ("failing" beats "untested" beats "tested") and how many files need attention.
+
+**Stacking.** Each overlay draws one channel: `fill`, `border`, `badge`, `chip`, `icon`, `port`, `arrows` or `line_highlight`.
+- Overlays on different channels are all drawn.
+- Badges sit side by side, highest priority first, with "+N" when there are too many.
+- When two overlays want the same `fill` or `border`, the higher `priority` (0–100) wins.
+- Hovering a block lists everything from every active overlay, with line numbers.
+
+#### 21.5 Roles and views (built)
+
+A **role** is a saved set of overlays plus a starting zoom level (`default_level`). The defaults:
+
+| Role | Overlays on | Starts at |
 |---|---|---|
-| `fill` | The block's background colour | Test health |
-| `border` | The block's outline | Vulnerabilities in code |
-| `badge` | A small label in the badge slot | Leaked secrets, "no auth" |
-| `chip` | Small tags in the chip slot | Agent access (built today as the ✎ / 👁 chips) |
-| `icon` | A symbol in the icon slot | Verified library code |
-| `port` | A connector on the block's edge | Endpoint ports |
-| `arrows` | Extra arrows between blocks | Caller arrows |
-| `line_highlight` | Highlighted lines inside code | Any overlay, at the Code level |
+| Developer | API endpoints, Test health, Agent access, Verified library code | Files (3) |
+| Cyber security | Cyber security, API endpoints | Services (1) |
+| Reviewer | Test health, Verified library code | Folders (2) |
 
-Overlays on different channels are all drawn. Several badges or chips sit side by side, with "+N" when there are too many. When two overlays want the same `fill` or `border`, the higher `priority` (0–100) wins. Hovering a block lists everything from every active overlay. No custom overlay or filter may hide premade cyber-security findings from a role that has them on.
+Each person and each agent has their own **view**: a role plus the overlays they switched on or off on top of it.
+- Views are personal, so they're never written to the shared `.plo`, and they survive a rebuild from the file.
+- Switching overlays or roles is undoable and updates the board live.
 
-#### 21.5 Roles and personal views (planned: `roles`, `views`)
+Two ways to use them:
+- **Desktop app:** the **◫ Overlays** button in the top bar (or the Overlays tab in the side bar) has a role picker and the overlay tree with on, off and mixed switches.
+- **Commands:** `/overlay list`, `/overlay on|off <id>`, `/role list` and `/role use <id>`. Agents get the same commands through the `plovane_overlay` MCP tool.
 
-A **role** is a saved set of overlays plus a starting zoom level (`default_level`); naming a group switches on all its children. `filters` can narrow an overlay, e.g. `only_with_findings`. Adding a role means adding an entry; no code change is needed.
+**Overlays and purpose-built whiteboards.** `/board make structure|api|security|frontend` builds a separate whiteboard for one purpose. Overlays stack on any whiteboard, including those. Both stay: a purpose-built board is a separate drawing, while an overlay is extra information on whichever board you're looking at.
 
-A **personal view** (one per user, keyed by `user_id`) starts from a `base_role`, can add or remove overlays, and can set a zoom `level` and a block to `focus` on.
+#### 21.6 Overlays and roles in the `.plo` file
 
-#### 21.6 Display and layout (planned: `display`, `layout`)
+Every whiteboard starts with the default overlays and roles, so a file carries only the differences:
 
-`display` gives a rule per block kind: `shape`, what to `show` on the block (`name`, `language_icon`, `line_count`, `file_count`, `english_summary`, `method`, `route`), a `size` (fixed, or growing by `line_count` or `child_count` between `min` and `max`), and `attach_to` for ports.
+| Line | Meaning |
+|---|---|
+| `/overlay put <id> --data '<json>'` | Define or replace one overlay (groups before what is inside them) |
+| `/overlay remove <id>` | A default overlay this board does not have |
+| `/role put <id> --data '<json>'` | Define or replace one role |
+| `/role remove <id>` | A default role this board does not have |
 
-`layout` controls automatic placement:
+The JSON in `--data` follows `$defs/overlay` and `$defs/role` in the schema. `/overlay put` and `/role put` check it when they run:
+- the overlay has a label and a known source and channel,
+- its parent is an existing group,
+- its appearance keys are level numbers,
+- a role names only overlays that exist.
 
-- **`algorithm`:** `nested_grid` places blocks in a grid inside the block that contains them.
-- **Other settings:** `spacing`, `sort_by`, `collapsed` folders, and `overlay_slots` (where badges, chips and icons draw).
+Only people can run them. A test checks that the example, every fresh save, and the default overlays and roles all match the schema.
 
-Positions someone sets by hand already live on each block (`x`, `y`). How overlap is prevented:
+#### 21.7 Display and layout (planned)
 
-1. **Containment.** Containers grow to fit their contents (`grow_to_fit` in `ops/placement.py` already does this).
-2. **Automatic first.** Automatic placement works around hand-placed blocks.
-3. **Same picture everywhere.** Placement is deterministic, so every machine shows the same board.
-4. **Reserved slots.** Every block reserves slots for overlay marks, so they never cover its name or each other.
+Not built yet. `display` would give a rule per block kind: shape, what to show, and size. `layout` would control automatic placement: a nested grid, spacing, collapsed folders, and reserved slots so overlay marks never cover a block's name. When built, they will travel in `.plo` files as `put` lines like everything else.
 
-#### 21.7 Top-level fields
+#### 21.8 Open questions
 
-| Field | Status | Meaning |
-|---|---|---|
-| `format` | Built | Always `"plovane-whiteboard"` |
-| `version` | Built | Format version, `1` |
-| `board` | Built | The board as the engine models it (below) |
-| `overlays` | Planned | §21.4 |
-| `roles` | Planned | §21.5 |
-| `views` | Planned | §21.5 |
-| `display` | Planned | §21.6 |
-| `layout` | Planned | §21.6 |
-
-`board` has `version`, `layers` (zoom levels, keyed by number), `blocks`, `arrows`, `endpoints`, `presets`, `templates`, `agents` (with `grants` and `regions`) and `view`. It is `Board.to_dict()` from `backend/whiteboard/model.py`, without the machine-local `compiles` and `alerts`. The schema lists every field; a test fails if a saved file stops matching it.
-
-#### 21.8 Saving and opening (built)
-
-- **`/board save [file]`** writes `whiteboard.json`, or the named file with `.json` added if it has no extension. In the browser: File → Save whiteboard to project, or File → Download whiteboard.
-- **`/board load [file]`** opens one. In the browser: File → Open whiteboard.
-- **Only a person** may save or open a whiteboard file, never an agent.
-- **Opening asks first.** The preview lists every change to agent access, so a shared file can't quietly grant access. Opening changes no project files and is one undo step.
-- **Planned sections** are accepted, reported as not yet used, and kept when saving to the same file again.
-- **Refused:** invalid JSON, files that aren't Plovane whiteboards, other versions, unknown top-level fields, and boards whose arrows or nesting point at missing blocks. A refused file leaves the board untouched.
-- **No overwriting other files.** Saving never overwrites a file that isn't a valid whiteboard file, and never writes inside `.git/` or `.plovane/`.
-- **Stable format:** UTF-8, sorted keys, two-space indentation and a trailing newline, so Git diffs show only real changes.
-
-#### 21.9 Rules for the planned sections
-
-When the planned sections are built, the deterministic validator (B11) must also check:
-
-1. Every overlay's `parent` exists and is a group.
-2. Every overlay, role and zoom level named anywhere exists.
-3. No custom overlay or filter hides premade cyber-security findings from a role that has them on.
-4. The file contains no secret values; security findings record only the location and rule.
-5. AI edits are limited to overlays, views, display and layout; code changes go through the compile flow.
-
-#### 21.10 Open questions
-
-- **OD-5: `.plo` name and signing.** When does the file move from `whiteboard.json` to `.plo`, who holds the signing key, and is a file signed on every save or only when shared?
-- **OD-6: merge conflicts.** How are conflicting edits to the same block, agent or view resolved when two teammates commit changes?
-- **OD-7: renaming zoom levels in the code.** Rename `board.layers` and the `/layer` commands to "levels", so "layer" or "overlay" means only §21.4.
+- **OD-5: signing.** Who holds the signing key for `.plo` files, and is a file signed on every save or only when shared?
+- **OD-6: merge conflicts.** How are conflicting edits to the same block, agent or overlay in a `.plo` resolved between teammates? Today a broken file is left alone and the board keeps its last good state.
+- **OD-7: renaming zoom levels in the code.** Rename `board.layers` and the `/layer` commands to "levels", so "overlay" means only §21.4.

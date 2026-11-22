@@ -281,3 +281,40 @@ def test_bad_definitions_are_refused(tmp_path):
     ok(ws, "/agent add bot")
     reply = ws.command('/overlay put y --data \'{"label": "y", "source": "group"}\'', actor="bot")
     assert reply["error"]["code"] == "FORBIDDEN"
+
+
+# Input: tmp_path
+# Output: None
+# Processing: Check the published .plo spec: the example and a fresh save match it, overlay and role data
+#             (defaults included) match its definitions, and Plovane opens the example.
+# Changed by: Claude Code
+# Date: 2026-11-22
+def test_plo_spec_matches_what_plovane_writes(tmp_path):
+    import json
+    import shlex
+    from pathlib import Path
+
+    jsonschema = pytest.importorskip("jsonschema")
+    spec_dir = Path(__file__).resolve().parents[3] / "spec" / "whiteboard"
+    schema = json.loads((spec_dir / "plo-v1.schema.json").read_text())
+    Validator = jsonschema.Draft202012Validator
+    file_check = Validator(schema)
+    part = lambda name: Validator({"$schema": schema["$schema"], "$defs": schema["$defs"],  # noqa: E731
+                                   "$ref": f"#/$defs/{name}"})
+    ws = shop(tmp_path)
+    ok(ws, "/overlay put extra --data '{\"label\": \"Extra\", \"source\": \"group\"}'")
+    ok(ws, "/board save")
+    for path in (spec_dir / "whiteboard.plo", tmp_path / "whiteboard.plo"):
+        content = json.loads(path.read_text())
+        assert [e.message for e in file_check.iter_errors(content)] == [], path
+        for line in content["commands"]:
+            if line.startswith(("/overlay put", "/role put")):
+                payload = json.loads(shlex.split(line)[shlex.split(line).index("--data") + 1])
+                assert [e.message for e in part("overlay" if "/overlay" in line else "role").iter_errors(payload)] == []
+    for name, spec in overlays.default_overlays().items():
+        assert [e.message for e in part("overlay").iter_errors(spec)] == [], name
+    for name, spec in overlays.default_roles().items():
+        assert [e.message for e in part("role").iter_errors(spec)] == [], name
+    (tmp_path / "copy.plo").write_text((spec_dir / "whiteboard.plo").read_text())
+    ok(ws, "/board load copy.plo", confirm=True)
+    assert "unvalidated_db_writes" in ws.board.overlays and "qa" in ws.board.roles
