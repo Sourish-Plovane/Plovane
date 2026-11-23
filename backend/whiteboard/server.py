@@ -218,6 +218,15 @@ def create_app(workspace: Workspace, chat: AgentChat | None = None, *, person_to
         return page_with_token(frontend / "index.html")
 
     # Input: none
+    # Output: HTML response
+    # Processing: Serve the prototype click-to-open whiteboard (spaces, overlays, checks) next to the current one.
+    # Changed by: Claude Code
+    # Date: 2026-11-23
+    @app.get("/whiteboard/next")
+    def whiteboard_next_page():
+        return page_with_token(frontend / "next" / "index.html")
+
+    # Input: none
     # Output: JPEG response
     # Processing: Serve the Plovane logo stored at the frontend root.
     # Changed by: Codex
