@@ -24,7 +24,16 @@ Date: 2026-11-14
   let spacePressed=false;
   // Live activity feed, AI runs by id, blocks to highlight after the next redraw, providers with keys.
   const activity=[];const runs={};let flashIds=new Set(),refreshTimer=null,providerList=[];
-  const kinds = {agent:'◉',service:'⬡',server:'⬡',external:'↗',database:'▤',queue:'⇢',endpoint:'↗',folder:'▰',group:'▦',file:'▧',function:'ƒ',class:'C',step:'·',code:'⌘',scan:'⌕',note:'✎',slot:'□'};
+  const kinds = {agent:'🤖',service:'⚙️',server:'🖥️',external:'🌐',database:'🗄️',queue:'📬',endpoint:'🔌',folder:'📁',group:'🗂️',file:'📄',function:'🔧',class:'🧩',step:'👣',code:'💻',scan:'🔍',note:'📝',slot:'⬜'};
+  const LANG_ICONS = {python:['Py','#9CC8FF'],javascript:['JS','#FFF07A'],typescript:['TS','#8EC5FF'],css:['#','#D3BCFF'],html:['<>','#FFB899'],markdown:['¶','#E4E4EA'],json:['{}','#B8F2C8'],cpp:['C+','#A9C7FF'],shell:['$','#C8F5A0']};
+  /**
+   * Input: b (object)
+   * Output: string
+   * Processing: A block's icon as HTML: a language badge for a code file (Py, JS, TS…), otherwise its kind's emoji.
+   * Changed by: Claude Code
+   * Date: 2026-11-23
+   */
+  function iconOf(b){if(!b)return kinds.folder;const lang=b.kind==='file'&&LANG_ICONS[b.meta?.language];return lang?`<span class="lang-icon" style="--c:${lang[1]}">${esc(lang[0])}</span>`:`<span class="kind-icon">${kinds[b.kind]||kinds.slot}</span>`}
   const sample = {
     project:'plovane/payments-api', board:{layers:{0:{number:0,name:'Agents and access',zoom_min:0,zoom_max:10,shows:['agent']},1:{number:1,name:'Services and endpoints',zoom_min:10,zoom_max:20,shows:['service','database']},2:{number:2,name:'Folders',zoom_min:20,zoom_max:40,shows:['folder']},3:{number:3,name:'Files',zoom_min:40,zoom_max:70,shows:['file']},4:{number:4,name:'English steps',zoom_min:70,zoom_max:90,shows:['function','step']},5:{number:5,name:'Code',zoom_min:90,zoom_max:100,shows:['code']}},blocks:{},arrows:{},endpoints:{},templates:{},agents:{},alerts:[],view:{}},block_styles:{},absolute:{},arrows:[]
   };
@@ -296,7 +305,7 @@ Date: 2026-11-14
    * Date: 2026-11-10
    */
   function tileHTML(b,r){const font=Math.min(r.w*.075,r.h*.24),n=childrenOf(b.id).length,hint=n?`${n} inside`:codeSource(b)?'{ } code':'',o=overlayOf(b);
-    return `<div class="nest-tile ${esc(b.kind)}-tile${o.cls}" data-tile="${esc(b.id)}" title="${esc(o.tip)}" style="${o.style}--w:${r.w};left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px;font-size:${font}px"><b>${kinds[b.kind]||'□'} ${esc(b.name||b.id)}</b>${o.html}<small>${esc(hint)}</small>${agentChips(b.id,2)}</div>`}
+    return `<div class="nest-tile ${esc(b.kind)}-tile${o.cls}" data-tile="${esc(b.id)}" title="${esc(o.tip)}" style="${o.style}--w:${r.w};left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px;font-size:${font}px"><b>${iconOf(b)} ${esc(b.name||b.id)}</b>${o.html}<small>${esc(hint)}</small>${agentChips(b.id,2)}</div>`}
   /**
    * Input: b (object)
    * Output: object
@@ -317,7 +326,7 @@ Date: 2026-11-14
     else if(codeSource(b))inside=codeHTML(codeSource(b),inner,false).html;
     else inside=`<div class="nest-empty" style="left:${inner.x}px;top:${inner.y+inner.h*.35}px;width:${inner.w}px;font-size:${font*.7}px">${esc(summaryOf(b)||b.kind)}</div>`;
     const o=overlayOf(b);
-    return `<article class="nest-card ${esc(b.kind)}-card ${state.selected===b.id?'selected':''}${o.cls}" data-block="${esc(b.id)}" title="${esc(o.tip)}" style="${o.style}--w:${r.w};left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px"><header style="height:${inner.head}px;font-size:${font}px"><span class="nest-icon">${kinds[b.kind]||'□'}</span><span class="nest-name">${esc(b.name||b.id)}</span>${badgeOf(b)}${o.html}${agentChips(b.id)}<small>${esc(b.kind)}${summaryOf(b)?' · '+esc(summaryOf(b)):''}</small></header></article>${inside}`}
+    return `<article class="nest-card ${esc(b.kind)}-card ${state.selected===b.id?'selected':''}${o.cls}" data-block="${esc(b.id)}" title="${esc(o.tip)}" style="${o.style}--w:${r.w};left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px"><header style="height:${inner.head}px;font-size:${font}px"><span class="nest-icon">${iconOf(b)}</span><span class="nest-name">${esc(b.name||b.id)}</span>${badgeOf(b)}${o.html}${agentChips(b.id)}<small>${esc(b.kind)}${summaryOf(b)?' · '+esc(summaryOf(b)):''}</small></header></article>${inside}`}
   /**
    * Input: none
    * Output: object
@@ -340,7 +349,7 @@ Date: 2026-11-14
     else if(kids.length)grid(kids.length,inner).forEach((cell,i)=>{nest.items.set(kids[i].id,{level:1,rect:cell});html+=cardHTML(kids[i],cell)});
     else html+=`<div class="nest-empty big" style="left:0;top:${frame.h*.42}px;width:${frame.w}px;font-size:${frame.w/55}px">${focus?'Nothing inside this block yet.<br><button data-action="generate-blocks">✦ Generate blocks with AI</button>':state.emptyProject?`This folder has no code yet.<div class="empty-steps">Start by <button data-action="new-file">＋ creating a file</button>, or describe what to build in the box below and press ↑.<br><small>Already have code somewhere else? Open that folder instead: <code>plovane open --dir &lt;folder&gt;</code></small></div>`:'No project files on the board yet.<br><button data-action="import">Import project files</button>'}</div>`;
     top.leaf=!!leafCode;
-    const title=focus?`${kinds[focus.kind]||'□'} ${esc(focus.name||focus.id)}`:`▰ ${esc(projectName())}`,sub=focus?summaryOf(focus):'Scroll over a block to zoom into it';
+    const title=focus?`${iconOf(focus)} ${esc(focus.name||focus.id)}`:`▰ ${esc(projectName())}`,sub=focus?summaryOf(focus):'Scroll over a block to zoom into it';
     $('#blocks').innerHTML=`<section class="nest-frame ${leafCode?'code-frame':''}" style="width:${frame.w}px;height:${frame.h}px"><header style="height:${inner.head}px;font-size:${inner.head*.3}px"><b>${title}</b>${focus?badgeOf(focus)+overlayOf(focus).html+agentChips(focus.id,5):''}<small>${esc(sub)}</small></header></section>${html}`;
     drawArrows(frame);bindCards();renderAgentStrip();renderCrumbs();renderFocusBar();renderMinimap();renderSidebar();applyCamera();window.PlovaneLive?.afterRender?.();window.PlovaneOverlays?.afterRender?.();
     $('#change-count').textContent=state.log.length?`${state.log.length} recent ${state.log.length===1?'change':'changes'}`:'No changes yet'}
@@ -369,8 +378,8 @@ Date: 2026-11-14
    * Changed by: Claude Code
    * Date: 2026-11-10
    */
-  function bindCards(){$$('#blocks .nest-card').forEach(n=>{n.addEventListener('click',e=>{e.stopPropagation();state.selected=n.dataset.block;$$('#blocks .nest-card').forEach(x=>x.classList.toggle('selected',x===n));showSelection(n)});n.addEventListener('dblclick',e=>{e.stopPropagation();flyInto(n.dataset.block)})});
-    $$('#blocks .nest-tile').forEach(n=>{n.addEventListener('click',e=>{e.stopPropagation();const parent=nest.items.get(n.dataset.tile)?.parent;state.selected=n.dataset.tile;const card=parent&&$(`#blocks .nest-card[data-block="${CSS.escape(parent)}"]`);if(card)showSelection(card,n.dataset.tile)});n.addEventListener('dblclick',e=>{e.stopPropagation();flyTo(n.dataset.tile)})})}
+  function bindCards(){$$('#blocks .nest-card').forEach(n=>{n.addEventListener('click',e=>{e.stopPropagation();state.selected=n.dataset.block;$$('#blocks .nest-card').forEach(x=>x.classList.toggle('selected',x===n));showSelection(n);window.PlovaneOpen?.open(n.dataset.block)});n.addEventListener('dblclick',e=>{e.stopPropagation();flyInto(n.dataset.block)})});
+    $$('#blocks .nest-tile').forEach(n=>{n.addEventListener('click',e=>{e.stopPropagation();const parent=nest.items.get(n.dataset.tile)?.parent;state.selected=n.dataset.tile;const card=parent&&$(`#blocks .nest-card[data-block="${CSS.escape(parent)}"]`);if(card)showSelection(card,n.dataset.tile);window.PlovaneOpen?.open(n.dataset.tile)});n.addEventListener('dblclick',e=>{e.stopPropagation();flyTo(n.dataset.tile)})})}
   /**
    * Input: none
    * Output: void
@@ -387,7 +396,7 @@ Date: 2026-11-14
    * Date: 2026-11-10
    */
   function renderFocusBar(){const top=nest.stack[nest.stack.length-1],b=top?.id?boardBlocks()[top.id]:null,bar=$('#focus-bar');if(!bar)return;const src=b&&(b.path||b.meta?.file),code=b&&(codeSource(b)||b.kind==='file'),folderSub=b&&b.kind==='folder'&&subboardFor(b.id);const canLeave=nest.stack.length>1||!!currentBoard().parent;
-    bar.innerHTML=`${canLeave?'<button data-action="zoom-up" title="Up one level (Esc)">↑ Up</button>':''}<span class="focus-name">${b?`${kinds[b.kind]||'□'} ${esc(b.name)}`:'▰ '+esc(currentBoard().name||projectName())}</span>${b&&b.kind==='folder'&&!folderSub?'<button data-action="make-subboard" title="Turn this folder into its own whiteboard (creates a .plo marker). Zoom in to open it; zoom out past the root to leave.">▦ Make sub-whiteboard</button>':''}${folderSub?`<button data-action="open-subboard" data-board="${esc(folderSub.id)}" title="Open the sub-whiteboard for this folder">▦ Open ${esc(folderSub.name)}</button>`:''}${b&&src&&b.kind!=='folder'?'<button data-action="generate-blocks" title="Let Claude or DeepSeek group this code into blocks">✦ AI blocks</button>':''}${b&&b.kind==='folder'?'<button data-action="generate-blocks" title="Outline every file in this folder">✦ AI blocks for folder</button>':''}${b&&b.kind==='file'?'<button data-action="split-functions" title="One block per function, no AI needed">ƒ Functions</button>':''}${code?'<button data-action="edit-code" title="Open the code to read or edit">✎ Edit code</button>':''}${b?'<button data-action="focus-info">ⓘ</button>':''}`}
+    bar.innerHTML=`${canLeave?'<button data-action="zoom-up" title="Up one level (Esc)">↑ Up</button>':''}<span class="focus-name">${b?`${iconOf(b)} ${esc(b.name)}`:'▰ '+esc(currentBoard().name||projectName())}</span>${b&&b.kind==='folder'&&!folderSub?'<button data-action="make-subboard" title="Turn this folder into its own whiteboard (creates a .plo marker). Zoom in to open it; zoom out past the root to leave.">▦ Make sub-whiteboard</button>':''}${folderSub?`<button data-action="open-subboard" data-board="${esc(folderSub.id)}" title="Open the sub-whiteboard for this folder">▦ Open ${esc(folderSub.name)}</button>`:''}${b&&src&&b.kind!=='folder'?'<button data-action="generate-blocks" title="Let Claude or DeepSeek group this code into blocks">✦ AI blocks</button>':''}${b&&b.kind==='folder'?'<button data-action="generate-blocks" title="Outline every file in this folder">✦ AI blocks for folder</button>':''}${b&&b.kind==='file'?'<button data-action="split-functions" title="One block per function, no AI needed">ƒ Functions</button>':''}${code?'<button data-action="edit-code" title="Open the code to read or edit">✎ Edit code</button>':''}${b?'<button data-action="focus-info">ⓘ</button>':''}`}
   /**
    * Input: none
    * Output: object
@@ -609,7 +618,7 @@ Date: 2026-11-14
       host.innerHTML=activityPanel();
     }else if(state.tab==='services'){
       const svcs=blocks.filter(b=>['service','server','database','external'].includes(b.kind));
-      host.innerHTML=`<div class="side-section-title">SERVICES <button data-action="service-new" title="Add a service">＋</button></div>${svcs.map(s=>`<div class="service-card"><b>${kinds[s.kind]||'⬡'} &nbsp;${esc(s.name)}</b><small>${esc(s.meta?.language||s.kind)} · ${Object.values(board.endpoints||{}).filter(e=>e.service===s.id).length||'—'} endpoints</small></div>`).join('')||'<div class="empty-state">No services on this layer.</div>'}`;
+      host.innerHTML=`<div class="side-section-title">SERVICES <button data-action="service-new" title="Add a service">＋</button></div>${svcs.map(s=>`<div class="service-card"><b>${iconOf(s)} &nbsp;${esc(s.name)}</b><small>${esc(s.meta?.language||s.kind)} · ${Object.values(board.endpoints||{}).filter(e=>e.service===s.id).length||'—'} endpoints</small></div>`).join('')||'<div class="empty-state">No services on this layer.</div>'}`;
     }else{
       const code=blocks.filter(b=>['file','function','code'].includes(b.kind));
       host.innerHTML=`<div class="side-section-title">CODE & PROVENANCE <button data-command="/history">◷</button></div>${code.map(b=>`<div class="code-card"><div class="tree-row" data-open="${esc(b.id)}"><span class="tree-icon file">${kinds[b.kind]}</span>${esc(b.name)}<span class="tree-count">${b.status==='generated'?'NEW':'✓'}</span></div><small style="display:block;padding:2px 7px;color:#a1a6b0;font-size:8px">${esc(b.path||'Prompt: '+(b.meta?.prompt||'verified library'))} · ${Number(b.meta?.tokens||0)} tokens</small></div>`).join('')||'<div class="empty-state">Select a file to inspect its source.</div>'}`;

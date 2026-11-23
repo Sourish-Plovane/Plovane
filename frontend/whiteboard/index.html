@@ -14,7 +14,7 @@ Date: 2026-11-14
   <script>
     // Served by the whiteboard server under /whiteboard/, or opened straight from disk (file://).
     const whiteboardAssetRoot = location.protocol === 'file:' ? './' : '/whiteboard/';
-    for (const name of ['whiteboard', 'agent-chat', 'code-view', 'workbench', 'agent-studio', 'library', 'live-view', 'overlays']) {
+    for (const name of ['whiteboard', 'agent-chat', 'code-view', 'workbench', 'agent-studio', 'library', 'live-view', 'overlays', 'open-view']) {
       const sheet = document.createElement('link');
       sheet.rel = 'stylesheet';
       sheet.href = `${whiteboardAssetRoot}${name}.css`;
@@ -49,7 +49,7 @@ Date: 2026-11-14
       <div class="canvas-toolbar"><div class="toolbar-left"><div class="board-tabs" id="board-tabs" role="tablist" aria-label="Whiteboards"></div><div class="breadcrumbs" id="breadcrumbs"><span>Project</span><span class="crumb-sep">/</span><b>Architecture</b></div></div><div class="canvas-actions"><button class="tool-button" data-action="fit" title="Fit project">⊡ <span>Fit</span></button><span class="tool-divider"></span><div class="history-control"><button class="tool-button straight-arrow" data-action="undo" title="Undo" aria-label="Undo">←</button><small>undo</small></div><div class="history-control"><button class="tool-button straight-arrow" data-action="redo" title="Redo" aria-label="Redo">→</button><small>redo</small></div><span class="tool-divider"></span><button class="share-button" data-action="snapshot" title="Save a named snapshot of the board">↥ <span>Snapshot</span></button></div></div>
       <div id="canvas-viewport" class="canvas-viewport" tabindex="0" aria-label="Infinite project whiteboard">
         <div id="canvas-world" class="canvas-world"><svg id="connections" class="connections"></svg><div id="blocks"></div></div>
-        <div class="canvas-hint">Scroll over a block to zoom into it <span>·</span> Double-click to open <span>·</span> Esc goes up</div>
+        <div class="canvas-hint">Click a block to see what it does <span>·</span> Scroll or double-click to zoom in <span>·</span> Esc goes up</div>
         <div class="focus-bar" id="focus-bar"></div>
         <div class="zoom-controls"><button data-action="zoom-in" aria-label="Zoom in">+</button><span id="zoom-label">100%</span><button data-action="zoom-out" aria-label="Zoom out">−</button></div>
         <div class="minimap" id="minimap"><div class="mini-label">OVERVIEW</div><div class="mini-inner"></div></div>
@@ -84,7 +84,7 @@ Date: 2026-11-14
   <dialog id="modal" class="modal"><div class="modal-head"><div><span class="eyebrow" id="modal-eyebrow">PLOVANE</span><h2 id="modal-title">Details</h2></div><button class="icon-btn" data-action="close-modal" aria-label="Close">×</button></div><div id="modal-body" class="modal-body"></div></dialog>
   <script>
     // whiteboard.js first: the others use the window.PlovaneWhiteboard API it defines.
-    for (const name of ['whiteboard', 'code-view', 'workbench', 'agent-studio', 'agent-chat', 'library', 'live-view', 'overlays']) {
+    for (const name of ['whiteboard', 'code-view', 'workbench', 'agent-studio', 'agent-chat', 'library', 'live-view', 'overlays', 'open-view']) {
       const script = document.createElement('script');
       script.src = `${whiteboardAssetRoot}${name}.js`;
       script.async = false; // run in this order
