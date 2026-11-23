@@ -1,125 +1,104 @@
 /*
 Input: The whiteboard API (window.PlovaneWhiteboard), the board reply, and code.explain, code.translate and security.scan
-Output: The open panel (click a block), the Board · APIs · Checks spaces, and the Structure only overlay
+Output: The open panel (click a block or an API) and the API diagram overlay
 Processing: Shows what a clicked block does, its connections, risky lines, tests and code with plain English;
-  lists outside APIs and endpoints; lists every risky line and untested file; hides folders and files on request
+  the API overlay hides the folder and file tree and draws only your code, your endpoints and the outside APIs
 Changed by: Claude Code
 Date: 2026-11-23
 */
 
-// Clicking a block opens a panel beside the board instead of making you zoom: what it does, what
-// it uses and what uses it, its risky lines, its tests, and (for a file) the code with plain
+// One diagram explains everything. Clicking a block opens a panel beside the board: what it does,
+// what it uses and what uses it, its risky lines, its tests, and (for a file) the code with plain
 // English under each line. Zooming still works as before (scroll, double-click, "Zoom in").
-// The canvas toolbar gains a switch between three spaces: Board, APIs and Checks; swipe sideways
-// on the APIs or Checks space, or press ⌘1, ⌘2, ⌘3. "Structure only" draws just the services,
-// outside APIs and agents with the arrows between them, without the folder and file tree.
+// "API diagram" in the canvas toolbar is an overlay: it removes the folder and file tree and draws
+// only the API connections, from the code that calls or serves them, through your endpoints and
+// services, to the outside APIs. Clicking anything in it opens the same panel.
 (() => {
   const wb = window.PlovaneWhiteboard
   if (!wb) return
   const $ = (s, root = document) => root.querySelector(s)
-  const $$ = (s, root = document) => [...root.querySelectorAll(s)]
   const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
   const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
   const op = (name, args = {}) => wb.request('op', { method: 'POST', body: JSON.stringify({ op: name, args }) }).then(d => d.result || {})
 
   const KIND_ICON = { agent: '🤖', service: '⚙️', server: '🖥️', external: '🌐', database: '🗄️', queue: '📬', endpoint: '🔌', folder: '📁', group: '🗂️', file: '📄', function: '🔧', class: '🧩', step: '👣', code: '💻', note: '📝' }
   const LANG_ICON = { python: ['Py', '#9CC8FF'], javascript: ['JS', '#FFF07A'], typescript: ['TS', '#8EC5FF'], css: ['#', '#D3BCFF'], html: ['<>', '#FFB899'], markdown: ['¶', '#E4E4EA'], json: ['{}', '#B8F2C8'], cpp: ['C+', '#A9C7FF'], shell: ['$', '#C8F5A0'] }
-  const STRUCTURAL = new Set(['agent', 'external', 'service', 'database', 'queue', 'server'])
-  const KIND_NAME = { agent: 'AI agent', external: 'External API', service: 'Service', database: 'Database', queue: 'Queue', server: 'Server', folder: 'Folder' }
+  const OUTSIDE = new Set(['external'])
+  const MIDDLE = new Set(['service', 'database', 'queue', 'server'])
+  const KIND_NAME = { agent: 'AI agent', external: 'Outside API', service: 'Service', database: 'Database', queue: 'Queue', server: 'Server', folder: 'Folder' }
   const RISK_NAME = { shell: 'Command injection', sql_from_text: 'SQL injection', secret_in_code: 'Secret in code', eval: 'Runs text as code', unsafe_html: 'Unsafe HTML', html_injection: 'Unsafe HTML', pickle: 'Unsafe loading', weak_hash: 'Weak hashing', no_verify: 'TLS check turned off', tls_off: 'TLS check turned off', path_traversal: 'Path from user input' }
+  const MAX_CODE = 40
 
-  const st = { open: null, space: 0, structure: false, scan: null, risks: {}, explain: {}, lines: {}, filter: '', seq: null, swipe: 0 }
+  const st = { open: null, apis: false, scan: null, risks: {}, explain: {}, lines: {}, seq: null }
 
   const icon = b => {
     const lang = b?.kind === 'file' && LANG_ICON[b.meta?.language]
     return lang ? `<span class="lang-icon" style="--c:${lang[1]}">${esc(lang[0])}</span>` : `<span class="kind-icon">${KIND_ICON[b?.kind] || '⬜'}</span>`
   }
   const blocks = () => wb.board?.board?.blocks || {}
-  const arrows = () => Object.values(wb.board?.board?.arrows || {}).map(a => ({ from: a.source ?? a.from, to: a.target ?? a.to })).filter(a => blocks()[a.from] && blocks()[a.to])
+  const endpoints = () => wb.board?.board?.endpoints || {}
+  const arrows = () => Object.values(wb.board?.board?.arrows || {}).map(a => ({ from: a.source ?? a.from, to: a.target ?? a.to, endpoint: a.endpoint })).filter(a => blocks()[a.from] && blocks()[a.to])
   const tests = () => wb.board?.overlays?.results?.test_health || {}
   const riskName = kind => RISK_NAME[kind] || String(kind || 'Risk').replace(/_/g, ' ')
+  const riskCount = b => (b?.path && st.risks[b.path]?.length) || 0
   function inside(id, ancestor) { let b = blocks()[id]; while (b) { if (b.id === ancestor) return true; b = blocks()[b.parent] } return false }
   function byPath() { const out = {}; for (const b of Object.values(blocks())) if (b.path) out[b.path] = b.id; return out }
+  // Endpoint ids look like "GET /users" or "routes-py:GET /users" (the serving block first).
+  function splitEndpoint(id) { const text = String(id).replace(/^[^\s:]+:(?=[A-Z]+ )/, ''), [method, ...rest] = text.split(' '); return rest.length ? [method, rest.join(' ')] : ['', text] }
+  // An endpoint's handler may be a block id or a file path.
+  function handlerOf(e) { if (!e?.handler) return null; return blocks()[e.handler] ? e.handler : byPath()[e.handler] || null }
 
   // ------------------------------------------------------------------ Mount -----
 
   const area = $('.canvas-area'), viewport = $('#canvas-viewport'), toolbar = $('.canvas-toolbar')
   if (!area || !viewport || !toolbar) return
-  const sw = document.createElement('div')
-  sw.className = 'ov-switch'
-  sw.innerHTML = `<div class="ov-seg" role="tablist" aria-label="Spaces"><span class="ov-seg-pill"></span><button data-ov-space="0" role="tab" title="The whiteboard (⌘1)">▦ Board</button><button data-ov-space="1" role="tab" title="Outside APIs and your endpoints (⌘2)">⇄ APIs</button><button data-ov-space="2" role="tab" title="Risky code and untested files (⌘3)">✓ Checks<em id="ov-checks-count"></em></button></div><button class="ov-toggle" data-ov-structure title="Show only services, outside APIs and agents, without folders and files">⬡ Structure only</button>`
+  const toggle = document.createElement('button')
+  toggle.className = 'ov-toggle'; toggle.dataset.ovApis = ''
+  toggle.title = 'Show only the API connections, without the folder and file tree'
+  toggle.textContent = '⇄ API diagram'
   const toolbarLeft = $('.toolbar-left', toolbar) || toolbar
-  toolbarLeft.append(sw)
-  const pane = (id, cls = '') => { const el = document.createElement('section'); el.id = id; el.className = `ov-pane ${cls}`; el.innerHTML = '<div class="ov-inner"></div>'; area.append(el); return el }
-  const structurePane = pane('ov-structure', 'ov-structure'), apisPane = pane('ov-apis'), checksPane = pane('ov-checks')
+  toolbarLeft.append(toggle)
+  const overlay = document.createElement('section')
+  overlay.className = 'ov-pane ov-structure'; overlay.hidden = true
+  overlay.innerHTML = '<div class="ov-inner"></div>'
+  area.append(overlay)
   const panel = document.createElement('aside')
   panel.className = 'op-panel'; panel.setAttribute('aria-label', 'What this block does')
   area.append(panel)
 
   function place() {
     const top = Math.max(viewport.offsetTop, toolbar.offsetTop + toolbar.offsetHeight)
-    for (const el of [structurePane, apisPane, checksPane]) el.style.top = `${top}px`
+    overlay.style.top = `${top}px`
     panel.style.top = `${top + 12}px`
-  }
-
-  // ------------------------------------------------------------- Spaces -----
-
-  /**
-   * Input: i (number: 0 Board, 1 APIs, 2 Checks)
-   * Output: none
-   * Processing: Slide the board and the two panes so space i fills the canvas, and move the switch's pill.
-   * Changed by: Claude Code
-   * Date: 2026-11-23
-   */
-  function toSpace(i) {
-    st.space = Math.max(0, Math.min(2, i))
-    place()
-    area.scrollLeft = 0
-    if (st.space || st.structure) $('#selection-popup')?.classList.remove('show')
-    viewport.style.transform = st.space ? `translateX(${-st.space * 100}%)` : ''
-    structurePane.style.transform = `translateX(${-st.space * 100}%)`
-    apisPane.style.transform = `translateX(${(1 - st.space) * 100}%)`
-    checksPane.style.transform = `translateX(${(2 - st.space) * 100}%)`
-    apisPane.hidden = st.space !== 1; checksPane.hidden = st.space !== 2
-    structurePane.hidden = !st.structure || st.space !== 0
-    const buttons = $$('[data-ov-space]', sw), on = buttons[st.space], pill = $('.ov-seg-pill', sw)
-    buttons.forEach(b => b.classList.toggle('on', b === on))
-    pill.style.width = `${on.offsetWidth}px`; pill.style.transform = `translateX(${on.offsetLeft - 3}px)`
-    if (st.space === 1) renderApis()
-    if (st.space === 2) { renderChecks(); if (!st.scan) scan() }
-    if (st.space) hide()
   }
 
   // ----------------------------------------------------------- Risk scan -----
 
-  async function scan(loud) {
+  async function scan() {
     try {
       const r = await op('security.scan')
       st.scan = r; st.risks = {}
       for (const w of r.weak_spots || []) (st.risks[w.file] ||= []).push(w)
-      $('#ov-checks-count').textContent = r.counts?.high ? String(r.counts.high) : ''
-      if (st.space === 2) renderChecks()
-      if (st.open) render(st.open)
-      if (loud) wb.toast(`Scanned ${plural(r.scanned || 0, 'file')}: ${plural(r.found || 0, 'risky line')}.`)
-    } catch (e) { if (loud) wb.toast(e.message, true) }
+      if (st.apis) renderApis()
+      if (st.open) st.open.startsWith('ep:') ? renderEndpoint(st.open.slice(3)) : render(st.open)
+    } catch (_) { }
   }
 
   // ---------------------------------------------------------- Open panel -----
 
-  function hide() { panel.classList.remove('show'); st.open = null }
+  function hide() { panel.classList.remove('show'); overlay.classList.remove('with-panel'); st.open = null }
+  function show() { place(); panel.classList.add('show'); overlay.classList.add('with-panel'); if (!st.scan) scan() }
 
   /**
    * Input: id (block id), line (number, optional)
    * Output: none
-   * Processing: Open the panel for a block, or close it when the same block is clicked again with it open.
+   * Processing: Open the panel for a block and fill it.
    * Changed by: Claude Code
    * Date: 2026-11-23
    */
   function open(id, line) {
     if (!blocks()[id]) return
-    place(); st.open = id; render(id, line)
-    panel.classList.add('show')
-    if (!st.scan) scan()
+    st.open = id; render(id, line); show()
   }
 
   function chips(ids) {
@@ -128,12 +107,17 @@ Date: 2026-11-23
     const shown = list.slice(0, 40)
     return `<div class="op-chips">${shown.map(x => `<button data-op-go="${esc(x)}" title="${esc(blocks()[x].path || blocks()[x].name)}">${icon(blocks()[x])}<span>${esc(blocks()[x].name)}</span></button>`).join('')}${list.length > shown.length ? `<span class="op-none">+${list.length - shown.length} more</span>` : ''}</div>`
   }
+  function endpointChips(ids) {
+    const list = [...new Set(ids)].filter(x => endpoints()[x])
+    if (!list.length) return ''
+    return `<div class="op-chips">${list.map(x => { const [m, p] = splitEndpoint(x); return `<button data-op-endpoint="${esc(x)}"><span class="kind-icon">🔌</span><span>${esc(m)} ${esc(p)}</span></button>` }).join('')}</div>`
+  }
 
   /**
    * Input: id (block id), line (number to jump to, or 0)
    * Output: none
    * Processing: Fill the panel: what the block does, what it uses and what uses it (a folder counts everything inside it),
-   *   its risky lines and tests, and for a file the code with plain English under each line.
+   *   the endpoints it serves or calls, its risky lines and tests, and for a file the code with plain English under each line.
    * Changed by: Claude Code
    * Date: 2026-11-23
    */
@@ -141,18 +125,22 @@ Date: 2026-11-23
     const all = blocks(), b = all[id]; if (!b) return hide()
     const isFile = b.kind === 'file' && b.path, isFolder = b.kind === 'folder' || b.kind === 'group'
     const mine = x => isFolder ? inside(x, id) : x === id
-    const uses = [], usedBy = []
+    const uses = [], usedBy = [], calls = []
     for (const a of arrows()) {
       if (mine(a.from) && !mine(a.to)) uses.push(a.to)
       if (mine(a.to) && !mine(a.from)) usedBy.push(a.from)
+      if (a.endpoint && mine(a.from)) calls.push(a.endpoint)
     }
+    const serves = Object.values(endpoints()).filter(e => handlerOf(e) && mine(handlerOf(e))).map(e => e.id)
     const risks = isFile ? (st.risks[b.path] || []).slice().sort((x, y) => x.line - y.line)
       : isFolder ? Object.entries(st.risks).filter(([p]) => p === b.path || p.startsWith((b.path || '') + '/')).flatMap(([, v]) => v) : []
     const test = tests()[id]
     const kids = Object.values(all).filter(x => x.parent === id)
     const untested = isFolder ? Object.entries(tests()).filter(([k, r]) => r.own && r.status === 'untested' && inside(k, id)).length : 0
+    const folders = kids.filter(k => k.kind === 'folder').length, files = kids.length - folders
     const about = b.meta?.summary || (isFile ? st.explain[b.path] : null)
-      || (isFolder ? `A folder with ${[kids.filter(k => k.kind === 'folder').length && plural(kids.filter(k => k.kind === 'folder').length, 'folder'), kids.filter(k => k.kind !== 'folder').length && plural(kids.filter(k => k.kind !== 'folder').length, 'file')].filter(Boolean).join(' and ') || 'nothing in it yet'}.` : null)
+      || (isFolder ? `A folder with ${[folders && plural(folders, 'folder'), files && plural(files, 'file')].filter(Boolean).join(' and ') || 'nothing in it yet'}.` : null)
+      || (b.kind === 'external' ? `An outside API${usedBy.length ? `, called from ${plural(new Set(usedBy).size, 'place')} in your code` : ' that no code is connected to yet'}.` : null)
     const kind = isFile ? (b.meta?.language || 'file') : (KIND_NAME[b.kind] || b.kind)
     panel.innerHTML = `
       <div class="op-head"><span class="op-icon">${icon(b)}</span><div><h3>${esc(b.name)}</h3><div class="op-path">${esc(b.path || kind)}</div></div>
@@ -162,13 +150,44 @@ Date: 2026-11-23
         <div class="op-sec"><h4>Connections</h4>
           <div class="op-label">Uses (${new Set(uses).size})</div>${chips(uses)}
           <div class="op-label">Used by (${new Set(usedBy).size})</div>${chips(usedBy)}
+          ${serves.length ? `<div class="op-label">Serves these endpoints (${serves.length})</div>${endpointChips(serves)}` : ''}
+          ${calls.length ? `<div class="op-label">Calls these endpoints (${new Set(calls).size})</div>${endpointChips(calls)}` : ''}
           ${isFolder && kids.length ? `<div class="op-label">Inside (${kids.length})</div>${chips(kids.map(k => k.id))}` : ''}</div>
-        ${isFile || isFolder ? `<div class="op-sec"><h4>Risky code <span>${risks.length || ''}</span></h4>${risks.length ? risks.slice(0, 30).map(w => `<button class="op-risk ${esc(w.severity)}" ${isFile ? `data-op-line="${w.line}"` : `data-op-file="${esc(w.file)}" data-op-line="${w.line}"`}><b>${isFile ? '' : `${esc(w.file.split('/').pop())} · `}Line ${w.line}: ${esc(w.why)}</b><span>${esc(riskName(w.kind))} · ${esc(w.severity)}</span></button>`).join('') + (risks.length > 30 ? `<div class="op-none">+${risks.length - 30} more in Checks</div>` : '') : `<div class="op-none">${st.scan ? 'Nothing risky found.' : 'Scanning…'}</div>`}</div>` : ''}
+        ${isFile || isFolder ? `<div class="op-sec"><h4>Risky code <span>${risks.length || ''}</span></h4>${risks.length ? risks.slice(0, 30).map(w => `<button class="op-risk ${esc(w.severity)}" ${isFile ? `data-op-line="${w.line}"` : `data-op-file="${esc(w.file)}" data-op-line="${w.line}"`}><b>${isFile ? '' : `${esc(w.file.split('/').pop())} · `}Line ${w.line}: ${esc(w.why)}</b><span>${esc(riskName(w.kind))} · ${esc(w.severity)}</span></button>`).join('') + (risks.length > 30 ? `<div class="op-none">+${risks.length - 30} more</div>` : '') : `<div class="op-none">${st.scan ? 'Nothing risky found.' : 'Scanning…'}</div>`}</div>` : ''}
         ${test?.own ? `<div class="op-sec"><h4>Tests</h4><span class="op-badge ${test.status === 'tested' ? 'ok' : ''}">${test.status === 'tested' ? '✓ Tested' : 'No tests'}</span></div>` : isFolder && untested ? `<div class="op-sec"><h4>Tests</h4><span class="op-badge">${plural(untested, 'file')} with no tests</span></div>` : ''}
         ${isFile ? `<div class="op-sec"><h4>What each line does</h4><ol class="op-reader" id="op-reader"><li><span class="en">Loading…</span></li></ol></div>` : ''}
       </div>`
     if (isFile) { loadAbout(b); loadLines(b, line) }
   }
+
+  /**
+   * Input: eid (endpoint id, such as "POST /charge")
+   * Output: none
+   * Processing: Fill the panel for one of your endpoints: its status, the code that serves it, the code that calls it,
+   *   and its request, response and last test when known.
+   * Changed by: Claude Code
+   * Date: 2026-11-23
+   */
+  function renderEndpoint(eid) {
+    const e = endpoints()[eid]; if (!e) return hide()
+    const [method, path] = splitEndpoint(eid)
+    const handler = handlerOf(e)
+    const callers = arrows().filter(a => a.endpoint === eid).map(a => a.from)
+    const json = v => `<pre class="op-json">${esc(JSON.stringify(v, null, 2))}</pre>`
+    panel.innerHTML = `
+      <div class="op-head"><span class="op-icon"><span class="kind-icon">🔌</span></span><div><h3>${esc(method)} ${esc(path)}</h3><div class="op-path">Endpoint · ${esc(e.status || 'unknown')}</div></div>
+        <div class="op-actions">${handler ? `<button data-op-zoom="${esc(handler)}" title="Zoom the board into the code that serves it">⤢ Zoom in</button>` : ''}<button data-op-close aria-label="Close" title="Close (Esc)">✕</button></div></div>
+      <div class="op-body">
+        <p class="op-about">${esc(`Your project answers ${method || 'requests'} ${path}${handler ? ` in ${blocks()[handler].name}` : ''}${callers.length ? `, and ${plural(new Set(callers).size, 'place')} in your code call it` : ''}.`)}</p>
+        <div class="op-sec"><h4>Connections</h4>
+          <div class="op-label">Served by</div>${handler ? chips([handler]) : '<div class="op-none">No handler found yet</div>'}
+          <div class="op-label">Called from (${new Set(callers).size})</div>${chips(callers)}</div>
+        ${e.request ? `<div class="op-sec"><h4>Request</h4>${json(e.request)}</div>` : ''}
+        ${e.response ? `<div class="op-sec"><h4>Response</h4>${json(e.response)}</div>` : ''}
+        ${e.last_test ? `<div class="op-sec"><h4>Last check</h4>${json(e.last_test)}</div>` : ''}
+      </div>`
+  }
+  function openEndpoint(eid) { if (!endpoints()[eid]) return; st.open = `ep:${eid}`; renderEndpoint(eid); show() }
 
   async function loadAbout(b) {
     if (b.meta?.summary || st.explain[b.path] !== undefined) return
@@ -217,75 +236,113 @@ Date: 2026-11-23
     return out + esc(code.slice(last))
   }
 
-  // ------------------------------------------------------ Structure only -----
+  // -------------------------------------------------------- API diagram -----
+
+  /**
+   * Input: none
+   * Output: { nodes, edges } for the API diagram
+   * Processing: The code that calls an outside API, a service or an endpoint, or serves an endpoint (left); your endpoints
+   *   and services (middle); the outside APIs (right). Folders and files with no API connection are left out.
+   * Changed by: Claude Code
+   * Date: 2026-11-23
+   */
+  function apiGraph() {
+    const all = blocks(), nodes = new Map(), edges = []
+    const add = (key, column, data) => { if (!nodes.has(key)) nodes.set(key, { key, column, ...data }) }
+    const isApi = b => OUTSIDE.has(b.kind) || MIDDLE.has(b.kind)
+    for (const b of Object.values(all)) if (isApi(b)) add(b.id, OUTSIDE.has(b.kind) ? 2 : 1, { block: b })
+    for (const e of Object.values(endpoints())) add(`ep:${e.id}`, 1, { endpoint: e })
+    for (const a of arrows()) {
+      const from = all[a.from], to = all[a.to]
+      if (a.endpoint && endpoints()[a.endpoint]) { add(from.id, 0, { block: from }); edges.push([from.id, `ep:${a.endpoint}`]); continue }
+      if (!isApi(to)) continue
+      add(from.id, isApi(from) ? (OUTSIDE.has(from.kind) ? 2 : 1) : 0, { block: from })
+      edges.push([from.id, to.id])
+    }
+    for (const e of Object.values(endpoints())) { const h = handlerOf(e); if (h) { add(h, 0, { block: all[h] }); edges.push([`ep:${e.id}`, h]) } }
+    return { nodes: [...nodes.values()], edges }
+  }
+
+  function nodeHTML(n, x, y) {
+    if (n.endpoint) {
+      const [method, path] = splitEndpoint(n.endpoint.id)
+      return `<button class="ov-node endpoint" data-op-endpoint="${esc(n.endpoint.id)}" style="left:${x}%;top:${y}%"><span class="ov-method">${esc(method || 'API')}</span>${esc(path)}<small>${esc(n.endpoint.status || 'endpoint')}</small></button>`
+    }
+    const b = n.block, risks = riskCount(b)
+    const sub = n.column === 0 ? (b.path ? b.path.split('/').slice(-2, -1)[0] || 'project' : KIND_NAME[b.kind] || b.kind) : KIND_NAME[b.kind] || b.kind
+    return `<button class="ov-node${risks ? ' risky' : ''}" data-op-open="${esc(b.id)}" style="left:${x}%;top:${y}%" title="${esc(b.path || b.name)}">${icon(b)}${esc(b.name)}<small>${esc(sub)}</small>${risks ? `<span class="ov-risk" title="Risky lines">⚠ ${risks}</span>` : ''}</button>`
+  }
 
   /**
    * Input: none
    * Output: none
-   * Processing: Draw only services, outside APIs and agents (agents left, services centre, outside APIs right) with the arrows between them.
+   * Processing: Draw the API diagram over the board in three columns (your code, your endpoints and services, outside APIs)
+   *   with an arrow for every call; risky files carry a ⚠ count.
    * Changed by: Claude Code
    * Date: 2026-11-23
    */
-  function renderStructure() {
-    const host = $('.ov-inner', structurePane), all = blocks()
-    const nodes = Object.values(all).filter(b => STRUCTURAL.has(b.kind)).sort((a, b) => a.name.localeCompare(b.name))
-    const ids = new Set(nodes.map(b => b.id)), callers = {}
-    const edges = arrows().filter(a => ids.has(a.from) && ids.has(a.to))
-    for (const a of arrows()) if (ids.has(a.to) && !ids.has(a.from)) callers[a.to] = (callers[a.to] || 0) + 1
-    const head = '<div class="ov-head"><div><h2>Structure only</h2><p>Services, outside APIs and agents, without the folder and file tree. Click one to see what uses it.</p></div><button class="ov-btn" data-ov-structure>Show folders and files</button></div>'
-    if (!nodes.length) { host.innerHTML = `${head}<div class="ov-empty"><b>No structure on this whiteboard yet</b>Drag “External API” or “AI agent” onto the board, or run <code>/block add external aws-s3</code>.</div>`; return }
-    const column = { agent: 0.15, external: 0.85 }, groups = {}
-    for (const b of nodes) (groups[column[b.kind] ?? 0.5] ||= []).push(b.id)
-    const pos = {}
-    for (const [x, list] of Object.entries(groups)) list.forEach((id, i) => { pos[id] = [Number(x) * 100, ((i + 1) / (list.length + 1)) * 100] })
-    const height = Math.max(380, Math.max(...Object.values(groups).map(l => l.length)) * 120)
-    host.innerHTML = `${head}<div class="ov-map" style="height:${height}px"><svg viewBox="0 0 100 100" preserveAspectRatio="none">${edges.map(a => { const [x1, y1] = pos[a.from], [x2, y2] = pos[a.to], mx = (x1 + x2) / 2; return `<path vector-effect="non-scaling-stroke" d="M${x1} ${y1} C${mx} ${y1} ${mx} ${y2} ${x2} ${y2}"/>` }).join('')}</svg>
-      ${nodes.map(b => `<button class="ov-node" data-op-open="${esc(b.id)}" style="left:${pos[b.id][0]}%;top:${pos[b.id][1]}%">${icon(b)}${esc(b.name)}<small>${esc(KIND_NAME[b.kind] || b.kind)}${callers[b.id] ? ` · ${plural(callers[b.id], 'caller')}` : ''}</small></button>`).join('')}</div>`
-  }
-
-  // --------------------------------------------------------------- APIs -----
-
   function renderApis() {
-    const host = $('.ov-inner', apisPane), all = blocks()
-    const externals = Object.values(all).filter(b => b.kind === 'external')
-    const endpoints = Object.values(wb.board?.board?.endpoints || {})
-    const calls = id => arrows().filter(a => a.to === id).length
-    host.innerHTML = `<div class="ov-head"><div><h2>APIs</h2><p>The outside services your project talks to and the endpoints it offers, kept apart from the code. Swipe or press ⌘1 to go back to the board.</p></div><button class="ov-btn primary" data-ov-command="/endpoint scan">Find API routes in the code</button></div>
-      <div class="ov-group">Outside services (${externals.length})</div>
-      ${externals.length ? `<div class="ov-list">${externals.map(b => `<button class="ov-row" data-op-open="${esc(b.id)}"><span class="ov-ico">${icon(b)}</span><div><b>${esc(b.name)}</b><span>${calls(b.id) ? `Called from ${plural(calls(b.id), 'place')}` : 'Not connected to any code yet'}</span></div><span class="ov-go">Open ›</span></button>`).join('')}</div>`
-        : '<div class="ov-empty"><b>No outside services yet</b>Drag “External API” onto the board, or run <code>/block add external aws-s3</code>.</div>'}
-      <div class="ov-group">Your endpoints (${endpoints.length})</div>
-      ${endpoints.length ? `<div class="ov-list">${endpoints.map(e => { const [method, ...rest] = String(e.id).split(' '), handler = e.handler && all[e.handler] ? e.handler : ''; return `<button class="ov-row" ${handler ? `data-op-open="${esc(handler)}"` : ''}><span class="sev ${e.status === 'built' ? '' : 'medium'}">${esc(method)}</span><div><b>${esc(rest.join(' ') || e.id)}</b><span>${esc(e.status || '')}${handler ? ` · handled in ${esc(all[handler].name)}` : ''}</span></div><span class="ov-go">${handler ? 'Open ›' : ''}</span></button>` }).join('')}</div>`
-        : '<div class="ov-empty"><b>No endpoints found yet</b>“Find API routes in the code” looks for routes such as <code>@app.get("/users")</code>.</div>'}`
+    const host = $('.ov-inner', overlay), { nodes, edges } = apiGraph()
+    const columns = [[], [], []]
+    for (const n of nodes) columns[n.column].push(n)
+    const name = n => n.endpoint ? n.endpoint.id : n.block.name
+    columns.forEach(list => list.sort((a, b) => name(a).localeCompare(name(b))))
+    const hidden = Math.max(0, columns[0].length - MAX_CODE)
+    columns[0] = columns[0].slice(0, MAX_CODE)
+    const pos = {}, X = [14, 50, 86]
+    columns.forEach((list, c) => list.forEach((n, i) => { pos[n.key] = [X[c], ((i + 1) / (list.length + 1)) * 100] }))
+    const rows = Math.max(3, ...columns.map(l => l.length))
+    const head = `<div class="ov-head"><div><h2>API diagram</h2><p>Only the API connections: the code that calls or serves an API, your endpoints and services, and the outside APIs. The folder and file tree is hidden. Click anything to see what it does.</p></div>
+      <div class="op-actions"><button class="ov-btn" data-ov-command="/endpoint scan">Find API routes in the code</button><button class="ov-btn primary" data-ov-apis>Back to the board</button></div></div>`
+    if (!nodes.length) {
+      host.innerHTML = `${head}<div class="ov-empty"><b>No API connections on this whiteboard yet</b>“Find API routes in the code” adds your endpoints, such as <code>@app.get("/users")</code>.<br>For an outside API, drag “External API” onto the board, or run <code>/block add external aws-s3</code>, then connect the code that calls it.</div>`
+      return
+    }
+    const drawn = edges.filter(([a, b]) => pos[a] && pos[b])
+    // Free lanes between the middle column's nodes, so an arrow from your code to an outside API never runs under an endpoint.
+    const middle = columns[1].map(n => pos[n.key][1]), stops = [0, ...middle, 100]
+    const gaps = stops.slice(1).map((y, i) => (y + stops[i]) / 2)
+    const labels = ['Your code', 'Your endpoints and services', 'Outside APIs']
+    host.innerHTML = `${head}<div class="ov-map ov-api-map" style="height:${Math.max(420, rows * 96 + 60)}px">
+      ${labels.map((l, c) => `<div class="ov-col-label" style="left:${X[c]}%">${l}<small>${columns[c].length + (c === 0 ? hidden : 0)}</small></div>`).join('')}
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none"><defs><marker id="ov-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z"/></marker></defs>
+        ${drawn.map(([a, b]) => edgePath(pos[a], pos[b], gaps)).join('')}</svg>
+      ${nodes.filter(n => pos[n.key]).map(n => nodeHTML(n, ...pos[n.key])).join('')}
+      ${hidden ? `<div class="ov-more" style="left:${X[0]}%">+${hidden} more files</div>` : ''}</div>`
   }
 
-  // ------------------------------------------------------------- Checks -----
-
   /**
-   * Input: none
-   * Output: none
-   * Processing: Counts of risky lines by severity and of untested files, then each finding with its file, line and reason.
+   * Input: from ([x, y] in %), to ([x, y] in %), gaps (free y lanes in the middle column)
+   * Output: string (an SVG path)
+   * Processing: A curved arrow between two nodes; one that skips the middle column bends through the nearest free lane.
    * Changed by: Claude Code
    * Date: 2026-11-23
    */
-  function renderChecks() {
-    const host = $('.ov-inner', checksPane), all = st.scan?.weak_spots || [], counts = st.scan?.counts || {}, paths = byPath(), f = st.filter
-    const untested = Object.entries(tests()).filter(([id, r]) => r.own && r.status === 'untested' && blocks()[id]).map(([id]) => id)
-    const stat = (key, n, label) => `<button class="ov-stat ${key}${f === key ? ' on' : ''}" data-ov-filter="${key}"><b>${n}</b><span>${label}</span></button>`
-    const groups = { high: [], medium: [], low: [] }
-    for (const w of all) if (!f || w.severity === f) (groups[w.severity] || groups.low).push(w)
-    const rows = list => `<div class="ov-list">${list.slice(0, 200).map(w => { const id = paths[w.file]; return `<button class="ov-row" ${id ? `data-op-open="${esc(id)}" data-op-line="${w.line}"` : ''}><span class="sev ${esc(w.severity)}">${esc(w.severity)}</span><div><b>${esc(riskName(w.kind))}: ${esc(w.why)}</b><span>${esc(w.file)} · line ${w.line}</span><code>${esc(String(w.code || '').trim())}</code></div><span class="ov-go">${id ? 'Open ›' : ''}</span></button>` }).join('')}</div>`
-    const risky = f !== 'untested' ? ['high', 'medium', 'low'].filter(s => groups[s].length).map(s => `<div class="ov-group">${s} risk (${groups[s].length})</div>${rows(groups[s])}`).join('') : ''
-    host.innerHTML = `<div class="ov-head"><div><h2>Checks</h2><p>${st.scan ? `${plural(st.scan.scanned || 0, 'file')} scanned for risky code. Click a finding to open that exact line.` : 'Scanning your code for risky lines…'}</p></div><button class="ov-btn primary" data-ov-rescan>Scan again</button></div>
-      <div class="ov-stats">${stat('high', counts.high || 0, 'High risk')}${stat('medium', counts.medium || 0, 'Medium risk')}${stat('low', counts.low || 0, 'Low risk')}${stat('untested', untested.length, 'Files with no tests')}</div>
-      ${risky || (st.scan && f !== 'untested' ? '<div class="ov-empty"><b>Nothing risky found</b></div>' : '')}
-      ${!f || f === 'untested' ? `<div class="ov-group">No tests (${untested.length})</div>${untested.length ? `<div class="ov-list">${untested.slice(0, 200).map(id => `<button class="ov-row" data-op-open="${esc(id)}"><span class="ov-ico">${icon(blocks()[id])}</span><div><b>${esc(blocks()[id].name)}</b><span>${esc(blocks()[id].path || '')}</span></div><span class="ov-go">Open ›</span></button>`).join('')}</div>` : '<div class="ov-empty"><b>Every file has a test</b></div>'}` : ''}`
+  function edgePath([x1, y1], [x2, y2], gaps) {
+    const dir = x2 >= x1 ? 1 : -1, sx = x1 + dir * 6.5, ex = x2 - dir * 6.5
+    let d
+    if (Math.abs(x2 - x1) > 50) {
+      const want = (y1 + y2) / 2, lane = gaps.reduce((best, g) => Math.abs(g - want) < Math.abs(best - want) ? g : best, gaps[0])
+      d = `M${sx} ${y1} C${sx + dir * 18} ${y1} ${50 - dir * 14} ${lane} 50 ${lane} C${50 + dir * 14} ${lane} ${ex - dir * 18} ${y2} ${ex} ${y2}`
+    } else {
+      const mx = (sx + ex) / 2
+      d = `M${sx} ${y1} C${mx} ${y1} ${mx} ${y2} ${ex} ${y2}`
+    }
+    return `<path vector-effect="non-scaling-stroke" marker-end="url(#ov-arrow)" d="${d}"/>`
+  }
+
+  function setApis(on) {
+    st.apis = on
+    toggle.classList.toggle('on', on)
+    place()
+    overlay.hidden = !on
+    if (on) { $('#selection-popup')?.classList.remove('show'); renderApis(); if (!st.scan) scan() }
   }
 
   // ------------------------------------------------------------- Events -----
 
   function focusOn(id, line) {
-    toSpace(0)
+    if (st.apis) return open(id, line)
     wb.flyTo(id)
     setTimeout(() => open(id, line), 60)
   }
@@ -293,55 +350,34 @@ Date: 2026-11-23
   document.addEventListener('click', async e => {
     const t = e.target.closest('button'); if (!t) return
     const d = t.dataset
-    if (d.ovSpace !== undefined) return toSpace(Number(d.ovSpace))
-    if (d.ovStructure !== undefined) {
-      st.structure = !st.structure
-      $('[data-ov-structure].ov-toggle', sw).classList.toggle('on', st.structure)
-      if (st.structure) renderStructure()
-      return toSpace(0)
-    }
+    if (d.ovApis !== undefined) return setApis(!st.apis)
     if (d.opClose !== undefined) return hide()
-    if (d.opZoom) return wb.flyTo(d.opZoom)
+    if (d.opZoom) { setApis(false); return wb.flyTo(d.opZoom) }
+    if (d.opEndpoint) return openEndpoint(d.opEndpoint)
     if (d.opGo) return focusOn(d.opGo)
     if (d.opFile && d.opLine) { const id = byPath()[d.opFile]; if (id) focusOn(id, Number(d.opLine)); return }
     if (d.opLine && !d.opOpen) return jump(Number(d.opLine))
-    if (d.opOpen) { if (st.space === 0 && st.structure) return open(d.opOpen); return focusOn(d.opOpen, Number(d.opLine) || 0) }
-    if (d.ovFilter) { st.filter = st.filter === d.ovFilter ? '' : d.ovFilter; return renderChecks() }
-    if (d.ovRescan !== undefined) return scan(true)
+    if (d.opOpen) return focusOn(d.opOpen, Number(d.opLine) || 0)
     if (d.ovCommand) { try { await wb.request('command', { method: 'POST', body: JSON.stringify({ command: d.ovCommand }) }); await wb.refresh(); renderApis(); wb.toast('Done.') } catch (err) { wb.toast(err.message, true) } }
   })
 
-  // Esc closes the panel first; only then does it go up a zoom level.
+  // Esc closes the panel first, then the API diagram; only then does it go up a zoom level.
   window.addEventListener('keydown', e => {
-    const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)
-    if (e.key === 'Escape' && panel.classList.contains('show') && !typing && !$('#modal')?.open) { e.stopImmediatePropagation(); e.preventDefault(); hide() }
-    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && ['1', '2', '3'].includes(e.key)) { e.preventDefault(); toSpace(Number(e.key) - 1) }
+    if (e.key !== 'Escape' || ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) || $('#modal')?.open) return
+    if (panel.classList.contains('show')) { e.stopImmediatePropagation(); e.preventDefault(); hide() }
+    else if (st.apis) { e.stopImmediatePropagation(); e.preventDefault(); setApis(false) }
   }, true)
 
-  // A sideways swipe (two fingers on a trackpad) on the APIs or Checks space moves between spaces.
-  for (const el of [apisPane, checksPane]) {
-    el.addEventListener('wheel', e => {
-      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return
-      e.preventDefault()
-      if (st.swipeLock) return
-      st.swipe += e.deltaX
-      clearTimeout(st.swipeTimer); st.swipeTimer = setTimeout(() => { st.swipe = 0 }, 220)
-      if (Math.abs(st.swipe) > 140) { toSpace(st.space + Math.sign(st.swipe)); st.swipe = 0; st.swipeLock = true; setTimeout(() => { st.swipeLock = false }, 600) }
-    }, { passive: false })
-  }
-
-  // Keep the panes and an open panel in step with the board as it changes.
+  // Keep the diagram and an open panel in step with the board as it changes.
   setInterval(() => {
     const seq = wb.board?.seq
     if (seq === st.seq) return
     st.seq = seq
-    if (st.structure) renderStructure()
-    if (st.space === 1) renderApis()
-    if (st.space === 2) renderChecks()
-    if (st.open && blocks()[st.open] && !panel.matches(':hover')) render(st.open)
+    if (st.apis) renderApis()
+    if (st.open && !panel.matches(':hover')) st.open.startsWith('ep:') ? renderEndpoint(st.open.slice(3)) : blocks()[st.open] && render(st.open)
   }, 1500)
-  window.addEventListener('resize', () => toSpace(st.space))
+  window.addEventListener('resize', place)
 
-  toSpace(0)
-  window.PlovaneOpen = { open, close: hide, space: toSpace, scan }
+  place()
+  window.PlovaneOpen = { open, openEndpoint, close: hide, apis: setApis, scan }
 })()
