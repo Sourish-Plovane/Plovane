@@ -27,6 +27,7 @@ from backend.whiteboard.ops import (  # noqa: F401
     routes,
     style,
     templates,
+    trace,
     view,
     views,
 )

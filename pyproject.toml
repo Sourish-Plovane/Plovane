@@ -20,6 +20,8 @@ neural = ["torch>=2.2", "transformers>=4.40"]
 dev = ["pytest>=8.0"]
 # Chatting with whiteboard agents from the prompt panel (backend/whiteboard/agent_chat.py).
 agents = ["anthropic>=2.7"]
+# /trace runs a test with coverage.py and colours ran/missed lines in the panel.
+trace = ["coverage>=7.4"]
 
 [tool.setuptools.packages.find]
 include = ["ml*", "backend*", "cli*"]

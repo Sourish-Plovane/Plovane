@@ -190,6 +190,9 @@ COMMANDS: tuple[Command, ...] = (
     Command("open", "code.open", ("target",), example="/open checkout.ts"),
     Command("diff", "code.diff", ("block",), example="/diff payments --since yesterday"),
     Command("explain", "code.explain", ("target",), example="/explain charge.ts"),
+    # Trace: run a test with coverage and colour ran / not-reached lines in the panel
+    Command("trace run", "trace.run", ("target",), example="/trace run tests/test_charge.py"),
+    Command("trace show", "trace.read", example="/trace show"),
     # Security and health
     Command("scan", "health.scan", ("target",), example="/scan payments/"),
     Command("alerts", "health.alerts", example="/alerts --severity high"),

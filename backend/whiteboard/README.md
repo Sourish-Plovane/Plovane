@@ -682,6 +682,8 @@ command answers `needs_confirmation` first.
 | `/open` | `code.open` | `plovane_code` |  | Opens a block's code in the editor. | `/open checkout.ts` |
 | `/diff` | `code.diff` | `plovane_code` |  | Shows what changed in a block. | `/diff payments --since yesterday` |
 | `/explain` | `code.explain` | `plovane_code` |  | Explains a block in plain English. | `/explain charge.ts` |
+| `/trace run` | `trace.run` | `plovane_code` |  | Runs a test file with coverage and records what ran; the panel colours those lines green. | `/trace run tests/test_charge.py` |
+| `/trace show` | `trace.read` | `plovane_code` |  | Returns the last recorded trace, used by the whiteboard panel. | `/trace show` |
 | `/scan` | `health.scan` | `plovane_code` |  | Places a security detection block over an area and scans it. | `/scan payments/` |
 | `/alerts` | `health.alerts` | `plovane_code` |  | Lists active alerts on the diagram. | `/alerts --severity high` |
 | `/health` | `health.check` | `plovane_code` |  | Marks blocks with failing tests or broken connections. | `/health` |
@@ -722,4 +724,3 @@ command answers `needs_confirmation` first.
 | `/board make` | `board.make` | `plovane_view` |  | Builds a whiteboard for one job (structure, api, security or frontend) as its own .plo tab. | `/board make api  or  /board make frontend --refresh` |
 | `/pages` | `frontend.pages` | `plovane_view` |  | Lists the app's pages, the file behind each, and the links between them. | `/pages` |
 | `/frontend` | `frontend.run` | `plovane_view` |  | Starts or stops the app's dev server (npm run dev, or a static server for HTML pages). | `/frontend start  or  /frontend stop` |
-
