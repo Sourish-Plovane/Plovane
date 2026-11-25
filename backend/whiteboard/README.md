@@ -601,6 +601,7 @@ command answers `needs_confirmation` first.
 | `/role use` | `role.use` | `plovane_overlay` |  | Uses a role (developer, cyber, reviewer, ...): shows that role's overlays. | `/role use cyber` |
 | `/overlay put` | `overlay.put` | `plovane_overlay` |  | Defines or replaces one overlay (used by .plo files); people only. | `/overlay put db_writes --data '{"label": "DB writes", "source": "custom", ...}'` |
 | `/overlay remove` | `overlay.remove` | `plovane_overlay` |  | Removes an overlay (and the overlays inside a group); people only. | `/overlay remove db_writes` |
+| `/overlay propose` | `overlay.propose` | `plovane_overlay` |  | Asks a lightweight LLM to propose an overlay for the whiteboard; people only. | `/overlay propose "files hit hardest by log errors"` |
 | `/role put` | `role.put` | `plovane_overlay` |  | Defines or replaces one role (used by .plo files); people only. | `/role put qa --data '{"label": "QA", "overlays": ["test_health"], "default_level": 2}'` |
 | `/role remove` | `role.remove` | `plovane_overlay` |  | Removes a role; people only. | `/role remove qa` |
 | `/folder create` | `folder.create` | `plovane_project` |  | Creates a real folder in the project and its block on the whiteboard. | `/folder create src/payments --right-of src/auth` |

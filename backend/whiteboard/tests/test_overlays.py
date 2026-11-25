@@ -199,16 +199,18 @@ def test_scans_are_cached_until_a_file_changes(tmp_path, monkeypatch):
 
 # Input: tmp_path
 # Output: None
-# Processing: Check a custom overlay is reported as not yet runnable, and old boards get the default overlays.
+# Processing: A custom overlay with no saved items file returns an empty result (no error), and old boards get the default overlays.
 # Changed by: Claude Code
-# Date: 2026-11-22
+# Date: 2026-11-25
 def test_custom_overlays_wait_and_old_boards_get_defaults(tmp_path):
     ws = shop(tmp_path)
     ws.board.overlays["db_writes"] = {"label": "DB writes", "source": "custom", "created_by": "ai",
                                       "author": "usr", "match": {"node_type": "endpoint"},
                                       "channel": "badge", "appearance": {"3": "mark"}}
     ok(ws, "/overlay on db_writes")
-    assert "rule engine" in state(ws)["unavailable"]["db_writes"]
+    overlays = state(ws)
+    assert "db_writes" not in overlays.get("unavailable", {})
+    assert overlays["results"].get("db_writes", {}) == {}
     old = Board.from_dict({"blocks": {}})
     assert "cyber_security" in old.overlays and "developer" in old.roles and old.views == {}
 

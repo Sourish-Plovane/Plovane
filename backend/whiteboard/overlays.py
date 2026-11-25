@@ -485,6 +485,23 @@ def _key(item: dict[str, Any], origin: str) -> tuple:
     return (item.get("file") or origin, item.get("line"))
 
 
+# Input: ws (Workspace), spec (dict), oid (str)
+# Output: dict[str, list[dict[str, Any]]]
+# Processing: Read the items a proposed overlay saved to .plovane/overlays/<oid>.json; silently empty if missing.
+# Changed by: Claude Code
+# Date: 2026-11-25
+def custom_items(ws: Any, spec: dict[str, Any], oid: str) -> dict[str, list[dict[str, Any]]]:
+    path = ws.root / STATE_DIR / "overlays" / f"{oid}.json"
+    if not path.is_file():
+        return {}
+    try:
+        record = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    items = record.get("items") if isinstance(record.get("items"), dict) else {}
+    return {bid: notes for bid, notes in items.items() if isinstance(notes, list)}
+
+
 # Input: ws (Workspace), board (Board), actor (str)
 # Output: dict[str, Any]
 # Processing: Everything the whiteboard needs to draw overlays for an actor: definitions, roles, view and results.
@@ -498,8 +515,11 @@ def overlay_state(ws: Any, board: Any, actor: str) -> dict[str, Any]:
         spec = board.overlays.get(oid, {})
         name = analyzer_name(spec)
         if name is None:
-            status[oid] = "custom overlays run once the overlay rule engine is built" \
-                if spec.get("source") == "custom" else "Plovane has no analyzer for this overlay"
+            if spec.get("source") == "custom":
+                direct = custom_items(ws, spec, oid)
+                results[oid] = roll_up(board, direct)
+            else:
+                status[oid] = "Plovane has no analyzer for this overlay"
             continue
         direct = ANALYZERS[name](ws, board)
         if spec.get("channel") == "fill":

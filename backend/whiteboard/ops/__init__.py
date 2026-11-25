@@ -20,6 +20,7 @@ from backend.whiteboard.ops import (  # noqa: F401
     live,
     logs,
     outline,
+    overlay_propose,
     overlays,
     placement,
     sketch,
