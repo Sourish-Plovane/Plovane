@@ -27,10 +27,13 @@ Date: 2026-11-23
   const MIDDLE = new Set(['service', 'database', 'queue', 'server'])
   const KIND_NAME = { agent: 'AI agent', external: 'Outside API', service: 'Service', database: 'Database', queue: 'Queue', server: 'Server', folder: 'Folder' }
   const RISK_NAME = { shell: 'Command injection', sql_from_text: 'SQL injection', secret_in_code: 'Secret in code', eval: 'Runs text as code', unsafe_html: 'Unsafe HTML', html_injection: 'Unsafe HTML', pickle: 'Unsafe loading', weak_hash: 'Weak hashing', no_verify: 'TLS check turned off', tls_off: 'TLS check turned off', path_traversal: 'Path from user input' }
+  // Short query sent to library.rank for each risk, chosen to match verified helpers people would actually swap in.
+  const FIX_QUERY = { shell: 'run a shell command safely without shell injection', sql_from_text: 'safely build a SQL query with parameters', secret_in_code: 'read a secret from an environment variable', eval: 'parse JSON safely instead of eval', unsafe_html: 'escape HTML to prevent XSS', html_injection: 'escape HTML to prevent XSS', pickle: 'load JSON or YAML safely', weak_hash: 'hash a password with bcrypt or argon2', no_verify: 'make an HTTPS request with certificate verification', tls_off: 'make an HTTPS request with certificate verification', path_traversal: 'validate a file path stays inside a base directory' }
   const MAX_CODE = 40
 
   const st = { open: null, apis: false, scan: null, risks: {}, explain: {}, lines: {}, seq: null,
-    trace: null, traceRunning: false, lastTest: localStorage.getItem('plovane-last-test') || '' }
+    trace: null, traceRunning: false, lastTest: localStorage.getItem('plovane-last-test') || '',
+    fixes: {}, fixing: {} }
 
   const icon = b => {
     const lang = b?.kind === 'file' && LANG_ICON[b.meta?.language]
@@ -91,6 +94,54 @@ Date: 2026-11-23
   async function loadTrace(force) {
     if (st.trace && !force) return
     try { st.trace = await op('trace.read') } catch (_) { st.trace = null }
+  }
+
+  /**
+   * Input: w (risky-line record), isFile (bool), b (file or folder block)
+   * Output: string (HTML)
+   * Processing: Draw one risky-line row with a "Fix with ⇢" button that offers a verified library match.
+   * Changed by: Claude Code
+   * Date: 2026-11-24
+   */
+  function riskRow(w, isFile, b) {
+    const key = `${w.file}:${w.line}:${w.kind}`
+    const fix = st.fixes[key], loading = st.fixing[key]
+    const data = isFile ? `data-op-line="${w.line}"` : `data-op-file="${esc(w.file)}" data-op-line="${w.line}"`
+    const canFix = !!FIX_QUERY[w.kind]
+    const header = `<button class="op-risk ${esc(w.severity)}" ${data}><b>${isFile ? '' : `${esc(w.file.split('/').pop())} · `}Line ${w.line}: ${esc(w.why)}</b><span>${esc(riskName(w.kind))} · ${esc(w.severity)}</span></button>`
+    if (!canFix) return header
+    let fixBox = ''
+    if (fix?.best) {
+      const e = fix.best, into = (b.kind === 'folder' ? b.path : (b.path || '').split('/').slice(0, -1).join('/')) || '.'
+      fixBox = `<div class="op-fix"><div class="op-fix-top"><b>${esc(e.name)}</b> <small>· ${esc(e.language || '')} · ${esc(e.license || 'unknown licence')}</small><button class="op-fix-insert" data-op-fix-insert="${esc(key)}" data-op-fix-entry="${esc(e.block_id)}" data-op-fix-into="${esc(into)}">Insert into ${esc(into || 'project')}</button></div>${e.description ? `<div class="op-fix-desc">${esc(e.description)}</div>` : ''}<pre class="op-fix-code">${esc((e.preview || e.code || '').split('\n').slice(0, 8).join('\n'))}</pre></div>`
+    } else if (fix?.none) {
+      fixBox = `<div class="op-fix-none">No verified helper matched this one.</div>`
+    } else if (fix?.error) {
+      fixBox = `<div class="op-fix-none">Couldn't look up a fix: ${esc(fix.error)}</div>`
+    }
+    const btn = fix ? '' : `<button class="op-fix-btn" data-op-fix="${esc(key)}" data-op-fix-kind="${esc(w.kind)}">${loading ? 'Searching…' : 'Fix with ⇢'}</button>`
+    return header + btn + fixBox
+  }
+
+  async function loadFix(key, kind) {
+    if (st.fixes[key] || st.fixing[key]) return
+    const query = FIX_QUERY[kind]; if (!query) return
+    st.fixing[key] = true; if (st.open && !st.open.startsWith('ep:')) render(st.open)
+    try {
+      const r = await op('library.rank', { query, k: 1 })
+      const best = (r.recommendations || [])[0] || null
+      st.fixes[key] = best ? { best } : { none: true }
+    } catch (e) { st.fixes[key] = { error: e.message } }
+    finally { delete st.fixing[key] }
+    if (st.open && !st.open.startsWith('ep:')) render(st.open)
+  }
+
+  async function insertFix(entry, into) {
+    try {
+      const r = await op('library.insert', { entry, into })
+      wb.toast(`Inserted ${entry} into ${r.file || into}. Review the diff on disk.`)
+      await wb.refresh()
+    } catch (e) { wb.toast(e.message, true) }
   }
 
   /**
@@ -221,7 +272,7 @@ Date: 2026-11-23
           ${serves.length ? `<div class="op-label">Serves these endpoints (${serves.length})</div>${endpointChips(serves)}` : ''}
           ${calls.length ? `<div class="op-label">Calls these endpoints (${new Set(calls).size})</div>${endpointChips(calls)}` : ''}
           ${isFolder && kids.length ? `<div class="op-label">Inside (${kids.length})</div>${chips(kids.map(k => k.id))}` : ''}</div>
-        ${isFile || isFolder ? `<div class="op-sec"><h4>Risky code <span>${risks.length || ''}</span></h4>${risks.length ? risks.slice(0, 30).map(w => `<button class="op-risk ${esc(w.severity)}" ${isFile ? `data-op-line="${w.line}"` : `data-op-file="${esc(w.file)}" data-op-line="${w.line}"`}><b>${isFile ? '' : `${esc(w.file.split('/').pop())} · `}Line ${w.line}: ${esc(w.why)}</b><span>${esc(riskName(w.kind))} · ${esc(w.severity)}</span></button>`).join('') + (risks.length > 30 ? `<div class="op-none">+${risks.length - 30} more</div>` : '') : `<div class="op-none">${st.scan ? 'Nothing risky found.' : 'Scanning…'}</div>`}</div>` : ''}
+        ${isFile || isFolder ? `<div class="op-sec"><h4>Risky code <span>${risks.length || ''}</span></h4>${risks.length ? risks.slice(0, 30).map(w => riskRow(w, isFile, b)).join('') + (risks.length > 30 ? `<div class="op-none">+${risks.length - 30} more</div>` : '') : `<div class="op-none">${st.scan ? 'Nothing risky found.' : 'Scanning…'}</div>`}</div>` : ''}
         ${test?.own ? `<div class="op-sec"><h4>Tests</h4><span class="op-badge ${test.status === 'tested' ? 'ok' : ''}">${test.status === 'tested' ? '✓ Tested' : 'No tests'}</span></div>` : isFolder && untested ? `<div class="op-sec"><h4>Tests</h4><span class="op-badge">${plural(untested, 'file')} with no tests</span></div>` : ''}
         ${isFile ? `<div class="op-sec"><h4>What each line does <button class="op-trace-btn" data-op-trace title="Run a pytest file under coverage and mark the lines that didn't run">${st.traceRunning ? 'Tracing…' : (traceFor(b.path) ? '↻ Re-run trace' : '▶ Trace with…')}</button></h4>${traceSummary(b)}<ol class="op-reader" id="op-reader"><li><span class="en">Loading…</span></li></ol></div>` : ''}
       </div>`
@@ -435,6 +486,8 @@ Date: 2026-11-23
       if (ans) runTrace(ans.trim())
       return
     }
+    if (d.opFix) { e.stopPropagation(); return loadFix(d.opFix, d.opFixKind) }
+    if (d.opFixInsert) { e.stopPropagation(); return insertFix(d.opFixEntry, d.opFixInto) }
     if (d.ovCommand) { try { await wb.request('command', { method: 'POST', body: JSON.stringify({ command: d.ovCommand }) }); await wb.refresh(); renderApis(); wb.toast('Done.') } catch (err) { wb.toast(err.message, true) } }
   })
 
