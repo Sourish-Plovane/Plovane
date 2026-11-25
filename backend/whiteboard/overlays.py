@@ -17,7 +17,10 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+import json
+
 from backend.whiteboard import codegen
+from backend.whiteboard.store import STATE_DIR
 
 PREMADE_PREFIX = "plovane.overlays."
 MAX_ITEMS = 20
@@ -64,6 +67,10 @@ def default_overlays() -> dict[str, dict[str, Any]]:
             "label": "Verified library code", "source": "premade",
             "engine_ref": "plovane.overlays.library_code@1", "channel": "icon", "priority": 30,
             "appearance": {"2": "count", "3": "mark", "4": "mark"}, "style": {"icon": "✓"}},
+        "log_errors": {
+            "label": "Errors in logs", "source": "premade",
+            "engine_ref": "plovane.overlays.log_errors@1", "channel": "badge", "priority": 95,
+            "appearance": dict(everywhere), "style": {"color": "red", "badge": "errors"}},
     }
 
 
@@ -343,6 +350,39 @@ def library_code(ws: Any, board: Any) -> dict[str, list[dict[str, Any]]]:
             for b in board.blocks.values() if b.meta.get("library")}
 
 
+# Input: ws (Workspace), board (Board)
+# Output: dict[str, list[dict[str, Any]]]
+# Processing: Files a log blames for errors (from .plovane/log_errors.json, written by /logs scan), with their count and worst lines.
+# Changed by: Claude Code
+# Date: 2026-11-24
+def log_errors(ws: Any, board: Any) -> dict[str, list[dict[str, Any]]]:
+    path = ws.root / STATE_DIR / "log_errors.json"
+    if not path.is_file():
+        return {}
+    try:
+        record = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    source = record.get("source") or "the log"
+    out: dict[str, list[dict[str, Any]]] = {}
+    for rel, entry in (record.get("files") or {}).items():
+        block = board.block_for_path(rel)
+        if not block:
+            continue
+        count = int(entry.get("count", 0))
+        lines = entry.get("lines") or {}
+        worst_line, worst_count = (None, 0)
+        for line_no, hits in lines.items():
+            if hits > worst_count:
+                worst_line, worst_count = line_no, hits
+        message = (f"{count} error{'s' if count != 1 else ''} in {source}"
+                   + (f"; worst at line {worst_line}" if worst_line else ""))
+        samples = entry.get("samples") or []
+        out[block.id] = [{"message": message, "count": count, "line": int(worst_line) if worst_line else None,
+                          "source": source, "samples": samples[:3]}]
+    return out
+
+
 ANALYZERS: dict[str, Callable[[Any, Any], dict[str, list[dict[str, Any]]]]] = {
     "code_vulnerabilities": code_vulnerabilities,
     "leaked_secrets": leaked_secrets,
@@ -351,6 +391,7 @@ ANALYZERS: dict[str, Callable[[Any, Any], dict[str, list[dict[str, Any]]]]] = {
     "test_health": test_health,
     "agent_access": agent_access,
     "library_code": library_code,
+    "log_errors": log_errors,
 }
 NO_ROLL_UP = {"agent_access"}
 """Overlays whose results already cover every block they apply to, so counting them on parents would mislead."""

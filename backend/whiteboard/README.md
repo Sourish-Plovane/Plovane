@@ -655,6 +655,8 @@ command answers `needs_confirmation` first.
 | `/endpoint check` | `endpoint.check` | `plovane_endpoint` |  | Checks every API arrow: caller request matches endpoint schema; mismatches turn red. | `/endpoint check all` |
 | `/endpoint scan` | `endpoint.scan` | `plovane_endpoint` |  | Finds the app's API routes and the code calling them; adds endpoints and API arrows (no AI). | `/endpoint scan` |
 | `/outside scan` | `outside.scan` | `plovane_endpoint` |  | Finds the outside APIs the code calls; adds external blocks and arrows (no AI). | `/outside scan` |
+| `/logs scan` | `logs.scan` | `plovane_code` |  | Finds the files a log file blames for errors and badges them with how many times. | `/logs scan server.log` |
+| `/logs show` | `logs.show` | `plovane_code` |  | Returns the last recorded log scan (used by the 'Errors in logs' overlay). | `/logs show` |
 | `/endpoint import` | `endpoint.import` | `plovane_endpoint` |  | Creates endpoint blocks from an OpenAPI spec. | `/endpoint import openapi.yaml` |
 | `/endpoint export` | `endpoint.export` | `plovane_endpoint` |  | Exports a service's endpoints as an OpenAPI spec. | `/endpoint export payments` |
 | `/api external add` | `external.add` | `plovane_endpoint` |  | Adds a third-party API (such as a payment provider) as an external block with its endpoints. | `/api external add stripe --spec stripe-openapi.yaml` |
