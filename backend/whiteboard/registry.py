@@ -147,3 +147,16 @@ def flag(value: Any) -> bool:
     if isinstance(value, bool):
         return value
     return str(value).lower() in ("1", "true", "on", "yes", "y")
+
+
+UNMARKED_CHANGES = frozenset({"history.undo", "history.redo", "git.sync"})
+"""Operations that change the board or project but manage history themselves, so they are not marked mutates."""
+
+
+# Input: spec (OpSpec)
+# Output: bool
+# Processing: Whether an operation changes the board or project, counting the ones that keep their own history.
+# Changed by: Claude Code
+# Date: 2026-11-25
+def changes_board(spec: OpSpec) -> bool:
+    return spec.mutates or spec.name in UNMARKED_CHANGES

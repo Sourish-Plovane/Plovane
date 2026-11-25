@@ -96,6 +96,11 @@ def resolve_in_project(raw: str, root: Path) -> str | None:
     return None
 
 
+# Input: path (Path), root (Path)
+# Output: bool
+# Processing: Whether a path is inside the project root.
+# Changed by: Claude Code
+# Date: 2026-11-24
 def _inside(path: Path, root: Path) -> bool:
     try:
         path.relative_to(root)

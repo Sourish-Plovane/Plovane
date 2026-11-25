@@ -35,6 +35,8 @@ from backend.whiteboard.registry import OPERATIONS, OpError, OpSpec
 from backend.whiteboard.store import BOARD_EXTENSION, MAIN_BOARD, SKIP_DIRS, FileJournal, Store, apply_changes, now
 
 USER = "user"
+BOARD_AI = "plovane"
+"""The whiteboard AI: the one agent that builds and changes the board. It never writes project code."""
 MODES = {"none": 0, "read": 1, "read-write": 2}
 
 
@@ -647,6 +649,9 @@ class Workspace:
         ctx = Context(self, fs, actor, dry_run, confirmed)
         try:
             result = call(spec, ctx, args)
+            if actor == BOARD_AI and fs.changes()["files"]:
+                raise OpError("FORBIDDEN", f"{spec.command} would change project files; the whiteboard AI "
+                                           "changes the board only, never code")
             if not self.is_main and {k: asdict(v) for k, v in self.board.agents.items()} != before["agents"]:
                 raise OpError("FORBIDDEN", f"agents belong to the whole project; change them on {MAIN_BOARD} "
                                            "or with /agent commands outside a batch")

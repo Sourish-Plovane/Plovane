@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 
 from whiteboard_helpers import fails, ok, project
 
@@ -107,7 +106,7 @@ def test_rename_unlink_remove_and_undo(tmp_path):
 # Changed by: Claude
 # Date: 2026-11-10
 def test_mcp_sketch_mode(tmp_path, monkeypatch):
-    from backend.whiteboard import mcp_tools
+    from backend.whiteboard import llm_agent, mcp_tools
 
     # A stand-in for the MCP server that records registered tools.
     class Server:
@@ -127,19 +126,28 @@ def test_mcp_sketch_mode(tmp_path, monkeypatch):
         def tool(self, name=None, description=None):
             return lambda f: self.tools.setdefault(name or f.__name__, f)
 
-    monkeypatch.setenv("PLOVANE_MCP_TOOLS", "sketch")
+    # Input: task (str), client (Any), **_ (Any)
+    # Output: dict
+    # Processing: Stand in for the model: draw with sketch, as the whiteboard AI would.
+    # Changed by: Claude Code
+    # Date: 2026-11-25
+    def fake_run(task, *, client, **_):
+        reply = client.run_command("/sketch service a; service b; a -> b")
+        return {"status": "done", "summary": "drew a and b", "commands": [{"ok": reply["ok"]}]}
+
     monkeypatch.delenv("PLOVANE_AGENT", raising=False)
+    monkeypatch.delenv("PLOVANE_URL", raising=False)
+    monkeypatch.setattr(llm_agent, "run", fake_run)
     server = Server()
-    assert mcp_tools.register(server) == ["plovane_sketch", "plovane_undo"]
-    assert set(server.tools) == {"plovane_sketch", "plovane_undo"}
+    names = mcp_tools.register(server)
+    assert names[0] == "plovane_ask" and "plovane_sketch" not in server.tools and "plovane_undo" not in server.tools
     ws = project(tmp_path)
-    ws.command("/agent add claude")  # the MCP server acts as the agent "claude", never the person
-    ws.command("/agent grant claude . --mode read-write", confirm=True)
     mcp_tools.set_workspace(ws)
     try:
-        assert server.tools["plovane_sketch"]("service a; service b; a -> b")["ok"]
-        assert server.tools["plovane_undo"]()["ok"]
-        assert "a" not in mcp_tools.workspace().board.blocks
+        reply = server.tools["plovane_ask"]("draw a service a calling b")
+        assert reply["ok"] and reply["data"]["requester"] == "claude"
+        board = mcp_tools.workspace().board
+        assert {"a", "b"} <= set(board.blocks) and "plovane" in board.agents
     finally:
         mcp_tools.set_workspace(None)
-    assert os.environ["PLOVANE_MCP_TOOLS"] == "sketch"
+

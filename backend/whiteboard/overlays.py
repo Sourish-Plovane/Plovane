@@ -448,8 +448,7 @@ STATUS_RANK = {"failing": 3, "untested": 2, "tested": 1}
 
 # Input: board (Board), direct (dict[str, list])
 # Output: dict[str, dict[str, Any]]
-# Processing: Results for a fill overlay: each block's own state, and on containers the worst state inside them
-#             with the number of blocks inside that need attention.
+# Processing: Results for a fill overlay: each block's own state, and on containers the worst state inside them with the number of blocks inside that need attention.
 # Changed by: Claude Code
 # Date: 2026-11-22
 def fill_results(board: Any, direct: dict[str, list[dict[str, Any]]]) -> dict[str, dict[str, Any]]:
@@ -475,8 +474,7 @@ def fill_results(board: Any, direct: dict[str, list[dict[str, Any]]]) -> dict[st
 
 # Input: item (dict), origin (str)
 # Output: tuple
-# Processing: The place a result is about (file and line, an endpoint, or the block it was found on), so one
-#             place counts once on a folder even when it is on a function and its file or matches two rules.
+# Processing: The place a result is about (file and line, an endpoint, or the block it was found on), so one place counts once on a folder even when it is on a function and its file or matches two rules.
 # Changed by: Claude Code
 # Date: 2026-11-22
 def _key(item: dict[str, Any], origin: str) -> tuple:

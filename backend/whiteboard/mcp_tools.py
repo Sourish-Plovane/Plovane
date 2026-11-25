@@ -21,9 +21,13 @@ Where the calls go:
 default is the main one, whiteboard.plo.
 
 Either way the caller is an agent, never the person: ``PLOVANE_AGENT`` names
-it, and it defaults to ``claude``. An agent a person has not added and granted
-access to can do nothing. Commands that change access (``/agent grant`` and
-friends) are never available through MCP: only a person runs them.
+it, and it defaults to ``claude``. Commands that change access (``/agent grant``
+and friends) are never available through MCP: only a person runs them.
+
+Outside AIs only read the board. Every change goes through the whiteboard AI
+(:mod:`backend.whiteboard.board_ai`): ``plovane_ask(message)`` sends it a
+request in plain English, it changes the board and replies with what it did.
+The read tools list only actions that change nothing.
 """
 
 from __future__ import annotations
@@ -33,7 +37,7 @@ from collections import defaultdict
 from typing import Any
 
 from backend.whiteboard.engine import Workspace
-from backend.whiteboard.registry import OPERATIONS
+from backend.whiteboard.registry import OPERATIONS, changes_board
 
 _workspace: Workspace | None = None
 DEFAULT_AGENT = "claude"
@@ -107,15 +111,15 @@ def action_name(group: str, op: str) -> str:
 
 # Input: none
 # Output: dict[str, dict[str, str]]
-# Processing: Every grouped tool with its actions mapped to operations.
-# Changed by: Sourish
-# Date: 2026-10-22
+# Processing: Every grouped tool with its read-only actions mapped to operations (changes go through plovane_ask).
+# Changed by: Claude Code
+# Date: 2026-11-25
 def groups() -> dict[str, dict[str, str]]:
     import backend.whiteboard.ops  # noqa: F401  (registers operations)
 
     found: dict[str, dict[str, str]] = defaultdict(dict)
     for spec in OPERATIONS.values():
-        if spec.agents and spec.group != "plovane_sketch":  # registered on its own, as plovane_sketch(script)
+        if spec.agents and not changes_board(spec) and spec.group != "plovane_sketch":
             found[spec.group][action_name(spec.group, spec.name)] = spec.name
     return dict(found)
 
@@ -128,9 +132,8 @@ def groups() -> dict[str, dict[str, str]]:
 def describe(group: str, actions: dict[str, str]) -> str:
     import inspect
 
-    lines = [f"Plovane whiteboard: {group.removeprefix('plovane_')} operations. "
-             "Pass action and args; destructive actions answer needs_confirmation until confirm=true; "
-             "dry_run=true previews. Actions:"]
+    lines = [f"Plovane whiteboard: read {group.removeprefix('plovane_')}. Pass action and args. "
+             "To change the board, use plovane_ask. Actions:"]
     for action, op in sorted(actions.items()):
         spec = OPERATIONS[op]
         params = [p for p in inspect.signature(spec.handler).parameters if p != "ctx"]
@@ -140,14 +143,17 @@ def describe(group: str, actions: dict[str, str]) -> str:
 
 # Input: op (str), args (dict | None), confirm (bool), dry_run (bool), command (str | None)
 # Output: dict[str, Any]
-# Processing: Run one operation as the configured agent: on the running server when there is one, else here.
+# Processing: Run one read-only operation as the configured agent: on the running server when there is one, else here.
 # Changed by: Claude Code
-# Date: 2026-11-09
+# Date: 2026-11-25
 def run(op: str, args: dict | None, confirm: bool, dry_run: bool, command: str | None = None) -> dict[str, Any]:
     spec = OPERATIONS.get(op)
     if spec is not None and not spec.agents:
         return {"ok": False, "data": None, "error": {"code": "FORBIDDEN",
                 "message": f"{spec.command} changes access; a person runs it in the whiteboard"}}
+    if spec is not None and changes_board(spec):
+        return {"ok": False, "data": None, "error": {"code": "FORBIDDEN",
+                "message": f"{spec.command} changes the board; ask the whiteboard AI with plovane_ask"}}
     if command is not None:
         sent = remote("command", {"command": command, "confirm": confirm, "dry_run": dry_run})
     else:
@@ -162,53 +168,55 @@ def run(op: str, args: dict | None, confirm: bool, dry_run: bool, command: str |
         ws.current_command = None
 
 
+# Input: message (str)
+# Output: dict[str, Any]
+# Processing: Send a request to the whiteboard AI: on the running server when there is one, else here.
+# Changed by: Claude Code
+# Date: 2026-11-25
+def ask(message: str) -> dict[str, Any]:
+    sent = remote("ask", {"message": message})
+    if sent is not None:
+        return sent
+    from backend.whiteboard import board_ai, llm_agent
+
+    try:
+        result = board_ai.ask(workspace(), message, requester=agent_name())
+    except llm_agent.AgentError as exc:
+        return {"ok": False, "data": None, "error": {"code": "LLM_UNAVAILABLE", "message": str(exc)}}
+    return {"ok": True, "data": result, "error": None}
+
+
 # Input: mcp (MCPServer)
 # Output: None
-# Processing: Register plovane_sketch and plovane_undo, the two tools an AI needs for drawing.
-# Changed by: Claude
-# Date: 2026-11-10
-def register_sketch(mcp: Any) -> None:
-    from backend.whiteboard.ops.sketch import HELP
-
-    # Input: script (str)
+# Processing: Register plovane_ask, the one tool an outside AI uses to change the whiteboard.
+# Changed by: Claude Code
+# Date: 2026-11-25
+def register_ask(mcp: Any) -> None:
+    # Input: message (str)
     # Output: dict[str, Any]
-    # Processing: Run sketch lines on the services layer.
-    # Changed by: Claude
-    # Date: 2026-11-10
-    def plovane_sketch(script: str) -> dict[str, Any]:
-        return run("sketch", {"script": script}, False, False)
+    # Processing: Ask the whiteboard AI for a board change.
+    # Changed by: Claude Code
+    # Date: 2026-11-25
+    def plovane_ask(message: str) -> dict[str, Any]:
+        """Ask the Plovane whiteboard AI to change the whiteboard, in plain English, e.g.
+        "show how a checkout request flows from the web app to Stripe" or "explain
+        src/billing/charge.py as blocks". The whiteboard AI owns the board: it decides the
+        change, makes it, and replies with a summary and the commands it ran. It never edits
+        project code. Use the read tools (plovane_command with a read command, plovane_board,
+        ...) to look at the board first."""
+        return ask(message)
 
-    plovane_sketch.__doc__ = (
-        "Draw on the Plovane whiteboard with short lines, one change per line (or separated by ';'). "
-        "Use this for every drawing change; it writes no code and makes no stray blocks. "
-        f"{HELP}. Kinds: service, database (or db), queue, external, server. Names can be comma lists "
-        "('orders, payments -> postgres'); arrow types are picked for you. Repeating a line is harmless. "
-        "An unknown name is refused, so add blocks before linking them. Everything is laid out "
-        "automatically. 'show' lists what is on the board. All lines apply together or none do.")
-
-    # Input: none
-    # Output: dict[str, Any]
-    # Processing: Undo the last whiteboard change.
-    # Changed by: Claude
-    # Date: 2026-11-10
-    def plovane_undo() -> dict[str, Any]:
-        """Undo the last change on the Plovane whiteboard."""
-        return run("history.undo", {}, False, False)
-
-    mcp.tool()(plovane_sketch)
-    mcp.tool()(plovane_undo)
+    mcp.tool()(plovane_ask)
 
 
 # Input: mcp (MCPServer)
 # Output: list[str]
-# Processing: Register the grouped whiteboard tools and plovane_command on a server.
-# Changed by: Sourish
-# Date: 2026-10-22
+# Processing: Register plovane_ask, the grouped read-only whiteboard tools and plovane_command on a server.
+# Changed by: Claude Code
+# Date: 2026-11-25
 def register(mcp: Any) -> list[str]:
-    register_sketch(mcp)
-    if os.environ.get("PLOVANE_MCP_TOOLS", "all").lower() == "sketch":
-        return ["plovane_sketch", "plovane_undo"]
-    names = ["plovane_sketch", "plovane_undo"]
+    register_ask(mcp)
+    names = ["plovane_ask"]
     for group, actions in sorted(groups().items()):
         # Input: actions (dict[str, str]), group (str)
         # Output: Callable
@@ -240,9 +248,9 @@ def register(mcp: Any) -> list[str]:
     # Changed by: Sourish
     # Date: 2026-10-22
     def plovane_command(command: str, confirm: bool = False, dry_run: bool = False) -> dict[str, Any]:
-        """Run a whiteboard slash command exactly as a person types it, e.g.
-        '/block add service "auth" --layer 1' or a /batch with one command per line.
-        The full list is in whiteboard/README.md."""
+        """Run a read-only whiteboard slash command exactly as a person types it, e.g.
+        '/overlay list' or '/explain src/app.py'. Commands that change the board are
+        refused: ask the whiteboard AI with plovane_ask instead."""
         from backend.whiteboard.commands import parse
         from backend.whiteboard.registry import OpError
 

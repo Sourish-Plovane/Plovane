@@ -5,10 +5,31 @@ by running the same slash commands. Each visual change also changes the
 project itself: folders, files, imports, route handlers and client calls.
 Every change can be undone and is logged.
 
-## Sketch: short lines for AI agents
+## The whiteboard AI owns the board
 
-An AI should draw with `/sketch` (MCP: `plovane_sketch(script)`), not with the
-detailed commands below. One plain line per change, or several separated by `;`:
+Plovane's own whiteboard AI (`board_ai.py`, agent name `plovane`) builds and
+changes the board. Outside AIs (Claude Code, Cursor, any MCP client) only read
+it: when they want a change they ask in plain English, and the whiteboard AI
+decides the change, makes it with the commands below, and replies with what it
+did. It changes the board only; the engine refuses it any change to a project
+file.
+
+- MCP: `plovane_ask(message)`, plus read-only tools and `plovane_command` for read commands.
+- HTTP: `POST /api/v1/whiteboard/ask {"message": ...}` (person or agent),
+  `POST /api/v1/whiteboard/build` (person only).
+- An outside agent's direct board change over HTTP is refused (403) with a pointer to `/ask`.
+
+Building is hybrid: `/project import` maps folders, files, import arrows,
+summaries and routes from the code for free, then the whiteboard AI organises
+it into services, outside systems and labelled arrows on a lightweight model.
+`PLOVANE_BOARD_AI_PROVIDER` and `PLOVANE_BOARD_AI_MODEL` pick it (default: the
+first provider with a key; `claude-haiku-5-5` for Claude). With no key, build
+does the import only.
+
+## Sketch: short lines for drawing
+
+The whiteboard AI draws with `/sketch`, not with the detailed commands below.
+One plain line per change, or several separated by `;`:
 
 ```
 service orders, payments
@@ -28,8 +49,7 @@ no files and generates no endpoints, so nothing shows up on other layers. Names
 are matched to existing blocks, so repeating a line changes nothing, and linking
 a name that doesn't exist is refused with the closest match. The services layer
 is laid out in columns after every change. All lines apply together, as one undo
-step. Start the MCP server with `PLOVANE_MCP_TOOLS=sketch` to give an agent only
-`plovane_sketch` and `plovane_undo`.
+step.
 
 ## Layout
 
@@ -39,6 +59,7 @@ whiteboard/
 ├── __init__.py
 ├── model.py         board data: layers, blocks, arrows, endpoints, presets, templates, agents
 ├── registry.py      the table of operations, plus argument helpers
+├── board_ai.py      the whiteboard AI: builds the board, takes requests from people and outside AIs
 ├── engine.py        runs operations: transactions, undo/redo, confirmation, dry-run, agent permissions
 ├── store.py         reads and writes .plovane/ and journals every file change
 ├── commands.py      parses "/block add ..." into an operation

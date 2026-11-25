@@ -113,8 +113,11 @@ def test_whole_file_summary_comes_first_in_the_instructions():
 
     prompt = prompt_for("src/billing.py", BILLING, 3)
     assert prompt.index("what the whole file does") < prompt.index("Then group")
-    server = (__import__("pathlib").Path(__file__).resolve().parents[2] / "mcp_server" / "server.py").read_text()
-    assert "summary first" in server and 'instructions=INSTRUCTIONS' in server
+    root = __import__("pathlib").Path(__file__).resolve().parents[2]
+    server = (root / "mcp_server" / "server.py").read_text()
+    assert "plovane_ask" in server and 'instructions=INSTRUCTIONS' in server
+    from backend.whiteboard.board_ai import SYSTEM  # the whiteboard AI writes the blocks now
+    assert "summary first" in SYSTEM
 
 
 # Input: tmp_path

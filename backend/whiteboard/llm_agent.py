@@ -361,16 +361,17 @@ def _chat_turn(provider: str, model: str, messages: list[dict[str, Any]], key: s
     return reply
 
 
-# Input: task (str), provider (str), client (Any), model (str | None), max_steps (int), on_step (Callable | None), stop (threading.Event | None)
+# Input: task (str), provider (str), client (Any), model (str | None), max_steps (int), on_step (Callable | None), stop (threading.Event | None), instructions (str), system (str | None)
 # Output: dict[str, Any]
-# Processing: Let the model call whiteboard tools until it answers in text, reporting each step.
+# Processing: Let the model call whiteboard tools until it answers in text, reporting each step; system replaces the default prompt.
 # Changed by: Claude Code
-# Date: 2026-11-09
+# Date: 2026-11-25
 def run(task: str, *, provider: str, client: Any, model: str | None = None, max_steps: int = 30,
         on_step: Callable[[dict[str, Any]], None] | None = None,
-        stop: threading.Event | None = None, instructions: str = "") -> dict[str, Any]:
+        stop: threading.Event | None = None, instructions: str = "",
+        system: str | None = None) -> dict[str, Any]:
     provider = canonical(provider)
-    system = SYSTEM + instructions
+    system = (system or SYSTEM) + instructions
     key = api_key(provider)
     if not key:
         raise AgentError(f"no API key for {provider}: set {KEY_NAMES[provider]} or run "

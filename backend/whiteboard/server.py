@@ -53,11 +53,11 @@ from typing import Any
 
 from flask import Flask, Response, g, jsonify, request, send_from_directory, stream_with_context
 
-from backend.whiteboard import llm_agent
+from backend.whiteboard import board_ai, llm_agent
 from backend.whiteboard.ops.agents import instructions_for
 from backend.whiteboard.agent_chat import AgentChat
 from backend.whiteboard.auth import Auth, new_token, remove_server_file, write_server_file
-from backend.whiteboard.engine import USER, Workspace, board_name
+from backend.whiteboard.engine import BOARD_AI, USER, Workspace, board_name
 from backend.whiteboard.registry import OpError
 from backend.whiteboard.store import MAIN_BOARD
 from backend.whiteboard.events import EventBus
@@ -546,6 +546,20 @@ def create_app(workspace: Workspace, chat: AgentChat | None = None, *, person_to
                 prompt_plans.pop(plan_id, None)
         return send(reply)
 
+    # Input: op_name (str)
+    # Output: tuple | None
+    # Processing: Refuse a board change from an outside agent: only the person and the whiteboard AI change the board; agents ask.
+    # Changed by: Claude Code
+    # Date: 2026-11-25
+    def ask_only(op_name: str):
+        from backend.whiteboard.registry import OPERATIONS, changes_board
+
+        spec = OPERATIONS.get(op_name)
+        if actor() in (USER, BOARD_AI) or spec is None or not changes_board(spec):
+            return None
+        return fail("FORBIDDEN", f"{spec.command} changes the board; agents ask the whiteboard AI instead "
+                                 "(plovane_ask over MCP, or POST /api/v1/whiteboard/ask {\"message\": ...})")
+
     # Input: none
     # Output: tuple
     # Processing: Run a slash command. A library operation first waits for the models outside the lock.
@@ -556,6 +570,15 @@ def create_app(workspace: Workspace, chat: AgentChat | None = None, *, person_to
         raw = body()
         if not isinstance(raw.get("command"), str):
             return send({"ok": False, "data": None, "error": {"code": "INVALID_ARGS", "message": "command is required"}})
+        from backend.whiteboard.commands import parse
+        from backend.whiteboard.registry import OpError as _OpError
+
+        try:
+            denied = ask_only(parse(raw["command"])[0])
+        except _OpError:
+            denied = None  # the engine reports the parse error itself
+        if denied:
+            return denied
         target = current()
         library_ready(workspace, command=raw["command"])  # outside the lock: the board stays responsive
         with lock:
@@ -578,6 +601,9 @@ def create_app(workspace: Workspace, chat: AgentChat | None = None, *, person_to
         if not isinstance(raw.get("op"), str) or not isinstance(raw.get("args", {}), dict):
             return send({"ok": False, "data": None, "error": {"code": "INVALID_ARGS",
                                                              "message": "op (string) and args (object) are required"}})
+        denied = ask_only(raw["op"])
+        if denied:
+            return denied
         target = current()
         library_ready(workspace, op=raw["op"], args=raw.get("args") or {})  # outside the lock: the board stays responsive
         with lock:
@@ -605,6 +631,9 @@ def create_app(workspace: Workspace, chat: AgentChat | None = None, *, person_to
     # Date: 2026-10-22
     @app.post("/api/v1/whiteboard/undo")
     def undo():
+        denied = ask_only("history.undo")
+        if denied:
+            return denied
         target = current()
         with lock:
             return send(target.execute("history.undo", actor=actor()))
@@ -616,6 +645,9 @@ def create_app(workspace: Workspace, chat: AgentChat | None = None, *, person_to
     # Date: 2026-10-22
     @app.post("/api/v1/whiteboard/redo")
     def redo():
+        denied = ask_only("history.redo")
+        if denied:
+            return denied
         target = current()
         with lock:
             return send(target.execute("history.redo", actor=actor()))
@@ -737,6 +769,63 @@ def create_app(workspace: Workspace, chat: AgentChat | None = None, *, person_to
         except llm_agent.AgentError as exc:
             return fail("INVALID_ARGS", str(exc))
         return send({"ok": True, "data": {"provider": provider, "configured": True}, "error": None})
+
+    # Input: none
+    # Output: tuple
+    # Processing: Anyone (the person or an agent) asks the whiteboard AI for a board change; waits for its summary.
+    # Changed by: Claude Code
+    # Date: 2026-11-25
+    @app.post("/api/v1/whiteboard/ask")
+    def ask_board_ai():
+        raw = body()
+        message = raw.get("message")
+        if not isinstance(message, str) or not message.strip():
+            return fail("INVALID_ARGS", "message is required")
+        requester = actor()
+        target = current()
+
+        # Input: event (dict[str, Any])
+        # Output: None
+        # Processing: Publish one of the whiteboard AI's steps live.
+        # Changed by: Claude Code
+        # Date: 2026-11-25
+        def on_step(event: dict[str, Any]) -> None:
+            bus.publish({"at": now(), "kind": "agent", "actor": BOARD_AI, "requester": requester, **event})
+
+        try:
+            result = board_ai.ask(target, message, requester=requester, lock=lock,
+                                  provider=raw.get("provider"), model=raw.get("model"), on_step=on_step)
+        except llm_agent.AgentError as exc:
+            return fail("LLM_UNAVAILABLE", str(exc))
+        return send({"ok": True, "data": result, "error": None})
+
+    # Input: none
+    # Output: tuple
+    # Processing: Person only: build the board from the project (import from the code, then the whiteboard AI organises it).
+    # Changed by: Claude Code
+    # Date: 2026-11-25
+    @app.post("/api/v1/whiteboard/build")
+    def build_board():
+        denied = person_only()
+        if denied:
+            return denied
+        raw = body()
+        target = current()
+
+        # Input: event (dict[str, Any])
+        # Output: None
+        # Processing: Publish one of the whiteboard AI's build steps live.
+        # Changed by: Claude Code
+        # Date: 2026-11-25
+        def on_step(event: dict[str, Any]) -> None:
+            bus.publish({"at": now(), "kind": "agent", "actor": BOARD_AI, "requester": "build", **event})
+
+        try:
+            result = board_ai.build(target, lock=lock, provider=raw.get("provider"), model=raw.get("model"),
+                                    on_step=on_step, organise=raw.get("organise", True) is not False)
+        except llm_agent.AgentError as exc:
+            return fail("LLM_UNAVAILABLE", str(exc))
+        return send({"ok": True, "data": result, "error": None})
 
     # Input: none
     # Output: tuple

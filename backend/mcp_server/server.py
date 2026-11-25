@@ -27,15 +27,11 @@ Plovane is a zoomable whiteboard of the user's project. People zoom from folders
 then into blocks explaining what each part of the code does, then into the code itself. Many
 of them are not programmers.
 
-When asked to explain code, or to make blocks for a file, call plovane_compile with action
-"blocks_generate" and args {"target": "<file>", "summary": ..., "blocks": [...]}:
-1. summary first: one or two plain sentences on what the whole file does and why it exists.
-   It is the first thing shown when someone zooms into the file.
-2. Then blocks, top to bottom: each part named by what it does in 2 to 6 plain words (not the
-   function name), a one-sentence summary of what it does, and "lines": [start, end] from the
-   real file. Split a long part that does several things into children inside its lines.
-Read the file first so the line numbers are right. Use plovane_sketch for drawing services and
-arrows, and plovane_undo to take back a change."""
+The whiteboard is built and changed by Plovane's own whiteboard AI, not by you. You can read
+the board with the read tools. When you want the board changed (explain a file as blocks,
+draw a flow, add a service, undo something), call plovane_ask with a plain-English request,
+e.g. "explain src/billing/charge.py as blocks" or "show how checkout reaches Stripe". It makes
+the change and replies with what it did. It never edits project code; you still do that."""
 
 mcp = MCPServer("plovane", instructions=INSTRUCTIONS)
 

@@ -79,12 +79,14 @@ def test_http_lists_every_command_for_the_frontend(client):
 # Changed by: Sourish
 # Date: 2026-10-22
 def test_mcp_groups_hide_people_only_commands():
+    from backend.whiteboard.registry import OPERATIONS, changes_board
+
     groups = mcp_tools.groups()
-    assert len(groups) == 16
+    assert len(groups) == 13
     assert set(groups["plovane_agent"]) == {"show", "log", "working", "done", "activity"}  # never add/grant/revoke
-    assert groups["plovane_overlay"]["on"] == "overlay.on" and groups["plovane_overlay"]["role_use"] == "role.use"
-    assert groups["plovane_block"]["add"] == "block.add"
-    assert groups["plovane_style"]["preset_define"] == "preset.define"
+    assert groups["plovane_overlay"] == {"list": "overlay.list", "role_list": "role.list"}
+    assert "add" not in groups["plovane_block"] and "undo" not in groups["plovane_history"]
+    assert not any(changes_board(OPERATIONS[op]) for actions in groups.values() for op in actions.values())
 
 
 # Input: tmp_path, monkeypatch
@@ -100,19 +102,18 @@ def test_mcp_tools_run_operations(tmp_path, monkeypatch):
     monkeypatch.delenv("PLOVANE_AGENT", raising=False)
     monkeypatch.delenv("PLOVANE_URL", raising=False)
     try:
-        denied = asyncio.run(mcp.call_tool("plovane_project", {"action": "file_create", "args": {"path": "y.py"}}))
-        assert "unknown agent" in json.dumps(str(denied)) and not (tmp_path / "y.py").exists()
         ws.execute("agent.add", {"name": "claude"})
         ws.execute("agent.grant", {"agent": "claude", "path": ".", "mode": "read-write"}, confirm=True)
-        result = asyncio.run(mcp.call_tool("plovane_project", {"action": "file_create", "args": {"path": "x.py"}}))
-        assert (tmp_path / "x.py").exists()
+        refused = asyncio.run(mcp.call_tool("plovane_command", {"command": "/file create x.py"}))
+        assert "plovane_ask" in json.dumps(str(refused)) and not (tmp_path / "x.py").exists()
+        result = asyncio.run(mcp.call_tool("plovane_command", {"command": "/overlay list"}))
+        assert "overlays" in json.dumps(str(result))
         text = asyncio.run(mcp.call_tool("plovane_command", {"command": "/agent grant me . --mode read"}))
         assert "FORBIDDEN" in json.dumps(str(text))
-        wrong = asyncio.run(mcp.call_tool("plovane_block", {"action": "fly"}))
+        wrong = asyncio.run(mcp.call_tool("plovane_block", {"action": "add"}))
         assert "UNKNOWN_ACTION" in json.dumps(str(wrong))
     finally:
         mcp_tools.set_workspace(None)
-    assert result is not None
 
 
 # Input: none

@@ -91,17 +91,18 @@ def test_page_carries_person_token(secured):
 def test_agent_token_is_held_to_its_grants(secured, tmp_path):
     _, client, ws = secured
     (tmp_path / "src").mkdir()
-    (tmp_path / "docs").mkdir()
     issued = client.post("/api/v1/whiteboard/agents/claude/token", json={"access": "read-write", "path": "src"},
                          headers=bearer(PERSON)).get_json()
     assert issued["ok"], issued
     token = issued["data"]["token"]
     assert token.startswith("plv_") and token not in (tmp_path / ".plovane" / "agent_tokens.json").read_text()
 
-    inside = client.post("/api/v1/whiteboard/command", json={"command": "/file create src/pay.py"}, headers=bearer(token))
-    assert inside.get_json()["ok"], inside.get_json()
-    outside = client.post("/api/v1/whiteboard/command", json={"command": "/file create docs/x.md"}, headers=bearer(token))
-    assert outside.status_code == 403
+    # Outside agents read the board; every change goes through the whiteboard AI.
+    write = client.post("/api/v1/whiteboard/command", json={"command": "/file create src/pay.py"}, headers=bearer(token))
+    assert write.status_code == 403 and "whiteboard AI" in write.get_json()["error"]["message"]
+    assert client.post("/api/v1/whiteboard/undo", headers=bearer(token)).status_code == 403
+    read = client.post("/api/v1/whiteboard/command", json={"command": "/overlay list"}, headers=bearer(token))
+    assert read.get_json()["ok"], read.get_json()
     escalate = client.post("/api/v1/whiteboard/command", json={"command": "/agent grant claude . --mode read-write",
                                                                "confirm": True}, headers=bearer(token))
     assert escalate.status_code == 403
@@ -277,7 +278,19 @@ def test_mcp_tools_forward_to_running_server(tmp_path, monkeypatch):
     import asyncio
 
     from backend.mcp_server.server import mcp
+    from backend.whiteboard import llm_agent
 
+    # Input: task (str), client (Any), **_ (Any)
+    # Output: dict
+    # Processing: Stand in for the whiteboard AI's model: add the service it was asked for.
+    # Changed by: Claude Code
+    # Date: 2026-11-25
+    def fake_run(task, *, client, **_):
+        assert "claude" in task
+        client.run_command("/block add service orders")
+        return {"status": "done", "summary": "added orders", "commands": []}
+
+    monkeypatch.setattr(llm_agent, "run", fake_run)
     ws = project(tmp_path)
     app = create_app(ws, person_token=PERSON)
     server = make_server("127.0.0.1", 0, app, threaded=True)
@@ -290,10 +303,11 @@ def test_mcp_tools_forward_to_running_server(tmp_path, monkeypatch):
         monkeypatch.setenv("PLOVANE_URL", url)
         monkeypatch.setenv("PLOVANE_AGENT_TOKEN", token)
         mcp_tools.set_workspace(None)
-        asyncio.run(mcp.call_tool("plovane_command", {"command": "/block add service orders"}))
+        asyncio.run(mcp.call_tool("plovane_ask", {"message": "add an orders service"}))
         assert "orders" in ws.board.blocks
         events = app.config["plovane_bus"].since(0)
         change = next(e for e in events if e.get("op") == "block.add")
-        assert change["actor"] == "claude" and change["command"] == "/block add service orders"
+        assert change["actor"] == "plovane"
     finally:
         server.shutdown()
+

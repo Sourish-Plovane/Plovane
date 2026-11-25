@@ -54,14 +54,14 @@ def host_of(url: str) -> str | None:
     return host
 
 
+GENERIC = {"api", "www", "hooks", "webhook", "webhooks", "edge", "svc", "services", "cdn", "assets", "data", "us", "eu"}
+
+
 # Input: host (str)
 # Output: str
 # Processing: A short, friendly block name for an API host (api.stripe.com → stripe, api.openai.com → openai).
 # Changed by: Claude Code
 # Date: 2026-11-24
-GENERIC = {"api", "www", "hooks", "webhook", "webhooks", "edge", "svc", "services", "cdn", "assets", "data", "us", "eu"}
-
-
 def pretty_name(host: str) -> str:
     parts = host.split(".")
     while len(parts) > 1 and parts[0] in GENERIC:
