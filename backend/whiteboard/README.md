@@ -654,6 +654,7 @@ command answers `needs_confirmation` first.
 | `/endpoint mock` | `endpoint.mock` | `plovane_endpoint` |  | Creates a mock response so callers can be built before the endpoint exists. | `/endpoint mock payments:POST /charge --response sample` |
 | `/endpoint check` | `endpoint.check` | `plovane_endpoint` |  | Checks every API arrow: caller request matches endpoint schema; mismatches turn red. | `/endpoint check all` |
 | `/endpoint scan` | `endpoint.scan` | `plovane_endpoint` |  | Finds the app's API routes and the code calling them; adds endpoints and API arrows (no AI). | `/endpoint scan` |
+| `/outside scan` | `outside.scan` | `plovane_endpoint` |  | Finds the outside APIs the code calls; adds external blocks and arrows (no AI). | `/outside scan` |
 | `/endpoint import` | `endpoint.import` | `plovane_endpoint` |  | Creates endpoint blocks from an OpenAPI spec. | `/endpoint import openapi.yaml` |
 | `/endpoint export` | `endpoint.export` | `plovane_endpoint` |  | Exports a service's endpoints as an OpenAPI spec. | `/endpoint export payments` |
 | `/api external add` | `external.add` | `plovane_endpoint` |  | Adds a third-party API (such as a payment provider) as an external block with its endpoints. | `/api external add stripe --spec stripe-openapi.yaml` |

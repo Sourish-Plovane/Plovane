@@ -21,10 +21,10 @@ from whiteboard_helpers import fails, ok, project
 def test_every_sheet_command_is_parsed_and_registered():
     import backend.whiteboard.ops  # noqa: F401
 
-    assert len(COMMANDS) == 139
+    assert len(COMMANDS) == 140
     assert {c.op for c in COMMANDS} == set(OPERATIONS)
     tools = {spec.tool for spec in OPERATIONS.values()}
-    assert len(tools) == 135  # the sheet's 89 MCP tools plus the ones added since (/board, /overlay, /role, /sketch, /files, /agent configure, /library, whiteboard files, live view, readable code, purpose-built whiteboards, route scan)
+    assert len(tools) == 136  # the sheet's 89 MCP tools plus the ones added since (/board, /overlay, /role, /sketch, /files, /agent configure, /library, whiteboard files, live view, readable code, purpose-built whiteboards, route scan)
     # and /blocks generate
 
 
