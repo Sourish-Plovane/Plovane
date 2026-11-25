@@ -16,22 +16,40 @@ import arrows, one-line summaries and API routes from the code for free;
 then one short tool loop on a lightweight model (Haiku 5.5 by default)
 organises it: services, outside systems, arrow labels.
 
+It also watches the project. When files change outside the whiteboard (Claude
+Code or a person editing in their editor), :class:`ProjectWatcher` waits for
+the edits to settle and refreshes the board from the code (``/project refresh``),
+with no AI: the board follows the code as normal. Changes the whiteboard itself
+wrote are ignored.
+
     PLOVANE_BOARD_AI_PROVIDER   anthropic | deepseek | openai (default: the first with a key)
     PLOVANE_BOARD_AI_MODEL      model id (default: claude-haiku-5-5 for Claude)
+    PLOVANE_BOARD_AI_WATCH      0 to stop watching the project
 """
 
 from __future__ import annotations
 
+import difflib
+import json
 import os
 import threading
+import time
+from pathlib import Path
 from typing import Any, Callable
 
-from backend.whiteboard import llm_agent
+from backend.whiteboard import codegen, llm_agent
 from backend.whiteboard.engine import BOARD_AI, USER
+from backend.whiteboard.store import SKIP_DIRS
 
 DEFAULT_MODELS = {"anthropic": "claude-haiku-5-5", "deepseek": "deepseek-chat", "openai": "gpt-5-mini"}
 MAX_ASK_STEPS = 20
 MAX_BUILD_STEPS = 25
+WATCHER = "project watcher"
+WATCH_SECONDS = 1.0
+QUIET_SECONDS = 1.5
+"""Wait this long after the last edit before redrawing, so a burst of saves is one update."""
+MAX_TEXT = 200_000
+DIFF_LIMIT = 6000
 
 SYSTEM = """You are the Plovane whiteboard AI. You own this project's whiteboard: a live,
 zoomable map of the code that people (many of them not programmers) read to understand it.
@@ -140,7 +158,8 @@ def ask(ws: Any, message: str, *, requester: str = USER, lock: Any = None, provi
         ensure_board_ai(ws)
     name, chosen_model = provider_and_model(provider, model)
     client = llm_agent.LocalClient(ws, lock, BOARD_AI, lambda: board_reply(ws), commands_reply)
-    who = "the person" if requester == USER else f"the AI agent {requester!r}"
+    who = {USER: "the person", WATCHER: "the project watcher (files changed outside the whiteboard)",
+           BOARD_AI: "Plovane"}.get(requester, f"the AI agent {requester!r}")
     result = llm_agent.run(f"Request from {who}:\n{text}", provider=name, client=client, model=chosen_model,
                            max_steps=max_steps, on_step=on_step, stop=stop, system=SYSTEM)
     return {**result, "requester": requester}
@@ -173,3 +192,187 @@ def build(ws: Any, *, lock: Any = None, provider: str | None = None, model: str 
     except llm_agent.AgentError as exc:  # the import still stands; say why organising did not happen
         out["note"] = f"organising failed: {exc}"
     return out
+
+
+# Input: root (Path)
+# Output: dict[str, tuple[int, int]]
+# Processing: Every source file in the project with its modification time and size.
+# Changed by: Claude Code
+# Date: 2026-11-25
+def source_stamps(root: Path) -> dict[str, tuple[int, int]]:
+    out: dict[str, tuple[int, int]] = {}
+    for folder, dirs, files in os.walk(root):
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS and not d.startswith(".")]
+        for name in files:
+            full = Path(folder) / name
+            rel = full.relative_to(root).as_posix()
+            if not codegen.language_of(rel):
+                continue
+            try:
+                stat = full.stat()
+            except OSError:
+                continue
+            out[rel] = (stat.st_mtime_ns, stat.st_size)
+    return out
+
+
+# Input: root (Path), rel (str)
+# Output: str | None
+# Processing: A source file's text for diffs, or None when it is gone or too big.
+# Changed by: Claude Code
+# Date: 2026-11-25
+def read_text(root: Path, rel: str) -> str | None:
+    try:
+        path = root / rel
+        return path.read_text(encoding="utf-8", errors="replace") if path.stat().st_size <= MAX_TEXT else None
+    except OSError:
+        return None
+
+
+class ProjectWatcher:
+    """Notices files changed outside the whiteboard and brings the board up to date from the code."""
+
+    # Input: ws (Workspace), lock (threading.RLock), publish (Callable | None), quiet (float)
+    # Output: None
+    # Processing: Take a first picture of the project's source files and listen for the board's own file writes.
+    # Changed by: Claude Code
+    # Date: 2026-11-25
+    def __init__(self, ws: Any, lock: Any, *, publish: Callable[[dict[str, Any]], None] | None = None,
+                 quiet: float = QUIET_SECONDS) -> None:
+        self.ws, self.lock, self.quiet = ws, lock, quiet
+        self.publish = publish or (lambda _event: None)
+        self.stamps = source_stamps(ws.root)
+        self.texts = {rel: read_text(ws.root, rel) for rel in self.stamps}
+        self.pending: set[str] = set()
+        self.last_change = 0.0
+        self.own: dict[str, tuple[int, int] | None] = {}
+        self.stopped = threading.Event()
+        ws.listeners.append(self.on_event)
+
+    # Input: event (dict[str, Any])
+    # Output: None
+    # Processing: Remember files a whiteboard operation just wrote, so the watcher does not treat them as outside edits.
+    # Changed by: Claude Code
+    # Date: 2026-11-25
+    def on_event(self, event: dict[str, Any]) -> None:
+        if event.get("kind") != "change":
+            return
+        for rel in (event.get("changes") or {}).get("files") or []:
+            self.own[rel] = self.stamp(rel)
+
+    # Input: rel (str)
+    # Output: tuple[int, int] | None
+    # Processing: One file's modification time and size, or None when it is gone.
+    # Changed by: Claude Code
+    # Date: 2026-11-25
+    def stamp(self, rel: str) -> tuple[int, int] | None:
+        try:
+            stat = (self.ws.root / rel).stat()
+        except OSError:
+            return None
+        return (stat.st_mtime_ns, stat.st_size)
+
+    # Input: rel (str), now_stamp (tuple | None)
+    # Output: bool
+    # Processing: Whether a file's current state is one the whiteboard wrote itself; forgets the note once matched.
+    # Changed by: Claude Code
+    # Date: 2026-11-25
+    def is_own(self, rel: str, now_stamp: tuple[int, int] | None) -> bool:
+        if rel in self.own and self.own[rel] == now_stamp:
+            self.own.pop(rel)
+            return True
+        return False
+
+    # Input: now (float | None)
+    # Output: dict[str, Any] | None
+    # Processing: Look for changed source files; once edits have been quiet for a moment, update the board and return what happened.
+    # Changed by: Claude Code
+    # Date: 2026-11-25
+    def poll(self, now: float | None = None) -> dict[str, Any] | None:
+        now = time.monotonic() if now is None else now
+        current = source_stamps(self.ws.root)
+        changed = {rel for rel in set(current) | set(self.stamps) if current.get(rel) != self.stamps.get(rel)}
+        for rel in changed:
+            if self.is_own(rel, current.get(rel)):
+                self.texts[rel] = read_text(self.ws.root, rel)
+            else:
+                self.pending.add(rel)
+                self.last_change = now
+        self.stamps = current
+        if not self.pending or now - self.last_change < self.quiet:
+            return None
+        paths, self.pending = sorted(self.pending), set()
+        return self.update(paths)
+
+    # Input: paths (list[str])
+    # Output: dict[str, Any]
+    # Processing: Refresh the board from the code for these files (no AI) and report what changed, with a short diff.
+    # Changed by: Claude Code
+    # Date: 2026-11-25
+    def update(self, paths: list[str]) -> dict[str, Any]:
+        root = self.ws.root
+        added = [p for p in paths if self.texts.get(p) is None and (root / p).is_file()]
+        deleted = [p for p in paths if not (root / p).is_file()]
+        edited = [p for p in paths if p not in added and p not in deleted]
+        diff = self.diff(paths)
+        with self.lock:
+            ensure_board_ai(self.ws)
+            reply = self.ws.execute("project.refresh", {"paths": paths}, actor=BOARD_AI)
+        for rel in paths:
+            self.texts[rel] = read_text(root, rel)
+        changes = (reply.get("data") or {}).get("changes") or {}
+        structural = bool(added or deleted) or any(
+            (changes.get(key) or {}).get("added") or (changes.get(key) or {}).get("removed")
+            for key in ("blocks", "arrows", "endpoints"))
+        self.publish({"kind": "agent", "actor": BOARD_AI, "type": "watch", "files": paths, "ok": reply["ok"]})
+        return {"added": added, "edited": edited, "deleted": deleted, "structural": structural,
+                "diff": diff, "refresh": reply}
+
+    # Input: paths (list[str])
+    # Output: str
+    # Processing: A short unified diff of the changed files against what the watcher last saw, capped for the prompt.
+    # Changed by: Claude Code
+    # Date: 2026-11-25
+    def diff(self, paths: list[str]) -> str:
+        parts: list[str] = []
+        for rel in paths:
+            old = (self.texts.get(rel) or "").splitlines()
+            new = (read_text(self.ws.root, rel) or "").splitlines()
+            parts.extend(difflib.unified_diff(old, new, f"a/{rel}", f"b/{rel}", n=1, lineterm=""))
+        text = "\n".join(parts)
+        return text if len(text) <= DIFF_LIMIT else text[:DIFF_LIMIT] + "\n... (diff cut short)"
+
+    # Input: interval (float)
+    # Output: threading.Thread
+    # Processing: Poll in the background until stopped; a failed update is reported live and watching goes on.
+    # Changed by: Claude Code
+    # Date: 2026-11-25
+    def start(self, interval: float = WATCH_SECONDS) -> threading.Thread:
+        # Input: none
+        # Output: None
+        # Processing: The polling loop.
+        # Changed by: Claude Code
+        # Date: 2026-11-25
+        def loop() -> None:
+            while not self.stopped.wait(interval):
+                try:
+                    self.poll()
+                except Exception as exc:  # noqa: BLE001  (keep watching; tell the person)
+                    self.publish({"kind": "agent", "actor": BOARD_AI, "type": "watch_error", "error": str(exc)})
+
+        thread = threading.Thread(target=loop, name="plovane-project-watcher", daemon=True)
+        thread.start()
+        return thread
+
+
+# Input: ws (Workspace), lock (threading.RLock), publish (Callable | None)
+# Output: ProjectWatcher | None
+# Processing: Start watching the project for outside edits, unless PLOVANE_BOARD_AI_WATCH is 0.
+# Changed by: Claude Code
+# Date: 2026-11-25
+def start_project_watcher(ws: Any, lock: Any, publish: Callable[[dict[str, Any]], None] | None = None) -> ProjectWatcher | None:
+    if os.environ.get("PLOVANE_BOARD_AI_WATCH", "1").strip().lower() in ("0", "off", "false", "no"):
+        return None
+    watcher = ProjectWatcher(ws, lock, publish=publish)
+    watcher.start()
+    return watcher

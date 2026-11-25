@@ -91,6 +91,7 @@ COMMANDS: tuple[Command, ...] = (
     Command("file save", "file.save", ("path",), example="/file save src/app.py --content \"...\" --base 1a2b3c"),
     Command("files", "file.list", ("under",), example="/files  or  /files src"),
     Command("project import", "project.import", ("path",), example="/project import"),
+    Command("project refresh", "project.refresh", (), example="/project refresh --paths src/app.py,src/db.py"),
     # Blocks
     Command("block add", "block.add", ("kind", "name"), example='/block add service "auth" --layer 1'),
     Command("block move", "block.move", ("block",), example="/block move auth --into backend"),

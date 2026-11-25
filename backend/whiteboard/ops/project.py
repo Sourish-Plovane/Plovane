@@ -397,3 +397,42 @@ def import_project(ctx: Context, path: str = "", arrows: Any = True) -> dict[str
     return {"files_found": len(files), "blocks_added": added_blocks, "import_arrows_added": added_arrows,
             "missing_on_disk": missing, "summarised": sum(1 for v in ((extras.get("summaries") or {}).get("files") or {}).values() if v),
             "routes_found": (extras.get("routes") or {}).get("routes", 0)}
+
+
+# Input: ctx (Context), paths (Any)
+# Output: dict[str, Any]
+# Processing: Bring the board up to date with the code after files changed outside the whiteboard: new files get blocks, deleted ones are marked missing, import arrows follow the imports, and summaries, routes and outside APIs are re-read; one undo step, no AI.
+# Changed by: Claude Code
+# Date: 2026-11-25
+@operation("project.refresh", command="/project refresh", tool="plovane_project_refresh", group="plovane_project")
+def refresh_project(ctx: Context, paths: Any = None) -> dict[str, Any]:
+    """Updates the board from the code after files changed outside the whiteboard (new, edited or deleted files)."""
+    ctx.require(None, "read")
+    wanted = [str(p).strip("/") for p in (paths if isinstance(paths, list) else str(paths or "").split(",")) if str(p).strip("/")]
+    imported = ctx.execute("project.import", {"arrows": True})
+    modules = python_modules(ctx)
+    dropped: list[str] = []
+    for path in wanted or [b.path for b in ctx.board.blocks.values() if b.kind == "file" and b.path]:
+        source = ctx.board.block_for_path(path)
+        if source is None:
+            continue
+        still = {t for t in imports_of(ctx, path, modules)} if ctx.fs.exists(path) else set()
+        for arrow in list(ctx.board.arrows.values()):
+            if arrow.source != source.id or arrow.type != "import":
+                continue
+            target = ctx.board.blocks.get(arrow.target)
+            if target is None or target.path not in still:
+                ctx.board.arrows.pop(arrow.id)
+                dropped.append(arrow.id)
+    extras: dict[str, Any] = {}
+    for op, args, key in (("code.summary", {}, "summaries"), ("endpoint.scan", {}, "routes"),
+                          ("outside.scan", {}, "outside_apis")):
+        try:
+            extras[key] = ctx.execute(op, args)
+        except OpError as exc:
+            ctx.notes.append(f"{op} skipped: {exc.message}")
+    return {"paths": wanted, "blocks_added": imported["blocks_added"],
+            "import_arrows_added": imported["import_arrows_added"], "import_arrows_removed": dropped,
+            "missing_on_disk": imported["missing_on_disk"],
+            "routes_found": (extras.get("routes") or {}).get("routes", 0),
+            "outside_apis": sorted((extras.get("outside_apis") or {}).get("found") or {})}

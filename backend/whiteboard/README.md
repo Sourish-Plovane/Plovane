@@ -26,6 +26,12 @@ it into services, outside systems and labelled arrows on a lightweight model.
 first provider with a key; `claude-haiku-5-5` for Claude). With no key, build
 does the import only.
 
+The server also watches the project. When files change outside the whiteboard
+(Claude Code, or a person in their editor), it waits for the edits to settle and
+runs `/project refresh`: new files, imports, routes, outside APIs and summaries
+follow the code, with no AI. Files the whiteboard wrote itself are ignored.
+`PLOVANE_BOARD_AI_WATCH=0` turns this off.
+
 ## Sketch: short lines for drawing
 
 The whiteboard AI draws with `/sketch`, not with the detailed commands below.
@@ -632,6 +638,7 @@ command answers `needs_confirmation` first.
 | `/file save` | `file.save` | `plovane_project` |  | Saves edited text to a file; refuses if it changed on disk since it was opened (base: its text or version). | `/file save src/app.py --content "..." --base 1a2b3c` |
 | `/files` | `file.list` | `plovane_project` |  | Lists the project's files (skipping .git, node_modules and virtual environments). | `/files  or  /files src` |
 | `/project import` | `project.import` | `plovane_project` |  | Maps existing folders, files and imports onto blocks; Git stays the source of truth. | `/project import` |
+| `/project refresh` | `project.refresh` | `plovane_project` |  | Updates the board from the code after files changed outside the whiteboard (new, edited or deleted files). | `/project refresh --paths src/app.py,src/db.py` |
 | `/block add` | `block.add` | `plovane_block` |  | Adds a block to a layer. | `/block add service "auth" --layer 1` |
 | `/block move` | `block.move` | `plovane_block` |  | Moves a block on the canvas or into a group; moving a file block moves the real file. | `/block move auth --into backend` |
 | `/block group` | `block.group` | `plovane_block` |  | Groups blocks into a folder or server. | `/block group auth,users --as "identity"` |

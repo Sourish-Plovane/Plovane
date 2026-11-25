@@ -135,3 +135,86 @@ def test_ask_endpoint_and_outside_agents_are_ask_only(tmp_path: Path, monkeypatc
     assert asked.get_json()["data"]["requester"] == "cursor" and "'cursor'" in tasks[1]
     built = client.post("/api/v1/whiteboard/build", json={}, headers={"X-Plovane-Agent": "cursor"})
     assert built.status_code == 403
+
+
+# Input: tmp_path (Path)
+# Output: None
+# Processing: /project refresh adds new files, follows added and removed imports, and marks deleted files missing.
+# Changed by: Claude Code
+# Date: 2026-11-25
+def test_refresh_follows_outside_edits(tmp_path: Path) -> None:
+    ws = project(tmp_path, FILES)
+    ws.command("/project import", confirm=True)
+    refund = tmp_path / "src" / "billing" / "refund.py"
+    refund.write_text("from src.billing.charge import charge\n\n\ndef refund(amount):\n    return charge(-amount)\n")
+    first = ws.command("/project refresh --paths src/billing/refund.py")["data"]["result"]
+    source = ws.board.block_for_path("src/billing/refund.py")
+    assert source is not None and first["import_arrows_added"]
+    refund.write_text("def refund(amount):\n    return -amount\n")
+    second = ws.command("/project refresh --paths src/billing/refund.py")["data"]["result"]
+    assert second["import_arrows_removed"] and not any(
+        a.source == source.id and a.type == "import" for a in ws.board.arrows.values())
+    refund.unlink()
+    third = ws.command("/project refresh --paths src/billing/refund.py")["data"]["result"]
+    assert source.id in third["missing_on_disk"]
+
+
+# Input: tmp_path (Path), monkeypatch (pytest.MonkeyPatch)
+# Output: None
+# Processing: A file written outside the whiteboard is put on the board after edits settle, with no AI call.
+# Changed by: Claude Code
+# Date: 2026-11-25
+def test_watcher_follows_an_outside_edit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import threading
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    tasks = fake_model(monkeypatch, [])
+    ws = project(tmp_path, FILES)
+    ws.command("/project import", confirm=True)
+    watcher = board_ai.ProjectWatcher(ws, threading.RLock(), quiet=1.0)
+    (tmp_path / "src" / "billing" / "refund.py").write_text(
+        "import requests\n\n\ndef refund(charge_id):\n"
+        "    return requests.post('https://api.stripe.com/v1/refunds', data={'charge': charge_id})\n")
+    assert watcher.poll(now=10.0) is None  # still settling
+    result = watcher.poll(now=11.5)
+    assert result["added"] == ["src/billing/refund.py"] and result["refresh"]["ok"]
+    assert ws.board.block_for_path("src/billing/refund.py") is not None
+    assert any(b.kind == "external" and "stripe" in b.name for b in ws.board.blocks.values())
+    assert result["structural"] and "+def refund(charge_id):" in result["diff"] and tasks == []
+    assert watcher.poll(now=20.0) is None  # nothing new
+
+
+# Input: tmp_path (Path), monkeypatch (pytest.MonkeyPatch)
+# Output: None
+# Processing: Files the whiteboard itself writes are not treated as outside edits.
+# Changed by: Claude Code
+# Date: 2026-11-25
+def test_watcher_ignores_the_boards_own_writes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import threading
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    tasks = fake_model(monkeypatch, [])
+    ws = project(tmp_path, FILES)
+    ws.command("/project import", confirm=True)
+    watcher = board_ai.ProjectWatcher(ws, threading.RLock(), quiet=1.0)
+    assert ws.command("/file create src/billing/notes.py")["ok"]
+    assert watcher.poll(now=10.0) is None and watcher.poll(now=20.0) is None and tasks == []
+
+
+# Input: tmp_path (Path), monkeypatch (pytest.MonkeyPatch)
+# Output: None
+# Processing: An edit inside a function refreshes the board and is not counted as a structural change.
+# Changed by: Claude Code
+# Date: 2026-11-25
+def test_watcher_small_edits_are_not_structural(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import threading
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    tasks = fake_model(monkeypatch, [])
+    ws = project(tmp_path, FILES)
+    ws.command("/project import", confirm=True)
+    watcher = board_ai.ProjectWatcher(ws, threading.RLock(), quiet=1.0)
+    (tmp_path / "src" / "billing" / "charge.py").write_text("def charge(amount):\n    return round(amount, 2)\n")
+    watcher.poll(now=10.0)
+    result = watcher.poll(now=12.0)
+    assert result["edited"] == ["src/billing/charge.py"] and not result["structural"] and tasks == []

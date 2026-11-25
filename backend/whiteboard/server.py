@@ -1166,6 +1166,7 @@ def main(argv: list[str] | None = None) -> None:
     write_server_file(workspace.store.dir, args.port, workspace.root, token)
     atexit.register(remove_server_file, workspace.store.dir)
     start_watcher(workspace, lock, boards=app.config["plovane_boards"])
+    board_ai.start_project_watcher(workspace, lock, publish=app.config["plovane_bus"].publish)
     start_library_warmup()
     if args.exit_with:
         start_parent_watch(args.exit_with, workspace.store.dir)
