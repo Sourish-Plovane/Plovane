@@ -452,13 +452,15 @@ class Workspace:
 
     # Input: none
     # Output: dict[str, dict[str, str]]
-    # Processing: For every block, the agents that may reach it and how ("read" or "read-write"), by the grant rules.
+    # Processing: For every block, the agents that may reach it and how ("read" or "read-write"), by the grant rules; the whiteboard AI is left out.
     # Changed by: Claude Code
-    # Date: 2026-11-14
+    # Date: 2026-11-25
     def access_map(self) -> dict[str, dict[str, str]]:
         names = {level: mode for mode, level in MODES.items()}
         found: dict[str, dict[str, str]] = {}
         for agent in sorted(self.board.agents):
+            if agent == BOARD_AI:
+                continue  # the whiteboard AI reaches every block; a chip on each would only add noise
             ctx = Context(self, None, agent, dry_run=True, confirmed=False)  # access() reads the board only
             for block in self.board.blocks.values():
                 level = ctx.access(block)

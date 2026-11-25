@@ -41,7 +41,7 @@ Date: 2026-11-23
   }
   const blocks = () => wb.board?.board?.blocks || {}
   const endpoints = () => wb.board?.board?.endpoints || {}
-  const arrows = () => Object.values(wb.board?.board?.arrows || {}).map(a => ({ from: a.source ?? a.from, to: a.target ?? a.to, endpoint: a.endpoint })).filter(a => blocks()[a.from] && blocks()[a.to])
+  const arrows = () => Object.values(wb.board?.board?.arrows || {}).map(a => ({ id: a.id, from: a.source ?? a.from, to: a.target ?? a.to, endpoint: a.endpoint })).filter(a => blocks()[a.from] && blocks()[a.to])
   const tests = () => wb.board?.overlays?.results?.test_health || {}
   const riskName = kind => RISK_NAME[kind] || String(kind || 'Risk').replace(/_/g, ' ')
   const riskCount = b => (b?.path && st.risks[b.path]?.length) || 0
@@ -376,10 +376,10 @@ Date: 2026-11-23
     for (const e of Object.values(endpoints())) add(`ep:${e.id}`, 1, { endpoint: e })
     for (const a of arrows()) {
       const from = all[a.from], to = all[a.to]
-      if (a.endpoint && endpoints()[a.endpoint]) { add(from.id, 0, { block: from }); edges.push([from.id, `ep:${a.endpoint}`]); continue }
+      if (a.endpoint && endpoints()[a.endpoint]) { add(from.id, 0, { block: from }); edges.push([from.id, `ep:${a.endpoint}`, a.id]); continue }
       if (!isApi(to)) continue
       add(from.id, isApi(from) ? (OUTSIDE.has(from.kind) ? 2 : 1) : 0, { block: from })
-      edges.push([from.id, to.id])
+      edges.push([from.id, to.id, a.id])
     }
     for (const e of Object.values(endpoints())) { const h = handlerOf(e); if (h) { add(h, 0, { block: all[h] }); edges.push([`ep:${e.id}`, h]) } }
     return { nodes: [...nodes.values()], edges }
@@ -428,19 +428,20 @@ Date: 2026-11-23
     host.innerHTML = `${head}<div class="ov-map ov-api-map" style="height:${Math.max(420, rows * 96 + 60)}px">
       ${labels.map((l, c) => `<div class="ov-col-label" style="left:${X[c]}%">${l}<small>${columns[c].length + (c === 0 ? hidden : 0)}</small></div>`).join('')}
       <svg viewBox="0 0 100 100" preserveAspectRatio="none"><defs><marker id="ov-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z"/></marker></defs>
-        ${drawn.map(([a, b]) => edgePath(pos[a], pos[b], gaps)).join('')}</svg>
+        ${drawn.map(([a, b, id]) => edgePath(pos[a], pos[b], gaps, id)).join('')}</svg>
       ${nodes.filter(n => pos[n.key]).map(n => nodeHTML(n, ...pos[n.key])).join('')}
       ${hidden ? `<div class="ov-more" style="left:${X[0]}%">+${hidden} more files</div>` : ''}</div>`
   }
 
   /**
-   * Input: from ([x, y] in %), to ([x, y] in %), gaps (free y lanes in the middle column)
+   * Input: from ([x, y] in %), to ([x, y] in %), gaps (free y lanes in the middle column), id (board arrow id, if any)
    * Output: string (an SVG path)
    * Processing: A curved arrow between two nodes; one that skips the middle column bends through the nearest free lane.
+   *   A switched-on rule overlay can colour it (e.g. red when its API call failed), with the reason as its tooltip.
    * Changed by: Claude Code
-   * Date: 2026-11-23
+   * Date: 2026-11-25
    */
-  function edgePath([x1, y1], [x2, y2], gaps) {
+  function edgePath([x1, y1], [x2, y2], gaps, id) {
     const dir = x2 >= x1 ? 1 : -1, sx = x1 + dir * 6.5, ex = x2 - dir * 6.5
     let d
     if (Math.abs(x2 - x1) > 50) {
@@ -450,7 +451,10 @@ Date: 2026-11-23
       const mx = (sx + ex) / 2
       d = `M${sx} ${y1} C${mx} ${y1} ${mx} ${y2} ${ex} ${y2}`
     }
-    return `<path vector-effect="non-scaling-stroke" marker-end="url(#ov-arrow)" d="${d}"/>`
+    const look = id ? window.PlovaneOverlays?.arrowLook?.(id) : null
+    const paint = look ? ` class="ov-arrow" style="stroke:${look.color}"` : ''
+    const tip = look?.tip ? `<title>${esc(look.tip)}</title>` : ''
+    return `<path vector-effect="non-scaling-stroke" marker-end="url(#ov-arrow)" d="${d}"${paint}>${tip}</path>`
   }
 
   function setApis(on) {

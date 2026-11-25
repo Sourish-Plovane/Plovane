@@ -622,12 +622,13 @@ command answers `needs_confirmation` first.
 | `/zoom out` | `view.zoom_out` | `plovane_view` |  | Moves up one layer. | `/zoom out` |
 | `/zoom` | `view.zoom` | `plovane_view` |  | Jumps to a zoom level or a layer. | `/zoom 15  or  /zoom layer 2` |
 | `/overlay list` | `overlay.list` | `plovane_overlay` |  | Lists the overlays, which are on, and the current role. | `/overlay list` |
-| `/overlay on` | `overlay.on` | `plovane_overlay` |  | Switches an overlay (or every overlay in a group) on in your view. | `/overlay on cyber_security` |
-| `/overlay off` | `overlay.off` | `plovane_overlay` |  | Switches an overlay (or every overlay in a group) off in your view. | `/overlay off test_health` |
+| `/overlay on` | `overlay.on` | `plovane_overlay` |  | Switches an overlay (or every overlay in a group) on in your view; --person: in the person's (whiteboard AI). | `/overlay on cyber_security` |
+| `/overlay off` | `overlay.off` | `plovane_overlay` |  | Switches an overlay (or every overlay in a group) off in your view; --person: in the person's (whiteboard AI). | `/overlay off test_health` |
 | `/role list` | `role.list` | `plovane_overlay` |  | Lists the roles and which one you are using. | `/role list` |
 | `/role use` | `role.use` | `plovane_overlay` |  | Uses a role (developer, cyber, reviewer, ...): shows that role's overlays. | `/role use cyber` |
 | `/overlay put` | `overlay.put` | `plovane_overlay` |  | Defines or replaces one overlay (used by .plo files); people only. | `/overlay put db_writes --data '{"label": "DB writes", "source": "custom", ...}'` |
 | `/overlay remove` | `overlay.remove` | `plovane_overlay` |  | Removes an overlay (and the overlays inside a group); people only. | `/overlay remove db_writes` |
+| `/overlay rule` | `overlay.rule` | `plovane_overlay` |  | Writes an overlay as if/else rules (e.g. an arrow turns red when its API call fails) and shows it to the person. | `/overlay rule failing_calls --data '{"label": "Failing API calls", "rules": [{"on": "arrow", "if": {"live.ok": false}, "show": {"color": "red"}}]}'` |
 | `/overlay propose` | `overlay.propose` | `plovane_overlay` |  | Asks a lightweight LLM to propose an overlay for the whiteboard; people only. | `/overlay propose "files hit hardest by log errors"` |
 | `/role put` | `role.put` | `plovane_overlay` |  | Defines or replaces one role (used by .plo files); people only. | `/role put qa --data '{"label": "QA", "overlays": ["test_health"], "default_level": 2}'` |
 | `/role remove` | `role.remove` | `plovane_overlay` |  | Removes a role; people only. | `/role remove qa` |

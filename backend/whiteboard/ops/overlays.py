@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from backend.whiteboard.engine import Context
+from backend.whiteboard.engine import BOARD_AI, USER, Context
 from backend.whiteboard.overlays import active, expand, view_of
-from backend.whiteboard.registry import OpError, operation
+from backend.whiteboard.registry import OpError, flag, operation
 
 
 # Input: ctx (Context), overlay (str)
@@ -55,14 +55,28 @@ def list_overlays(ctx: Context) -> dict[str, Any]:
     return {"role": view_of(ctx.board, ctx.actor)["base_role"], "overlays": rows, "active": on}
 
 
-# Input: ctx (Context), overlay (str), turn_on (bool)
-# Output: dict[str, Any]
-# Processing: Switch an overlay (or every overlay in a group) on or off in the actor's view.
+# Input: ctx (Context), person (Any)
+# Output: str
+# Processing: Whose view a switch changes: the actor's own, or with person the person's (only the whiteboard AI and the person may).
 # Changed by: Claude Code
-# Date: 2026-11-22
-def switch(ctx: Context, overlay: str, turn_on: bool) -> dict[str, Any]:
+# Date: 2026-11-25
+def viewer(ctx: Context, person: Any) -> str:
+    if not flag(person):
+        return ctx.actor
+    if ctx.actor not in (USER, BOARD_AI):
+        raise OpError("FORBIDDEN", "only the whiteboard AI may change the person's view")
+    return USER
+
+
+# Input: ctx (Context), overlay (str), turn_on (bool), who (str | None)
+# Output: dict[str, Any]
+# Processing: Switch an overlay (or every overlay in a group) on or off in one view (the actor's unless who is given).
+# Changed by: Claude Code
+# Date: 2026-11-25
+def switch(ctx: Context, overlay: str, turn_on: bool, who: str | None = None) -> dict[str, Any]:
     oid = known(ctx, overlay)
-    view = view_of(ctx.board, ctx.actor)
+    who = who or ctx.actor
+    view = view_of(ctx.board, who)
     role = ctx.board.roles.get(view["base_role"] or "", {})
     from_role = set(expand(ctx.board.overlays, list(role.get("overlays", []))))
     add, remove = list(view["overlays_add"]), list(view["overlays_remove"])
@@ -78,31 +92,31 @@ def switch(ctx: Context, overlay: str, turn_on: bool) -> dict[str, Any]:
                     remove.append(target)
             else:
                 add = [a for a in add if a != target]
-    ctx.board.views[ctx.actor] = {"base_role": view["base_role"], "overlays_add": add, "overlays_remove": remove}
-    on = active(ctx.board, ctx.actor)
-    return {"overlay": oid, "state": state(ctx, oid, on), "active": on}
+    ctx.board.views[who] = {"base_role": view["base_role"], "overlays_add": add, "overlays_remove": remove}
+    on = active(ctx.board, who)
+    return {"overlay": oid, "state": state(ctx, oid, on), "active": on, "view": who}
 
 
-# Input: ctx (Context), overlay (str)
+# Input: ctx (Context), overlay (str), person (Any)
 # Output: dict[str, Any]
-# Processing: Switch an overlay or group on.
+# Processing: Switch an overlay or group on (in the person's view with person, for the whiteboard AI).
 # Changed by: Claude Code
-# Date: 2026-11-22
+# Date: 2026-11-25
 @operation("overlay.on", command="/overlay on", tool="plovane_overlay_on", group="plovane_overlay")
-def overlay_on(ctx: Context, overlay: str) -> dict[str, Any]:
-    """Switches an overlay (or every overlay in a group) on in your view."""
-    return switch(ctx, overlay, True)
+def overlay_on(ctx: Context, overlay: str, person: Any = False) -> dict[str, Any]:
+    """Switches an overlay (or every overlay in a group) on in your view; --person: in the person's (whiteboard AI)."""
+    return switch(ctx, overlay, True, viewer(ctx, person))
 
 
-# Input: ctx (Context), overlay (str)
+# Input: ctx (Context), overlay (str), person (Any)
 # Output: dict[str, Any]
-# Processing: Switch an overlay or group off.
+# Processing: Switch an overlay or group off (in the person's view with person, for the whiteboard AI).
 # Changed by: Claude Code
-# Date: 2026-11-22
+# Date: 2026-11-25
 @operation("overlay.off", command="/overlay off", tool="plovane_overlay_off", group="plovane_overlay")
-def overlay_off(ctx: Context, overlay: str) -> dict[str, Any]:
-    """Switches an overlay (or every overlay in a group) off in your view."""
-    return switch(ctx, overlay, False)
+def overlay_off(ctx: Context, overlay: str, person: Any = False) -> dict[str, Any]:
+    """Switches an overlay (or every overlay in a group) off in your view; --person: in the person's (whiteboard AI)."""
+    return switch(ctx, overlay, False, viewer(ctx, person))
 
 
 # Input: ctx (Context)
@@ -244,3 +258,49 @@ def role_remove(ctx: Context, role: str) -> dict[str, Any]:
         raise OpError("NOT_FOUND", f"no role {rid!r}; roles: {sorted(ctx.board.roles)}")
     del ctx.board.roles[rid]
     return {"removed": rid}
+
+
+# Input: ctx (Context), overlay (str), data (Any), show (Any)
+# Output: dict[str, Any]
+# Processing: Define or replace a custom overlay as if/else rules over the board and live signals, and switch it on for the person.
+# Changed by: Claude Code
+# Date: 2026-11-25
+@operation("overlay.rule", command="/overlay rule", tool="plovane_overlay_rule", group="plovane_overlay")
+def overlay_rule(ctx: Context, overlay: str, data: Any, show: Any = True) -> dict[str, Any]:
+    """Writes an overlay as if/else rules (e.g. an arrow turns red when its API call fails) and shows it to the person."""
+    from backend.whiteboard.overlay_rules import RuleError, validate
+
+    oid = str(overlay).strip()
+    if not oid.replace("_", "").isalnum() or not oid[:1].isalpha() or oid.lower() != oid:
+        raise OpError("INVALID_ARGS", "an overlay id is lowercase letters, digits and _, starting with a letter")
+    existing = ctx.board.overlays.get(oid)
+    if existing is not None and existing.get("source") != "custom":
+        raise OpError("CONFLICT", f"{oid!r} is a {existing.get('source')} overlay; pick another id")
+    spec = json_object(data, "data")
+    label = spec.get("label")
+    if not isinstance(label, str) or not label.strip():
+        raise OpError("INVALID_ARGS", "a rule overlay needs a label")
+    try:
+        rules = validate(spec.get("rules"))
+    except RuleError as exc:
+        raise OpError("INVALID_ARGS", str(exc)) from None
+    only_arrows = all(r["on"] == "arrow" for r in rules)
+    channel = spec.get("channel") or ("arrows" if only_arrows else "badge")
+    if channel not in CHANNELS:
+        raise OpError("INVALID_ARGS", f"an overlay's channel is one of {list(CHANNELS)}")
+    appearance = spec.get("appearance") or {"1": "count", "2": "count", "3": "mark", "4": "mark", "5": "detail"}
+    if not isinstance(appearance, dict) or any(not str(k).isdigit() or v not in APPEARANCES for k, v in appearance.items()):
+        raise OpError("INVALID_ARGS", "appearance maps zoom level numbers to hidden, count, mark or detail")
+    priority = spec.get("priority", 50)
+    if not isinstance(priority, int) or not 0 <= priority <= 100:
+        raise OpError("INVALID_ARGS", "priority is a whole number from 0 to 100")
+    style = spec.get("style") if isinstance(spec.get("style"), dict) else {}
+    ctx.board.overlays[oid] = {
+        "label": label.strip()[:80], "source": "custom", "created_by": "user" if ctx.actor == USER else "ai",
+        "author": ctx.actor, "channel": channel, "priority": priority, "appearance": appearance,
+        "style": {k: str(v)[:40] for k, v in style.items() if k in ("color", "badge", "icon")}, "rules": rules}
+    shown = None
+    if flag(show) and oid not in active(ctx.board, USER):
+        shown = switch(ctx, oid, True, USER)["state"]
+    return {"overlay": oid, "rules": len(rules), "channel": channel, "replaced": existing is not None,
+            "shown_to_person": shown == "on"}

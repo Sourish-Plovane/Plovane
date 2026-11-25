@@ -161,7 +161,7 @@ def test_refresh_follows_outside_edits(tmp_path: Path) -> None:
 
 # Input: tmp_path (Path), monkeypatch (pytest.MonkeyPatch)
 # Output: None
-# Processing: A file written outside the whiteboard is put on the board after edits settle, with no AI call.
+# Processing: A file written outside the whiteboard is put on the board after edits settle; only its new kind of signal reaches the AI.
 # Changed by: Claude Code
 # Date: 2026-11-25
 def test_watcher_follows_an_outside_edit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -180,7 +180,9 @@ def test_watcher_follows_an_outside_edit(tmp_path: Path, monkeypatch: pytest.Mon
     assert result["added"] == ["src/billing/refund.py"] and result["refresh"]["ok"]
     assert ws.board.block_for_path("src/billing/refund.py") is not None
     assert any(b.kind == "external" and "stripe" in b.name for b in ws.board.blocks.values())
-    assert result["structural"] and "+def refund(charge_id):" in result["diff"] and tasks == []
+    assert result["structural"] and "+def refund(charge_id):" in result["diff"]
+    # The first outside API is a new kind of signal: the AI is asked once whether an overlay should show it.
+    assert result["overlays"]["new"] == ["outside_apis"] and len(tasks) == 1 and "outside APIs" in tasks[0]
     assert watcher.poll(now=20.0) is None  # nothing new
 
 

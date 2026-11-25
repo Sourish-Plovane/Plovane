@@ -90,9 +90,17 @@
     "custom_overlay": {
       "allOf": [{ "$ref": "#/$defs/overlay_common" }, { "$ref": "#/$defs/drawing_overlay" }],
       "unevaluatedProperties": false,
-      "required": ["created_by", "author", "match"],
+      "required": ["created_by", "author"],
+      "anyOf": [{ "required": ["match"] }, { "required": ["rules"] }],
       "properties": {
         "source": { "const": "custom" },
+        "rules": {
+          "description": "If/else rules checked on every draw (backend/whiteboard/overlay_rules.py): per block or arrow, the first rule whose 'if' holds decides what is shown.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "items": { "$ref": "#/$defs/overlay_rule" }
+        },
         "created_by": { "enum": ["ai", "user"] },
         "author": { "type": "string" },
         "define_tags": {
@@ -119,6 +127,25 @@
             "has_tag": { "$ref": "#/$defs/id" },
             "reaches": { "$ref": "#/$defs/traversal" },
             "not_reaches": { "$ref": "#/$defs/traversal" }
+          }
+        }
+      }
+    },
+    "overlay_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["on", "show"],
+      "properties": {
+        "on": { "enum": ["block", "arrow"] },
+        "if": { "type": "object" },
+        "show": {
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "color": { "enum": ["red", "orange", "blue", "green", "purple", "gray"] },
+            "message": { "type": "string", "maxLength": 120 },
+            "badge": { "type": "string", "maxLength": 120 }
           }
         }
       }

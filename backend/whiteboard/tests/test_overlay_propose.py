@@ -34,7 +34,7 @@ def stub_llm(monkeypatch: pytest.MonkeyPatch, text: str) -> None:
 
 # Input: tmp_path (Path), monkeypatch (pytest.MonkeyPatch)
 # Output: None
-# Processing: A clean JSON reply with a real block id becomes a saved overlay the board can switch on.
+# Processing: A clean JSON reply with a real block id becomes a rule overlay the board can switch on.
 # Changed by: Claude Code
 # Date: 2026-11-25
 def test_overlay_propose_saves_and_registers(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -54,8 +54,8 @@ def test_overlay_propose_saves_and_registers(tmp_path: Path, monkeypatch: pytest
     assert oid and oid.startswith("hot_files")
     spec = ws.main.board.overlays[oid]
     assert spec["source"] == "custom" and spec["channel"] == "badge"
-    saved = json.loads((tmp_path / ".plovane" / "overlays" / f"{oid}.json").read_text())
-    assert saved["items"][charge.id][0]["message"] == "touched by the goal"
+    assert spec["rules"][0] == {"on": "block", "if": {"id": charge.id},
+                                "show": {"message": "touched by the goal", "color": "red", "badge": "hot"}}
 
 
 # Input: tmp_path (Path), monkeypatch (pytest.MonkeyPatch)

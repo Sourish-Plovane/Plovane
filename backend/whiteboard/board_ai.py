@@ -20,7 +20,10 @@ It also watches the project. When files change outside the whiteboard (Claude
 Code or a person editing in their editor), :class:`ProjectWatcher` waits for
 the edits to settle and refreshes the board from the code (``/project refresh``),
 with no AI: the board follows the code as normal. Changes the whiteboard itself
-wrote are ignored.
+wrote are ignored. The AI steps in only when a new kind of signal appears
+(the first failing API call, log errors, a trace...): it decides whether an
+overlay is needed to show it and, if so, switches on a premade one or writes
+one as if/else rules (:mod:`backend.whiteboard.overlay_rules`).
 
     PLOVANE_BOARD_AI_PROVIDER   anthropic | deepseek | openai (default: the first with a key)
     PLOVANE_BOARD_AI_MODEL      model id (default: claude-haiku-5-5 for Claude)
@@ -45,6 +48,15 @@ DEFAULT_MODELS = {"anthropic": "claude-haiku-5-5", "deepseek": "deepseek-chat", 
 MAX_ASK_STEPS = 20
 MAX_BUILD_STEPS = 25
 WATCHER = "project watcher"
+MAX_OVERLAY_STEPS = 6
+SIGNALS = {
+    "api_traffic": "requests are reaching the app's API routes (live status per route)",
+    "api_failures": "some API requests are failing",
+    "security_events": "attack-like requests or security events were recorded",
+    "log_errors": "a log scan found errors pointing at project files",
+    "trace": "a test trace recorded which lines ran and which never did",
+    "outside_apis": "the code calls outside APIs",
+}
 WATCH_SECONDS = 1.0
 QUIET_SECONDS = 1.5
 """Wait this long after the last edit before redrawing, so a burst of saves is one update."""
@@ -70,6 +82,17 @@ To explain a file as zoomable blocks, read it with /open <file>, then run
 summary first: one or two plain sentences on what the whole file does and why it exists. Then
 blocks top to bottom, each named by what it does in 2 to 6 plain words (not the function name),
 with a one-sentence summary and real line numbers; split a long part into children.
+Overlays put extra information on top of the board without changing it. Prefer the premade ones
+(see /overlay list; switch one on for the person with /overlay on <id> --person). When none fits,
+write one as if/else rules, which Plovane then checks on every draw with no AI:
+  /overlay rule failing_calls --data '{"label": "Failing API calls", "rules": [
+    {"on": "arrow", "if": {"type": "api", "live.ok": false}, "show": {"color": "red", "message": "failed ({live.status})"}},
+    {"on": "arrow", "if": {"type": "api", "live.ok": true}, "show": {"color": "green"}}]}'
+For each block or arrow the first rule whose "if" holds decides what shows; "if": {} is the
+final else. A condition maps facts to a value or to one operator ({">": 0}): {operators}.
+Combine with "all", "any", "not". Colors: {colors}. Messages may use {{fact}}.
+  block facts: {block_facts}
+  arrow facts: {arrow_facts}
 Call get_board before changing anything, and list_commands before guessing syntax. Keep the
 board tidy: reuse blocks that exist, do not duplicate them, name things by what they do in
 plain words. A destructive command answers needs_confirmation with a preview: only repeat it
@@ -77,12 +100,20 @@ with confirm=true when the change is what was asked. If a command fails, read th
 it; do not repeat it unchanged. When done, reply with a short plain-English summary of what
 you changed on the board."""
 
+from backend.whiteboard.overlay_rules import ARROW_FACTS, BLOCK_FACTS, COLORS, OPERATORS  # noqa: E402
+
+SYSTEM = (SYSTEM.replace("{operators}", " ".join(OPERATORS)).replace("{colors}", " ".join(COLORS))
+          .replace("{block_facts}", ", ".join(BLOCK_FACTS)).replace("{arrow_facts}", ", ".join(ARROW_FACTS))
+          .replace("{{fact}}", "{fact}"))
+
 ORGANISE = """The project's folders, files, import arrows and API routes were just mapped onto
 the board from the code. Organise it so a newcomer understands the project at a glance:
 1. Read the board. Add a service block (with /sketch) for each major part of the project, named
    by what it does, and databases, queues or outside APIs the code clearly talks to.
 2. Join them with arrows labelled in a few plain words ("stores orders", "charges cards").
-3. Do not remove or rename what the import made. Use at most 15 commands.
+3. Do not remove or rename what the import made.
+4. Make what matters visible: switch on premade overlays that have something to show (for the
+   person, with --person), or write a rule overlay when none fits. Use at most 15 commands.
 Finish with two or three sentences on how the project is laid out."""
 
 
@@ -194,6 +225,42 @@ def build(ws: Any, *, lock: Any = None, provider: str | None = None, model: str 
     return out
 
 
+OVERLAY_TASK = """New kinds of information appeared in the project:
+{kinds}
+Overlays on the board now: {overlays}
+
+Decide whether the person needs a new overlay to see this. If a premade overlay already shows it,
+switch that on for the person (/overlay on <id> --person) when it is off. If none does, write one
+with /overlay rule. If nothing needs to change, reply "No change needed." Use at most 4 commands."""
+
+
+# Input: ws (Workspace)
+# Output: set[str]
+# Processing: Which kinds of signal the project has right now (keys of SIGNALS), so the watcher can spot new ones.
+# Changed by: Claude Code
+# Date: 2026-11-25
+def signal_kinds(ws: Any) -> set[str]:
+    from backend.whiteboard.ops import live
+    from backend.whiteboard.overlay_rules import saved
+
+    state = live.snapshot(ws)
+    api = (state.get("api") or {}).values()
+    kinds = set()
+    if any(entry.get("count") for entry in api):
+        kinds.add("api_traffic")
+    if any(entry.get("fails") or entry.get("ok") is False for entry in api):
+        kinds.add("api_failures")
+    if state.get("security"):
+        kinds.add("security_events")
+    if saved(ws, "log_errors.json").get("files"):
+        kinds.add("log_errors")
+    if saved(ws, "trace.json").get("files"):
+        kinds.add("trace")
+    if any(b.kind == "external" for b in ws.board.blocks.values()):
+        kinds.add("outside_apis")
+    return kinds
+
+
 # Input: root (Path)
 # Output: dict[str, tuple[int, int]]
 # Processing: Every source file in the project with its modification time and size.
@@ -246,6 +313,7 @@ class ProjectWatcher:
         self.pending: set[str] = set()
         self.last_change = 0.0
         self.own: dict[str, tuple[int, int] | None] = {}
+        self.kinds = signal_kinds(ws)
         self.stopped = threading.Event()
         ws.listeners.append(self.on_event)
 
@@ -285,7 +353,7 @@ class ProjectWatcher:
 
     # Input: now (float | None)
     # Output: dict[str, Any] | None
-    # Processing: Look for changed source files; once edits have been quiet for a moment, update the board and return what happened.
+    # Processing: Look for changed source files (update the board once edits are quiet) and new kinds of signal (ask the whiteboard AI about overlays); return what happened.
     # Changed by: Claude Code
     # Date: 2026-11-25
     def poll(self, now: float | None = None) -> dict[str, Any] | None:
@@ -299,10 +367,38 @@ class ProjectWatcher:
                 self.pending.add(rel)
                 self.last_change = now
         self.stamps = current
-        if not self.pending or now - self.last_change < self.quiet:
-            return None
-        paths, self.pending = sorted(self.pending), set()
-        return self.update(paths)
+        out: dict[str, Any] | None = None
+        if self.pending and now - self.last_change >= self.quiet:
+            paths, self.pending = sorted(self.pending), set()
+            out = self.update(paths)
+        kinds = signal_kinds(self.ws)
+        fresh, self.kinds = sorted(kinds - self.kinds), kinds
+        if fresh:
+            out = {**(out or {}), "overlays": self.consider(fresh)}
+        return out
+
+    # Input: fresh (list[str])
+    # Output: dict[str, Any]
+    # Processing: Ask the whiteboard AI whether new kinds of signal need an overlay to be visible; it adds one or does nothing.
+    # Changed by: Claude Code
+    # Date: 2026-11-25
+    def consider(self, fresh: list[str]) -> dict[str, Any]:
+        self.publish({"kind": "agent", "actor": BOARD_AI, "type": "signals", "new": fresh})
+        name, _ = provider_and_model()
+        if not llm_agent.api_key(name):
+            return {"new": fresh, "note": f"overlay check skipped: no API key for {name}"}
+        from backend.whiteboard.overlays import active
+
+        on = set(active(self.ws.board, USER))
+        overlays = ", ".join(f"{oid} ({spec.get('label', oid)}, {'on' if oid in on else 'off'})"
+                             for oid, spec in self.ws.board.overlays.items() if spec.get("source") != "group")
+        message = OVERLAY_TASK.format(kinds="\n".join(f"- {SIGNALS[k]}" for k in fresh), overlays=overlays)
+        try:
+            result = ask(self.ws, message, requester=WATCHER, lock=self.lock, max_steps=MAX_OVERLAY_STEPS,
+                         on_step=lambda e: self.publish({"kind": "agent", "actor": BOARD_AI, "requester": WATCHER, **e}))
+        except llm_agent.AgentError as exc:
+            return {"new": fresh, "note": f"overlay check failed: {exc}"}
+        return {"new": fresh, **result}
 
     # Input: paths (list[str])
     # Output: dict[str, Any]

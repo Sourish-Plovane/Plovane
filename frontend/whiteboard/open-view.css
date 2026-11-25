@@ -36,6 +36,7 @@ Date: 2026-11-23
 .ov-map svg { position:absolute; left:0; right:0; bottom:0; top:40px; width:100%; height:calc(100% - 40px); }
 .ov-map path { fill:none; stroke:var(--accent); stroke-width:1.8; opacity:.55; }
 .ov-map marker path { fill:var(--accent); stroke:none; opacity:.8; }
+.ov-map path.ov-arrow { opacity:.95; stroke-width:2.4; } /* coloured by a rule overlay */
 .ov-col-label { position:absolute; top:12px; transform:translateX(-50%); display:flex; align-items:center; gap:6px; color:var(--muted); font-size:11px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; white-space:nowrap; }
 .ov-col-label small { padding:1px 7px; border-radius:999px; background:#eef0f4; font-size:10.5px; letter-spacing:0; }
 .ov-node { position:absolute; transform:translate(-50%, calc(-50% + 20px)); display:flex; flex-direction:column; align-items:center; gap:3px; width:150px; padding:9px 8px; border:1px solid var(--line); border-radius:12px; background:#fff; box-shadow:var(--shadow); color:var(--ink); font:700 12.5px 'DM Sans', sans-serif; text-align:center; cursor:pointer; overflow-wrap:anywhere; }

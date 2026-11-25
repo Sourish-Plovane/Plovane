@@ -483,39 +483,27 @@ def _key(item: dict[str, Any], origin: str) -> tuple:
     return (item.get("file") or origin, item.get("line"))
 
 
-# Input: ws (Workspace), spec (dict), oid (str)
-# Output: dict[str, list[dict[str, Any]]]
-# Processing: Read the items a proposed overlay saved to .plovane/overlays/<oid>.json; silently empty if missing.
-# Changed by: Claude Code
-# Date: 2026-11-25
-def custom_items(ws: Any, spec: dict[str, Any], oid: str) -> dict[str, list[dict[str, Any]]]:
-    path = ws.root / STATE_DIR / "overlays" / f"{oid}.json"
-    if not path.is_file():
-        return {}
-    try:
-        record = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
-    items = record.get("items") if isinstance(record.get("items"), dict) else {}
-    return {bid: notes for bid, notes in items.items() if isinstance(notes, list)}
-
-
 # Input: ws (Workspace), board (Board), actor (str)
 # Output: dict[str, Any]
-# Processing: Everything the whiteboard needs to draw overlays for an actor: definitions, roles, view and results.
+# Processing: Everything the whiteboard needs to draw overlays for an actor: definitions, roles, view, per-block results and per-arrow looks from rule overlays.
 # Changed by: Claude Code
-# Date: 2026-11-22
+# Date: 2026-11-25
 def overlay_state(ws: Any, board: Any, actor: str) -> dict[str, Any]:
     on = active(board, actor)
     results: dict[str, dict[str, dict[str, Any]]] = {}
+    arrows: dict[str, dict[str, dict[str, Any]]] = {}
     status: dict[str, str] = {}
     for oid in on:
         spec = board.overlays.get(oid, {})
         name = analyzer_name(spec)
         if name is None:
-            if spec.get("source") == "custom":
-                direct = custom_items(ws, spec, oid)
+            if spec.get("source") == "custom" and spec.get("rules"):
+                from backend.whiteboard.overlay_rules import evaluate
+
+                direct, arrows[oid] = evaluate(ws, board, spec)
                 results[oid] = roll_up(board, direct)
+            elif spec.get("source") == "custom":
+                results[oid] = {}  # a code-graph rule (match): waits for tags and traversals
             else:
                 status[oid] = "Plovane has no analyzer for this overlay"
             continue
@@ -525,4 +513,4 @@ def overlay_state(ws: Any, board: Any, actor: str) -> dict[str, Any]:
         else:
             results[oid] = roll_up(board, direct, climb=name not in NO_ROLL_UP)
     return {"defs": board.overlays, "roles": board.roles, "view": view_of(board, actor), "active": on,
-            "results": results, "unavailable": status}
+            "results": results, "arrows": arrows, "unavailable": status}

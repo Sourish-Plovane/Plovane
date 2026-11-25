@@ -3,10 +3,10 @@
 ``/overlay propose "<goal>"`` sends a compact board plus the data signals
 Plovane has gathered (log_errors.json from ``/logs scan``, trace.json from
 ``/trace run``, outside_apis.json, security scan results) to a lightweight
-LLM. The model returns a strict JSON spec: an overlay id, a channel, a
-style, and a dict of items keyed by block id. The items are saved to
-``.plovane/overlays/<oid>.json`` and the overlay is registered on the board
-with ``source: "custom"``, so switching it on costs no further tokens.
+LLM. The model returns a strict JSON spec: a label, a channel, a style, and
+notes keyed by block id. Each note becomes one rule (``if id is X, show
+this``) and the overlay is saved with ``/overlay rule``, so switching it on
+costs no further tokens and it travels in the .plo file like any overlay.
 
 No code is changed, no tools are called. The model is asked for one JSON
 object. Any extra prose or a missing field fails validation and the person
@@ -28,7 +28,6 @@ from backend.whiteboard.llm_agent import (
     AgentError, api_key, base_url, canonical, http_json, model_for, saved_keys,
 )
 
-OVERLAY_DIR = "overlays"
 DEFAULT_MODELS = {"anthropic": "claude-haiku-5-5", "deepseek": "deepseek-chat", "openai": "gpt-5-mini"}
 CHANNELS = ("badge", "chip", "icon", "border", "fill")
 APPEARANCES = ("hidden", "count", "mark", "detail")
@@ -225,7 +224,7 @@ def slugify(name: str) -> str:
 
 # Input: ctx (Context), goal (str), provider (str | None)
 # Output: dict[str, Any]
-# Processing: Build a prompt from the board and signals, ask the LLM for a JSON overlay spec, save and register it.
+# Processing: Build a prompt from the board and signals, ask the LLM for a JSON overlay spec, and save it as a rule overlay.
 # Changed by: Claude Code
 # Date: 2026-11-25
 @operation("overlay.propose", command="/overlay propose", tool="plovane_overlay_propose",
@@ -260,22 +259,20 @@ def propose(ctx: Context, goal: str, provider: str | None = None) -> dict[str, A
         oid = f"{base}_{counter}"
         counter += 1
 
-    record = {"format": "plovane-overlay-items", "version": 1, "overlay": oid,
-              "goal": goal_text, "provider": provider_name, "model": model,
-              "reasoning": clean["reasoning"], "items": clean["items"]}
-    out = ctx.root / STATE_DIR / OVERLAY_DIR
-    out.mkdir(parents=True, exist_ok=True)
-    (out / f"{oid}.json").write_text(json.dumps(record, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+    from backend.whiteboard.overlay_rules import MAX_RULES
 
-    spec = {"label": clean["label"], "source": "custom",
-            "engine_ref": f"plovane.overlays.custom@1:{oid}",
-            "channel": clean["channel"], "priority": clean["priority"],
-            "appearance": {"1": "count", "2": "count", "3": "mark", "4": "mark", "5": "detail"},
-            "style": clean["style"], "meta": {"goal": goal_text, "model": model, "provider": provider_name}}
-    ctx.board.overlays[oid] = spec
+    color = clean["style"].get("color") if clean["style"].get("color") in ("red", "orange", "blue", "green", "purple", "gray") else None
+    rules = [{"on": "block", "if": {"id": bid},
+              "show": {"message": notes[0]["message"], **({"color": color} if color else {}),
+                       **({"badge": clean["style"]["badge"]} if clean["style"].get("badge") else {})}}
+             for bid, notes in list(clean["items"].items())[:MAX_RULES]]
+    data = {"label": clean["label"], "channel": clean["channel"], "priority": clean["priority"],
+            "style": clean["style"], "rules": rules}
+    ctx.execute("overlay.rule", {"overlay": oid, "data": data, "show": False})
+    spec = ctx.board.overlays[oid]
 
     ctx.notes.append(f"proposed overlay {oid!r}: {clean['reasoning']} "
                      f"Switch it on with /overlay on {oid}.")
     return {"ok": True, "overlay": oid, "spec": spec, "provider": provider_name, "model": model,
             "reasoning": clean["reasoning"],
-            "items": {bid: len(notes) for bid, notes in clean["items"].items()}}
+            "items": {r["if"]["id"]: 1 for r in rules}}

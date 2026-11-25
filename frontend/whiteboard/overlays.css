@@ -45,3 +45,6 @@ body[data-theme="dark"] .ov-port { color: #8ab4f8; border-color: #8ab4f8; }
 .ov-pop { position: fixed; z-index: 60; width: 320px; max-height: 70vh; overflow: auto; padding: 8px 0 4px; border-radius: 12px;
   border: 1px solid var(--line, #dadce0); background: var(--panel, #fff); color: inherit; box-shadow: 0 12px 32px rgba(0, 0, 0, .16); }
 body[data-theme="dark"] .ov-pop { background: #1f2229; border-color: #3a3f4b; }
+
+/* Arrows coloured by a rule overlay (e.g. red when the API call they carry failed). */
+.connections path.ov-arrow { stroke-width: 2.4; }

@@ -1,10 +1,11 @@
 /*
 Input: The overlay state in each board reply (definitions, roles, the person's view and per-block results)
 Output: Overlay marks on cards, tiles and the frame, and the Overlays panel in the side bar
-Processing: Draws each switched-on overlay with its channel (fill, border, badge, port, icon) at the detail its
-  appearance gives for the block's zoom level, and switches overlays and roles with /overlay and /role commands
+Processing: Draws each switched-on overlay with its channel (fill, border, badge, port, icon, and arrow colours from
+  rule overlays) at the detail its appearance gives for the block's zoom level, and switches overlays and roles with
+  /overlay and /role commands
 Changed by: Claude Code
-Date: 2026-11-22
+Date: 2026-11-25
 */
 
 (() => {
@@ -63,7 +64,8 @@ Date: 2026-11-22
       if (look === 'hidden') continue
       const n = amount(r)
       if (!n && !r.status) continue
-      const priority = spec.priority ?? 0, color = colorOf(spec)
+      const first = r.own ? r.items?.[0] : null
+      const priority = spec.priority ?? 0, color = COLORS[first?.color] || colorOf(spec)
       for (const item of (r.items || []).slice(0, look === 'detail' ? 8 : 3)) {
         tips.push(`${spec.label}: ${item.message}${item.line ? ` (line ${item.line})` : ''}`)
       }
@@ -78,7 +80,7 @@ Date: 2026-11-22
         if (look === 'count') badges.push({ text: `${n} ${spec.style?.badge || spec.label}`, color, priority })
         else if (look === 'detail' && r.items?.[0]) badges.push({ text: r.items[0].message, color, priority })
       } else if (spec.channel === 'badge') {
-        const label = spec.style?.badge || spec.label
+        const label = first?.badge || spec.style?.badge || spec.label
         badges.push({ text: look === 'count' ? `${n} ${label}` : look === 'detail' && r.items?.[0] ? r.items[0].message : label, color, priority })
       } else if (spec.channel === 'port') {
         if (look === 'detail' && r.own) ports.push(...r.items.map(i => i.message))
@@ -119,8 +121,81 @@ Date: 2026-11-22
    * Date: 2026-11-22
    */
   function found(s, id) {
-    return members(s, id).reduce((sum, m) => sum + Object.values(s.results?.[m] || {})
+    return members(s, id).reduce((sum, m) => sum + Object.keys(s.arrows?.[m] || {}).length + Object.values(s.results?.[m] || {})
       .filter(r => r.own && (r.status ? r.status !== 'tested' : r.items.length)).length, 0)
+  }
+
+  const SEVERITY = { red: 5, orange: 4, purple: 3, blue: 2, gray: 1, green: 0 }
+
+  /**
+   * Input: id (string, a board arrow id)
+   * Output: { color, tip } | null
+   * Processing: How switched-on rule overlays colour one arrow: the most urgent colour among them and every message, for
+   *   views that draw arrows themselves (the API diagram).
+   * Changed by: Claude Code
+   * Date: 2026-11-25
+   */
+  function arrowLook(id) {
+    const s = overlayState(), hits = []
+    for (const oid of s?.active || []) {
+      const look = s.arrows?.[oid]?.[id], spec = s.defs?.[oid]
+      if (look && spec) hits.push({ ...look, label: spec.label, priority: spec.priority ?? 0 })
+    }
+    if (!hits.length) return null
+    hits.sort((a, z) => (SEVERITY[z.color] ?? 1) - (SEVERITY[a.color] ?? 1) || z.priority - a.priority)
+    return { color: COLORS[hits[0].color] || COLORS.gray,
+             tip: [...new Set(hits.filter(h => h.message).map(h => `${h.label}: ${h.message}`))].join('\n') }
+  }
+
+  /**
+   * Input: none
+   * Output: void
+   * Processing: Colour the drawn arrows from switched-on rule overlays. An arrow on screen can stand for several
+   *   arrows (between two containers), so it takes the most urgent colour among them (red before green) and lists
+   *   every message in its tooltip.
+   * Changed by: Claude Code
+   * Date: 2026-11-25
+   */
+  function paintArrows() {
+    const s = overlayState(), svg = document.getElementById('connections')
+    if (!svg) return
+    const blocks = wb.board?.board?.blocks || {}
+    const chain = id => {
+      const out = new Set()
+      for (let b = blocks[id], guard = 0; b && guard < 40; b = blocks[b.parent], guard++) out.add(b.id)
+      return out
+    }
+    const looks = []
+    for (const id of s?.active || []) {
+      const spec = s.defs?.[id]
+      if (!spec) continue
+      for (const look of Object.values(s.arrows?.[id] || {})) {
+        looks.push({ ...look, label: spec.label, priority: spec.priority ?? 0, from: chain(look.source), to: chain(look.target) })
+      }
+    }
+    svg.querySelectorAll('path[data-source]').forEach(path => {
+      const text = path.nextElementSibling?.tagName === 'text' ? path.nextElementSibling : null
+      path.style.stroke = ''
+      path.classList.remove('ov-arrow')
+      path.querySelector('title')?.remove()
+      if (text) text.style.fill = ''
+      if (!looks.length) return
+      const eps = (path.dataset.endpoint || '').split('|').filter(Boolean)
+      const hits = looks.filter(l => (l.endpoint && eps.includes(l.endpoint)) ||
+        (l.from.has(path.dataset.source) && l.to.has(path.dataset.target)))
+      if (!hits.length) return
+      hits.sort((a, z) => (SEVERITY[z.color] ?? 1) - (SEVERITY[a.color] ?? 1) || z.priority - a.priority)
+      const color = COLORS[hits[0].color] || COLORS.gray
+      path.style.stroke = color
+      path.classList.add('ov-arrow')
+      if (text) text.style.fill = color
+      const tip = [...new Set(hits.filter(h => h.message).map(h => `${h.label}: ${h.message}`))].join('\n')
+      if (tip) {
+        const title = document.createElementNS('http://www.w3.org/2000/svg', 'title')
+        title.textContent = tip
+        path.append(title)
+      }
+    })
   }
 
   /**
@@ -202,11 +277,12 @@ Date: 2026-11-22
   /**
    * Input: none
    * Output: void
-   * Processing: Redraw the drop-down panel when it is open, and show how many overlays are on on the button.
+   * Processing: Colour arrows from rule overlays, redraw the drop-down panel when it is open, and show how many overlays are on on the button.
    * Changed by: Claude Code
-   * Date: 2026-11-22
+   * Date: 2026-11-25
    */
   function afterRender() {
+    paintArrows()
     const s = overlayState()
     button.innerHTML = `◫ Overlays${s ? `<span class="ov-open-count">${s.active.length}</span>` : ''}`
     if (!pop.hidden) pop.innerHTML = panelHTML()
@@ -226,5 +302,5 @@ Date: 2026-11-22
   })
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !pop.hidden) pop.hidden = true })
 
-  window.PlovaneOverlays = { isOn, decorate, panelHTML, afterRender }
+  window.PlovaneOverlays = { isOn, decorate, panelHTML, afterRender, paintArrows, arrowLook }
 })()

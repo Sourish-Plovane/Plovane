@@ -77,6 +77,8 @@ COMMANDS: tuple[Command, ...] = (
     Command("overlay put", "overlay.put", ("overlay",),
             example="/overlay put db_writes --data '{\"label\": \"DB writes\", \"source\": \"custom\", ...}'"),
     Command("overlay remove", "overlay.remove", ("overlay",), example="/overlay remove db_writes"),
+    Command("overlay rule", "overlay.rule", ("overlay",),
+            example="/overlay rule failing_calls --data '{\"label\": \"Failing API calls\", \"rules\": [{\"on\": \"arrow\", \"if\": {\"live.ok\": false}, \"show\": {\"color\": \"red\"}}]}'"),
     Command("overlay propose", "overlay.propose", ("goal",),
             example="/overlay propose \"files hit hardest by log errors\""),
     Command("role put", "role.put", ("role",),
