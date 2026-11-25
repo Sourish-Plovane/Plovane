@@ -333,10 +333,10 @@ def call_tool(client: Any, name: str, args: dict[str, Any]) -> str:
 # Processing: One Anthropic Messages call with the whiteboard tools.
 # Changed by: Claude Code
 # Date: 2026-11-09
-def _anthropic_turn(model: str, messages: list[dict[str, Any]], key: str) -> dict[str, Any]:
+def _anthropic_turn(model: str, messages: list[dict[str, Any]], key: str, system: str = SYSTEM) -> dict[str, Any]:
     reply = http_json(f"{base_url('anthropic')}/v1/messages",
                       {"x-api-key": key, "anthropic-version": "2023-06-01"},
-                      {"model": model, "max_tokens": 4096, "system": SYSTEM, "messages": messages,
+                      {"model": model, "max_tokens": 4096, "system": system, "messages": messages,
                        "tools": [{"name": t["name"], "description": t["description"], "input_schema": t["schema"]}
                                  for t in TOOLS]})
     if "_http_status" in reply or reply.get("type") == "error":
@@ -368,8 +368,9 @@ def _chat_turn(provider: str, model: str, messages: list[dict[str, Any]], key: s
 # Date: 2026-11-09
 def run(task: str, *, provider: str, client: Any, model: str | None = None, max_steps: int = 30,
         on_step: Callable[[dict[str, Any]], None] | None = None,
-        stop: threading.Event | None = None) -> dict[str, Any]:
+        stop: threading.Event | None = None, instructions: str = "") -> dict[str, Any]:
     provider = canonical(provider)
+    system = SYSTEM + instructions
     key = api_key(provider)
     if not key:
         raise AgentError(f"no API key for {provider}: set {KEY_NAMES[provider]} or run "
@@ -381,14 +382,14 @@ def run(task: str, *, provider: str, client: Any, model: str | None = None, max_
     if provider == "anthropic":
         messages: list[dict[str, Any]] = [{"role": "user", "content": task}]
     else:
-        messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": task}]
+        messages = [{"role": "system", "content": system}, {"role": "user", "content": task}]
 
     for step in range(1, max_steps + 1):
         if stop is not None and stop.is_set():
             return {"status": "stopped", "steps": step - 1, "commands": commands, "usage": usage,
                     "provider": provider, "model": model, "summary": "Stopped by the person."}
         if provider == "anthropic":
-            reply = _anthropic_turn(model, messages, key)
+            reply = _anthropic_turn(model, messages, key, system)
             u = reply.get("usage") or {}
             usage["input_tokens"] += int(u.get("input_tokens") or 0)
             usage["output_tokens"] += int(u.get("output_tokens") or 0)

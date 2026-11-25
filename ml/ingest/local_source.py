@@ -21,6 +21,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from ml.ingest.categorize import categorize
 from ml.ingest.description import DescriptionGenerator, describe_record
 from ml.ingest.extract import dependency_names, extract, language_for_path
 from ml.ingest.licensing import LicenseVerdict, classify_license, extract_copyright_holder
@@ -208,9 +209,9 @@ def missing_fields(unit, attribution: Attribution, repo: LocalRepo) -> list[str]
 
 # Input: repo (LocalRepo), unit (ExtractedUnit), rel_path (str), category (str), describer (DescriptionGenerator | None)
 # Output: dict[str, object]
-# Processing: Build the entry record for one extracted unit
-# Changed by: Sourish
-# Date: 2026-10-12
+# Processing: Build the entry record for one extracted unit; category "auto" guesses it from the code
+# Changed by: Claude Code
+# Date: 2026-11-15
 def build_record(
     repo: LocalRepo,
     unit,
@@ -235,7 +236,7 @@ def build_record(
         "name": unit.name,
         "type": "template" if unit.is_template else "helper",
         "language": unit.language,
-        "category": category,
+        "category": categorize(unit.name, unit.language, rel_path, unit.docstring) if category == "auto" else category,
         "signature": unit.signature,
         "description": unit.docstring.strip().splitlines()[0] if unit.docstring.strip() else None,
         "code": unit.insertable_code,
@@ -276,14 +277,14 @@ def build_record(
 
 # Input: roots (list of Path | str), out_path (Path), category (str), min_quality (float)
 # Output: dict[str, object]
-# Processing: Harvest every eligible clone into one JSONL file
-# Changed by: Sourish
-# Date: 2026-10-12
+# Processing: Harvest every eligible clone into one JSONL file, categorising each entry unless one category is given
+# Changed by: Claude Code
+# Date: 2026-11-15
 def harvest_clones(
     roots,
     out_path: Path,
     *,
-    category: str = "data-processing",
+    category: str = "auto",
     min_quality: float = 0.0,
     target: int | None = None,
     describer: DescriptionGenerator | None = None,

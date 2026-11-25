@@ -69,7 +69,15 @@ def python_findings(tree: ast.AST) -> list[tuple[int, str, str]]:
 # Changed by: Sourish
 # Date: 2026-10-22
 def scan_file(ctx: Context, path: str) -> list[dict[str, Any]]:
-    text = ctx.fs.read(path)
+    return scan_text(path, ctx.fs.read(path))
+
+
+# Input: path (str), text (str)
+# Output: list[dict[str, Any]]
+# Processing: Security findings in a file's text: secrets and risky calls, with line and severity (never the secret).
+# Changed by: Claude Code
+# Date: 2026-11-22
+def scan_text(path: str, text: str) -> list[dict[str, Any]]:
     language = codegen.language_of(path)
     findings: list[tuple[int, str, str]] = []
     for number, line in enumerate(text.splitlines(), start=1):

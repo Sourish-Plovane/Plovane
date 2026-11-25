@@ -48,6 +48,7 @@ whiteboard/
 ├── server.py        local HTTP API for the desktop app and CLI (127.0.0.1:8700), live events, AI runs
 ├── auth.py          person and agent tokens: who is calling the server
 ├── events.py        live change events, streamed to the whiteboard as Server-Sent Events
+├── overlays.py      the overlay engine: default overlays and roles, premade analyzers, roll-up, scan cache
 ├── llm_agent.py     drives the whiteboard with Claude, DeepSeek or OpenAI over the API (tool-use loop)
 ├── mcp_tools.py     grouped MCP tools for AI agents (registered by backend/mcp_server/); forward to the running server
 └── ops/             one module per command category
@@ -56,12 +57,14 @@ whiteboard/
     ├── blocks.py      add, move, group, split, merge, rename, delete, info
     ├── english.py     English step blocks, /compile, /block replace
     ├── outline.py     /blocks generate: Claude or DeepSeek groups a file's code into nested blocks
+    ├── overlays.py    /overlay list|on|off|put|remove and /role list|use|put|remove
     ├── placement.py   coordinates, relative placement, align, distribute, grid, size
     ├── style.py       styles, presets, themes
     ├── arrows.py      connections, trace, dependencies
     ├── endpoints.py   API endpoints, client calls, tests, mocks, OpenAPI
     ├── templates.py   reusable layouts with library-filled slots
     ├── batch.py       many operations as one
+    ├── boardfile.py   whiteboard .plo files: writing and rebuilding boards, /boards, /board new|save|load, the put commands
     ├── agents.py      agent access by path and by canvas region
     ├── library.py     /rank, /insert, /palette, /suggest, /save, /cite
     ├── code.py        open, diff, explain
@@ -93,13 +96,15 @@ python -m backend.whiteboard.server --project /path/to/project     # HTTP API fo
 
 On start the server writes `.plovane/server.json` (URL, pid and the person's
 token, mode 600). It is the only owner of the board: before each operation it
-reloads `board.json` if another process changed it, a background watcher
-does the same while idle, and every operation takes `.plovane/lock`, so two
-processes never interleave or overwrite each other.
+reloads a whiteboard if another process, Git or a person changed its `.plo`
+file or cache, a background watcher does the same while idle, and every
+operation takes `.plovane/lock`, so two processes never interleave or
+overwrite each other.
 
-The board is saved in the project as `.plovane/board.json` and committed with
-the code. The code in Git is the source of truth: the board stores only what
-code can't hold (positions, styles, layers, endpoints, presets).
+The board is saved in the project as `whiteboard.plo` and committed with the
+code (see [Whiteboard files (.plo)](#whiteboard-files-plo)). The code in Git
+is the source of truth: the board stores only what code can't hold
+(positions, styles, layers, endpoints, presets).
 `/project import` maps an existing project's folders, files and imports onto
 blocks. The undo history, the operation log, previews and monitor output stay
 local, and `.plovane/.gitignore` excludes them.
@@ -147,6 +152,22 @@ arrows with the style that matches their type and status:
 - planned arrows are dashed
 - failing arrows are red
 
+It also returns `access`, which maps each block id to the agents that can
+reach it and how, e.g. `{"src-app-py": {"claude": "read-write", "reviewer": "read"}}`.
+It follows the same rules that are enforced when an agent acts. The page
+draws it as agent chips on each block (✎ read-write, 👁 read only) and lists
+the agents in the top bar. Granting or revoking access is a change event and
+an undo step, so open whiteboards redraw the chips straight away.
+
+**Several whiteboards.** `board`, `board/file`, `command`, `op`, `undo`,
+`redo` and `prompt/*` act on one whiteboard: the `.plo` file named by an
+`X-Plovane-Board` header or `?board=` (default `whiteboard.plo`). The board
+reply says which in `file`, and `file_error` explains a `.plo` that could not
+be read. `GET /api/v1/whiteboard/boards` lists every `.plo` in the project,
+the main one first. `GET /api/v1/whiteboard/board/file` (person only) returns
+`{"name", "file"}` for File → Download whiteboard: `name` is `<project>.plo`
+for the main whiteboard and the file's own name for the others.
+
 `GET /api/v1/whiteboard/commands` lists every command with an example, which
 you can use for autocomplete.
 
@@ -168,7 +189,7 @@ data: {"seq": 12, "kind": "change", "actor": "claude", "op": "block.add",
        "command": "/block add service payments", "changes": {"blocks": {"added": ["payments"], ...}}}
 ```
 
-`kind` is `change`, `external` (board.json changed under the server),
+Every event names its whiteboard in `board` (e.g. `whiteboard.plo`). `kind` is `change`, `external` (a `.plo` file or cache changed under the server),
 `agent` (an AI run's steps: `started`, `thought`, `command`, `finished`) or
 `hello`. Reconnecting with `Last-Event-ID` resumes where it left off.
 `GET /events/recent?after=SEQ` returns the same events as JSON.
@@ -280,6 +301,220 @@ Endpoints, all under `/api/v1/whiteboard/`:
 | `GET agent/runs`, `GET agent/runs/<id>` | anyone | run status, steps and result |
 | `POST agent/runs/<id>/stop` | person | stop after the current step |
 
+## Overlays
+
+Overlays draw extra information on top of whatever the board shows: security
+findings, endpoints, test health, agent access and verified library code.
+They are worked out from the code and the board by premade analyzers
+(`overlays.py`), never by an AI, so switching them costs no tokens; file scans
+are cached until a file changes. Handbook §21.4 defines them.
+
+```
+/role use cyber                  show the Cyber security role's overlays
+/overlay on test_health          add one overlay to your view
+/overlay off cyber_security      switch a whole group off
+/overlay list                    every overlay and whether it is on, off or mixed
+```
+
+Each person and agent has their own view (a role plus what they switched on
+or off). Views stay local and are never written to the shared `.plo`. Overlay
+and role definitions that differ from the defaults travel in the `.plo` as
+`/overlay put` and `/role put` lines (people only). The board reply carries
+`overlays`: the definitions, roles, the caller's view, which overlays are on,
+and per-block results with rolled-up counts. In the desktop app, the
+**◫ Overlays** button in the top bar opens the panel.
+
+## Whiteboard files (.plo)
+
+A whiteboard is a **`.plo`** file in the project: JSON whose `commands` list
+holds slash commands. Running them on an empty board rebuilds it exactly.
+`whiteboard.plo` in the project root is the main whiteboard. Every other
+`.plo` in the project is another whiteboard, its own drawing. The page always
+opens on the main whiteboard; the others stay hidden until you click the arrow
+beside its tab.
+
+```json
+{"format": "plovane-whiteboard", "version": 1,
+ "commands": [
+  "/theme dark",
+  "/block put auth --kind service --name auth --layer 1 --at 400,100 --size 200x100 --preset service",
+  "/arrow put checkout -> auth --id checkout-to-auth --type api",
+  "/agent put claude --block agent-claude --grants '[{\"mode\":\"read\",\"path\":\"src\"}]'"
+ ]}
+```
+
+- **It is the board.** Every change rewrites the whiteboard's `.plo`, one
+  command per line and always in the same order, so a Git diff shows exactly
+  what moved. Commit it with the code. When the file changes under the
+  whiteboard (`git pull`, a teammate, a hand edit), the board is rebuilt from
+  it and open tabs redraw. Hand edits work, but the next change rewrites the
+  file in its usual form, without your comments.
+- **A broken file is left alone.** If a `.plo` can't be read (a merge conflict,
+  bad JSON, a bad line), the whiteboard keeps showing its last good state,
+  says why, and doesn't touch the file. Fix the file, or run `/board save` to
+  write the current board over it.
+- **Agents belong to the project.** Only `whiteboard.plo` has `/agent put`
+  lines. Every other whiteboard shares those agents and their access, and
+  `/agent` commands run on any tab change the project's agents.
+- **Separate drawings.** Each whiteboard has its own blocks, arrows, layout and
+  undo history (in `.plovane/boards/`). They share the project's code, so a
+  code change made from one whiteboard is the same code everywhere.
+- **Only the `/board` commands write `.plo` files.** `/file save` and other
+  commands refuse them, so an agent with access to the project can't rewrite
+  a whiteboard or its own access.
+
+| Command | What it does |
+|---|---|
+| `/boards` | lists the project's whiteboards |
+| `/board new designs/payments` | makes `designs/payments.plo`, an empty whiteboard (people only) |
+| `/board save` | writes this whiteboard's `.plo` now, e.g. over a broken one |
+| `/board save designs/copy` | saves a copy as `designs/copy.plo` (`.plo` is added when there is no extension) |
+| `/board load designs/copy.plo` | replaces this whiteboard with that file's, after confirmation; one undo step |
+
+In the browser, the canvas toolbar starts with the main whiteboard's tab. When
+the project has other whiteboards, an arrow with their count sits beside it
+(**› 2**). Click it to show every whiteboard as a tab, and click a tab to
+switch. Collapsing keeps the main tab and the one you're on. Reloading the page
+always opens the main whiteboard again. File → New whiteboard… makes one, and
+File → Open whiteboard… lists them all and can import a `.plo` from your
+computer. File → Download whiteboard (.plo) saves the one you're on to your
+computer. A whiteboard that arrives with `git pull` shows up under the arrow
+straight away.
+
+From a terminal: `plovane wb "/block add service pay" --board designs/payments.plo`
+runs a command on that whiteboard, and `plovane mcp --board designs/payments.plo`
+(or `PLOVANE_BOARD`) points an agent at it. Without `--board`, both use the
+main whiteboard.
+
+What a file may run is limited to the put commands (`/block put`,
+`/arrow put`, `/endpoint put`, `/agent put`, `/layer put`, `/template put`)
+plus `/style`, `/place`, `/size`, `/theme`, `/grid`, `/preset define`,
+`/layer rename`, `/layer remove` and `/block rename`. None of these touch
+project files, so a whiteboard someone sends you can't change your code.
+Loading and the put commands are for people only, because they restore access.
+
+**Moving an existing project over:** the first time a project with a
+`.plovane/board.json` opens, `whiteboard.plo` is written from it.
+`board.json` is now a local cache and is added to `.plovane/.gitignore`. If
+it was committed before, untrack it once with
+`git rm --cached .plovane/board.json`.
+
+## Live view: what agents are doing, and whether requests pass
+
+Nothing in this section is saved in a `.plo` file or undone. It describes the
+running project, so every whiteboard tab shows the same picture
+(`ops/live.py`).
+
+- **Working on.** Every change an agent makes marks the files it touched for
+  45 seconds. The file glows in the agent's colour with a pulsing 🤖 badge,
+  and its folder glows faintly.
+- **Orchestration.** `/agent working src/payments "add refunds"` puts a banner
+  over the folder: who, what, and how many of its files the agent has touched
+  so far. `/agent done` clears it. Agents call these over MCP
+  (`plovane_agent`). A person can set one for an agent with `--agent claude`.
+- **API status.** Report each request the app handles and its arrow turns
+  green while requests pass, red once one fails:
+  - `/traffic POST /charge 500` from the command line or an agent;
+  - `POST /api/v1/whiteboard/traffic` with `{"method","path","status",...}` or
+    `{"requests": [...]}`;
+  - the WSGI middleware for Flask or Django:
+    `app.wsgi_app = PlovaneTraffic(app.wsgi_app, project=".")` from
+    `backend.whiteboard.traffic`. An Express one-liner is in that file.
+
+  Routes match templates such as `/orders/{id}`, `:id`, `<int:id>`,
+  `/<int:id>-<slug>` and `[id]`.
+  Rules decide pass or fail, so watching costs no tokens. Clicking a red
+  arrow, or the "✗ API failing · why?" badge on the folder that handles the
+  route, or `/api explain <endpoint>`, asks the AI why, only then. Without a
+  working AI key you get Plovane's own reading of the status code and error
+  instead, and it says so. `/api status` lists every endpoint, plus requests
+  to routes not on the whiteboard.
+- **Routes found in your code.** `/endpoint scan` (run by itself on a first
+  `/project import`) reads the code once, with no AI: Flask and FastAPI
+  decorators, `add_url_rule` and `routes=[...]` helpers with their blueprint
+  prefixes (also `app.config["X_URL_PREFIX"]` when a config file sets it),
+  Express `app.get(...)`, Next.js `app/**/route.ts` and `pages/api`. Each
+  route becomes an endpoint on its handler file, and every `fetch`, `axios`,
+  `requests` or test-client call to it gets an API arrow, so `/traffic` works
+  on an existing project straight away (`ops/routes.py`).
+- **Attacks.** Every reported request is checked for SQL injection, path
+  traversal, script and command injection, scanners and repeated failed
+  logins (5 refusals in 60 s from one address). A 🛡 badge goes on the service
+  that was hit, and events are kept in `.plovane/security.log`. `/security`
+  lists them; `--clear` empties the list.
+- **Weak spots in code.** `/security scan [folder]` checks code line by line,
+  by rule, for SQL built from text, eval/exec, shell calls, secrets written in
+  code, unsafe pickle/YAML loads, raw HTML, TLS checks turned off, weak hashes,
+  debug mode and open CORS. Each file shows ⚠ with a count.
+
+## Readable code for little or no money
+
+- **Summaries one layer up.** `/summary [folder]` gives every file tile a
+  one-line "what this is", and the top of the board a line on what the
+  project is.
+  - **Free by default:** the summary comes from the docstring or leading
+    comment, or "Defines a, b and c". The project line comes from
+    package.json, pyproject or the README.
+  - **One AI call:** `--provider claude` asks for every stale file at once.
+  - **Shared and cached:** summaries are stored in the block's `meta` with a
+    fingerprint of the file, so they travel in the `.plo` through git and are
+    rewritten only when the file changes.
+  - **Agent-written:** an agent that has read a file can store its own line
+    with `/summary set <file> "text"`, for no extra tokens.
+
+  `/project describe "text"` sets the project line by hand.
+- **Parse degree.** On a file, the bar offers Summary, Functions, Steps,
+  Detailed and Line by line. The middle three are `/blocks view --detail 1|2|3`.
+- **Line by line.** `/translate <file> [--start N --end M]` puts English beside
+  every line.
+  - **Rules, free:** rules word assignments, returns, conditions, loops,
+    calls, definitions, imports and comments, for Python, JavaScript,
+    TypeScript and C-like code.
+  - **AI, once:** lines no rule covers go to the AI in one call, and only with
+    `--provider` (the ✦ button).
+  - **Cached per line:** every AI wording is saved in
+    `.plovane/translations.json` by the line's text, so the same line anywhere
+    in the project is never paid for twice.
+
+  The reply says what share was free.
+
+## Whiteboards built for one job
+
+`/board make structure|api|security|frontend` writes `whiteboards/<kind>.plo`,
+which opens as its own tab (`ops/views.py`). Agents may run it, so the AI
+builds one when its task needs it. Use `--refresh` to redraw it from the
+current project. Without it, an existing file is left alone.
+
+| Kind | What it shows |
+|---|---|
+| `structure` | services, folders and files, with what each agent is working on |
+| `api` | services, endpoints and the calls between them, green or red per request |
+| `security` | the API picture plus attacks seen and files with weak spots (it runs `/security scan`) |
+| `frontend` | each page of the app, live, in its own tile, with arrows for links between pages |
+
+`/pages` lists the pages found: Next.js `app/` and `pages/`, SvelteKit, Nuxt,
+React Router `path=` routes, or plain `.html` files. `/frontend start` runs
+the app's `dev` (or `start`) npm script, or a local static server for HTML
+pages, and remembers its address. `/frontend start --url http://localhost:3000`
+uses an app you started yourself. `/frontend stop` stops it. An agent needs
+read-write access to the frontend folder to start it, because starting runs
+its code.
+
+## Drawing on the whiteboard
+
+- **Connector dots.** Each card has dots on its edges. Drag one onto another
+  block, then choose:
+  - *Just draw an arrow* runs `/arrow put`, which writes no code.
+  - *API call* or *Import in the code* runs `/connect`.
+- **Block tray.** **＋ Blocks**, bottom left, holds service, database, queue,
+  external API, folder, file, page and note. Drag one onto the board, or into
+  a block, to run `/block add <kind> <name> --inside <block>`. The tray also
+  offers *Make a whiteboard…*.
+
+Every drag runs the same command you could type, so undo, the `.plo` file and
+agent permissions work as usual. The frontend for all of this is
+`frontend/whiteboard/live-view.js` and `live-view.css`.
+
 ## What it writes into a project
 
 Generated code sits between `plovane:begin` and `plovane:end` comments, so
@@ -359,9 +594,18 @@ command answers `needs_confirmation` first.
 | `/zoom into` | `view.zoom_into` | `plovane_view` |  | Zooms into a specific block. | `/zoom into payments-service` |
 | `/zoom out` | `view.zoom_out` | `plovane_view` |  | Moves up one layer. | `/zoom out` |
 | `/zoom` | `view.zoom` | `plovane_view` |  | Jumps to a zoom level or a layer. | `/zoom 15  or  /zoom layer 2` |
+| `/overlay list` | `overlay.list` | `plovane_overlay` |  | Lists the overlays, which are on, and the current role. | `/overlay list` |
+| `/overlay on` | `overlay.on` | `plovane_overlay` |  | Switches an overlay (or every overlay in a group) on in your view. | `/overlay on cyber_security` |
+| `/overlay off` | `overlay.off` | `plovane_overlay` |  | Switches an overlay (or every overlay in a group) off in your view. | `/overlay off test_health` |
+| `/role list` | `role.list` | `plovane_overlay` |  | Lists the roles and which one you are using. | `/role list` |
+| `/role use` | `role.use` | `plovane_overlay` |  | Uses a role (developer, cyber, reviewer, ...): shows that role's overlays. | `/role use cyber` |
+| `/overlay put` | `overlay.put` | `plovane_overlay` |  | Defines or replaces one overlay (used by .plo files); people only. | `/overlay put db_writes --data '{"label": "DB writes", "source": "custom", ...}'` |
+| `/overlay remove` | `overlay.remove` | `plovane_overlay` |  | Removes an overlay (and the overlays inside a group); people only. | `/overlay remove db_writes` |
+| `/role put` | `role.put` | `plovane_overlay` |  | Defines or replaces one role (used by .plo files); people only. | `/role put qa --data '{"label": "QA", "overlays": ["test_health"], "default_level": 2}'` |
+| `/role remove` | `role.remove` | `plovane_overlay` |  | Removes a role; people only. | `/role remove qa` |
 | `/folder create` | `folder.create` | `plovane_project` |  | Creates a real folder in the project and its block on the whiteboard. | `/folder create src/payments --right-of src/auth` |
 | `/file create` | `file.create` | `plovane_project` |  | Creates a real file, optionally from a starter template. | `/file create src/payments/charge.py --template python-module` |
-| `/file save` | `file.save` | `plovane_project` |  | Saves edited text to an existing file; undo restores the old text. | `/file save src/app.py --content "..."` |
+| `/file save` | `file.save` | `plovane_project` |  | Saves edited text to a file; refuses if it changed on disk since it was opened (base: its text or version). | `/file save src/app.py --content "..."` |
 | `/folder delete` | `folder.delete` | `plovane_project` | yes | Deletes a folder after showing what depends on it. | `/folder delete src/old-cache` |
 | `/file save` | `file.save` | `plovane_project` |  | Saves edited text to a file; refuses if it changed on disk since it was opened (base: its text or version). | `/file save src/app.py --content "..." --base 1a2b3c` |
 | `/files` | `file.list` | `plovane_project` |  | Lists the project's files (skipping .git, node_modules and virtual environments). | `/files  or  /files src` |
@@ -375,7 +619,8 @@ command answers `needs_confirmation` first.
 | `/block delete` | `block.delete` | `plovane_block` | yes | Removes a block and its code after showing dependents. | `/block delete old-cache` |
 | `/block info` | `block.info` | `plovane_block` |  | Shows a block's code, connections, and source. | `/block info checkout` |
 | `/blocks view` | `file.blocks` | `plovane_compile` |  | Shows a code file as plain-English step blocks at the chosen detail level. | `/blocks view src/orders.py --detail 2` |
-| `/blocks generate` | `blocks.generate` | `plovane_compile` |  | Groups a file's code into nested blocks by what it does: pass blocks=[{name, summary, lines: [start, end], children: [...]}] you wrote, or provider=claude or deepseek to have that AI write them. | `/blocks generate src/payments/billing.py --provider deepseek --depth 3` |
+| `/blocks generate` | `blocks.generate` | `plovane_compile` |  | Explains a file as zoomable blocks: pass summary (what the whole file does, read first when zooming in) and blocks=[{name, summary, lines: [start, end], children: [...]}] you wrote, or provider=claude or deepseek to have that AI write them. | `/blocks generate src/payments/billing.py --provider deepseek --depth 3` |
+| `/blocks` | `file.blocks` | `plovane_compile` |  | Shows a code file as plain-English step blocks at the chosen detail level. | `/blocks src/orders.py` |
 | `/block edit` | `block.edit_text` | `plovane_compile` |  | Rewrites an English block; the AI regenerates the code underneath as a reviewable diff. | `/block edit step-3 "Charge the card, retry twice on failure"` |
 | `/block replace` | `block.replace` | `plovane_compile` |  | Replaces a block with a verified palette block. | `/block replace step-3 --with retry_request --times 3` |
 | `/compile apply` | `compile.apply` | `plovane_compile` | yes | Applies a previewed compile after tests pass. | `/compile apply c_102` |
@@ -408,6 +653,10 @@ command answers `needs_confirmation` first.
 | `/endpoint test` | `endpoint.test` | `plovane_endpoint` |  | Sends a test request in the sandbox and shows the response on the arrow. | `/endpoint test payments:POST /charge --body sample` |
 | `/endpoint mock` | `endpoint.mock` | `plovane_endpoint` |  | Creates a mock response so callers can be built before the endpoint exists. | `/endpoint mock payments:POST /charge --response sample` |
 | `/endpoint check` | `endpoint.check` | `plovane_endpoint` |  | Checks every API arrow: caller request matches endpoint schema; mismatches turn red. | `/endpoint check all` |
+| `/endpoint scan` | `endpoint.scan` | `plovane_endpoint` |  | Finds the app's API routes and the code calling them; adds endpoints and API arrows (no AI). | `/endpoint scan` |
+| `/outside scan` | `outside.scan` | `plovane_endpoint` |  | Finds the outside APIs the code calls; adds external blocks and arrows (no AI). | `/outside scan` |
+| `/logs scan` | `logs.scan` | `plovane_code` |  | Finds the files a log file blames for errors and badges them with how many times. | `/logs scan server.log` |
+| `/logs show` | `logs.show` | `plovane_code` |  | Returns the last recorded log scan (used by the 'Errors in logs' overlay). | `/logs show` |
 | `/endpoint import` | `endpoint.import` | `plovane_endpoint` |  | Creates endpoint blocks from an OpenAPI spec. | `/endpoint import openapi.yaml` |
 | `/endpoint export` | `endpoint.export` | `plovane_endpoint` |  | Exports a service's endpoints as an OpenAPI spec. | `/endpoint export payments` |
 | `/api external add` | `external.add` | `plovane_endpoint` |  | Adds a third-party API (such as a payment provider) as an external block with its endpoints. | `/api external add stripe --spec stripe-openapi.yaml` |
@@ -422,17 +671,22 @@ command answers `needs_confirmation` first.
 | `/agent grant` | `agent.grant` | `plovane_agent` | yes | Gives an agent access to a path or region. | `/agent grant test-writer tests/ --mode read-write` |
 | `/agent revoke` | `agent.revoke` | `plovane_agent` | yes | Removes an agent's access. | `/agent revoke test-writer payments/` |
 | `/agent region` | `agent.region` | `plovane_agent` | yes | Grants access by canvas coordinates. | `/agent region reviewer --area 100,200,400,500 --mode read` |
+| `/agent configure` | `agent.configure` | `plovane_agent` |  | Sets how an agent connects, its instructions and who may approve its access. | `/agent configure helper --connection api --provider deepseek --instructions "Only edit tests/"` |
 | `/agent show` | `agent.show` | `plovane_agent` |  | Highlights what an agent can see and change. | `/agent show test-writer` |
 | `/agent log` | `agent.log` | `plovane_agent` |  | Shows everything an agent has done. | `/agent log test-writer --last 20` |
 | `/rank` | `library.rank` | `plovane_library` |  | Searches the verified library for a task and returns ranked slim cards. | `/rank "retry failed HTTP requests" --k 10` |
 | `/insert` | `library.insert` | `plovane_library` |  | Inserts a library entry as a block, copying the exact tested code. | `/insert hf_0412 --into data/` |
 | `/palette` | `library.palette` | `plovane_library` |  | Opens a palette of verified blocks for a category. | `/palette ui-components` |
+| `/library show` | `library.show` | `plovane_library` |  | Shows one verified function's code, licence and source. | `/library show ramda_ramda:curryN` |
+| `/library` | `library.browse` | `plovane_library` |  | Lists every verified function in the library, filtered by words in its name or description, language and category. | `/library chunk --language python` |
 | `/suggest` | `library.suggest` | `plovane_library` |  | Runs the reusability model on a block or file. | `/suggest checkout` |
 | `/save` | `library.save` | `plovane_library` |  | Saves a block to the library after naming, tests, and verification. | `/save normalize_batch --private` |
 | `/cite` | `library.cite` | `plovane_library` |  | Shows which library entries a block uses. | `/cite checkout` |
 | `/open` | `code.open` | `plovane_code` |  | Opens a block's code in the editor. | `/open checkout.ts` |
 | `/diff` | `code.diff` | `plovane_code` |  | Shows what changed in a block. | `/diff payments --since yesterday` |
 | `/explain` | `code.explain` | `plovane_code` |  | Explains a block in plain English. | `/explain charge.ts` |
+| `/trace run` | `trace.run` | `plovane_code` |  | Runs a test file with coverage and records what ran; the panel colours those lines green. | `/trace run tests/test_charge.py` |
+| `/trace show` | `trace.read` | `plovane_code` |  | Returns the last recorded trace, used by the whiteboard panel. | `/trace show` |
 | `/scan` | `health.scan` | `plovane_code` |  | Places a security detection block over an area and scans it. | `/scan payments/` |
 | `/alerts` | `health.alerts` | `plovane_code` |  | Lists active alerts on the diagram. | `/alerts --severity high` |
 | `/health` | `health.check` | `plovane_code` |  | Marks blocks with failing tests or broken connections. | `/health` |
@@ -447,5 +701,29 @@ command answers `needs_confirmation` first.
 | `/focus` | `view.focus` | `plovane_view` |  | Dims everything except a block and its connections. | `/focus payments` |
 | `/layout` | `view.layout` | `plovane_view` |  | Rearranges the canvas automatically. | `/layout left-to-right` |
 | `/filter` | `view.filter` | `plovane_view` |  | Shows only certain block or arrow types. | `/filter --arrows api` |
+| `/boards` | `board.list` | `plovane_history` |  | Lists the project's whiteboards (.plo files). | `/boards` |
+| `/board new` | `board.new` | `plovane_history` |  | Creates a new whiteboard (.plo file) to open in its own tab. | `/board new designs/payments` |
+| `/board save` | `board.save` | `plovane_history` |  | Saves the whiteboard to its .plo file, or a copy to another one. | `/board save  or  /board save designs/copy` |
+| `/board load` | `board.load` | `plovane_history` | yes | Replaces the whiteboard with a saved .plo file of commands. | `/board load  or  /board load designs/copy.plo` |
+| `/block put` | `block.put` | `plovane_block` |  | Restores one block exactly (whiteboard files); does not create files. | `/block put auth --kind service --name auth --layer 1 --at 100,80 --size 200x100` |
+| `/arrow put` | `arrow.put` | `plovane_connect` |  | Restores one arrow exactly (whiteboard files); does not write code. | `/arrow put checkout -> auth --type api` |
+| `/endpoint put` | `endpoint.put` | `plovane_endpoint` |  | Restores one endpoint exactly (whiteboard files); does not write handlers. | `/endpoint put 'auth:POST /login' --status built` |
+| `/agent put` | `agent.put` | `plovane_agent` |  | Restores one agent and its access (whiteboard files). | `/agent put claude --block agent-claude --grants '[{"path":"src","mode":"read"}]'` |
+| `/template put` | `template.put` | `plovane_template` |  | Restores one custom template exactly (whiteboard files). | `/template put api --blocks '[{"kind":"service","name":"api"}]' --arrows '[]'` |
+| `/layer put` | `layer.put` | `plovane_layer` |  | Restores one layer exactly (whiteboard files). | `/layer put 6 --name "Tests" --zoom 100-110 --show note` |
 | `/board` | `board.read` | `plovane_view` |  | Reads the whiteboard: blocks, arrows, endpoints and status, for an AI to get the picture first. | `/board  or  /board --layer 3  or  /board --block payments` |
-
+| `/agent working` | `agent.working` | `plovane_agent` |  | Shows that an agent is working on a file, or orchestrating every file in a folder. | `/agent working src/payments "add refunds"` |
+| `/agent done` | `agent.done` | `plovane_agent` |  | Clears an agent's working marks and orchestration banners. | `/agent done src/payments` |
+| `/agent activity` | `agent.activity` | `plovane_agent` |  | Lists what agents are working on right now and every folder being orchestrated. | `/agent activity` |
+| `/traffic` | `traffic.record` | `plovane_endpoint` |  | Reports a request the app handled: its arrow turns green or red and attacks are flagged. | `/traffic POST /charge 500` |
+| `/api status` | `api.status` | `plovane_endpoint` |  | Shows which endpoints pass and which fail, from the requests reported so far. | `/api status` |
+| `/api explain` | `api.explain` | `plovane_endpoint` |  | Explains in plain English why an endpoint's last request failed (asks the AI only now). | `/api explain 'payments:POST /charge' --provider claude` |
+| `/security scan` | `security.scan` | `plovane_code` |  | Looks through the code for weak spots: SQL built from text, eval, shell calls, secrets, raw HTML. | `/security scan src` |
+| `/security` | `security.events` | `plovane_code` |  | Lists attacks seen in requests and weak spots found in the code. | `/security` |
+| `/summary set` | `code.summary_set` | `plovane_code` |  | Stores your own one-line summary for a file (an agent that read it pays no extra tokens). | `/summary set src/pay.py "Charges a card and retries twice"` |
+| `/summary` | `code.summary` | `plovane_code` |  | Gives each file a one-line summary shown on its tile; free by default, one AI call with --provider. | `/summary src  or  /summary --provider claude` |
+| `/project describe` | `project.describe` | `plovane_project` |  | Sets the one line saying what the whole project is, shown at the top of the whiteboard. | `/project describe "A shop backend: orders, payments and emails"` |
+| `/translate` | `code.translate` | `plovane_code` |  | Translates a file line by line into plain English; rules are free, the AI only words the rest. | `/translate src/pay.py --start 1 --end 40` |
+| `/board make` | `board.make` | `plovane_view` |  | Builds a whiteboard for one job (structure, api, security or frontend) as its own .plo tab. | `/board make api  or  /board make frontend --refresh` |
+| `/pages` | `frontend.pages` | `plovane_view` |  | Lists the app's pages, the file behind each, and the links between them. | `/pages` |
+| `/frontend` | `frontend.run` | `plovane_view` |  | Starts or stops the app's dev server (npm run dev, or a static server for HTML pages). | `/frontend start  or  /frontend stop` |

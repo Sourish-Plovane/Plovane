@@ -89,6 +89,36 @@ def test_agent_passes_its_own_outline_and_regenerating_replaces_it(tmp_path):
 
 # Input: tmp_path
 # Output: None
+# Processing: Check that an agent's whole-file summary, passed alone or inside the outline, is what the file shows first.
+# Changed by: Claude Code
+# Date: 2026-11-15
+def test_agent_summary_of_the_whole_file(tmp_path):
+    ws = project(tmp_path, {"src/billing.py": BILLING}, llm=ScriptedLLM())
+    reply = ws.execute("blocks.generate", {"target": "src/billing.py", "blocks": OUTLINE["blocks"],
+                                           "summary": "Takes card payments."})
+    file_block = ws.board.block_for_path("src/billing.py")
+    assert reply["ok"] and file_block.meta["summary"] == "Takes card payments."
+    whole = ws.execute("blocks.generate", {"target": "src/billing.py", "blocks": json.dumps(OUTLINE)})
+    assert whole["ok"] and file_block.meta["summary"].startswith("Charges cards")
+    assert whole["data"]["result"]["files"][0]["summary"].startswith("Charges cards")
+
+
+# Input: none
+# Output: None
+# Processing: Check that the AI prompt and the MCP instructions both ask for what the whole file does first.
+# Changed by: Claude Code
+# Date: 2026-11-15
+def test_whole_file_summary_comes_first_in_the_instructions():
+    from backend.whiteboard.ops.outline import prompt_for
+
+    prompt = prompt_for("src/billing.py", BILLING, 3)
+    assert prompt.index("what the whole file does") < prompt.index("Then group")
+    server = (__import__("pathlib").Path(__file__).resolve().parents[2] / "mcp_server" / "server.py").read_text()
+    assert "summary first" in server and 'instructions=INSTRUCTIONS' in server
+
+
+# Input: tmp_path
+# Output: None
 # Processing: Check the errors for no usable blocks, a missing file and a too-deep request.
 # Changed by: Claude Code
 # Date: 2026-11-09
@@ -132,3 +162,15 @@ def test_file_save_writes_checks_base_and_undoes(tmp_path):
     assert stale["error"]["code"] == "CONFLICT"
     assert ws.command("/undo")["ok"] and (tmp_path / "src/billing.py").read_text() == BILLING
     assert ws.execute("file.save", {"path": "src/nope.py", "content": "x"})["error"]["code"] == "NOT_FOUND"
+
+
+# Input: tmp_path
+# Output: None
+# Processing: Check that the project import never walks tool folders such as node_modules or .claude worktrees.
+# Changed by: Claude Code
+# Date: 2026-11-12
+def test_import_skips_tool_and_worktree_folders(tmp_path):
+    ws = project(tmp_path, {"src/app.py": "x = 1\n", "node_modules/lib/index.js": "1",
+                            ".claude/worktrees/copy/src/app.py": "x = 1\n", "pkg.egg-info/x.py": "y = 2\n"})
+    result = ok(ws, "/project import")
+    assert result["files_found"] == 1 and ws.board.block_for_path("src/app.py") is not None

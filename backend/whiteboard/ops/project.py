@@ -41,12 +41,21 @@ def ensure_folder_block(ctx: Context, folder: str) -> str | None:
     return block.id
 
 
-# Input: ctx (Context), path (str)
+# Input: ctx (Context)
+# Output: dict[str, str]
+# Processing: Every Python module name in the project mapped to its file.
+# Changed by: Claude Code
+# Date: 2026-11-21
+def python_modules(ctx: Context) -> dict[str, str]:
+    return {codegen.module_name(f): f for f in ctx.fs.files_under() if f.endswith(".py")}
+
+
+# Input: ctx (Context), path (str), modules (dict[str, str] | None)
 # Output: list[str]
-# Processing: Project files a source file imports (Python and JavaScript/TypeScript).
-# Changed by: Sourish
-# Date: 2026-10-22
-def imports_of(ctx: Context, path: str) -> list[str]:
+# Processing: Project files a source file imports (Python and JavaScript/TypeScript). Pass ``modules`` (from python_modules) when checking many files, so the project is listed only once.
+# Changed by: Claude Code
+# Date: 2026-11-21
+def imports_of(ctx: Context, path: str, modules: dict[str, str] | None = None) -> list[str]:
     language = codegen.language_of(path)
     try:
         text = ctx.fs.read(path)
@@ -54,7 +63,7 @@ def imports_of(ctx: Context, path: str) -> list[str]:
         return []
     found: list[str] = []
     if language == "python":
-        modules = {codegen.module_name(f): f for f in ctx.fs.files_under() if f.endswith(".py")}
+        modules = python_modules(ctx) if modules is None else modules
         try:
             tree = ast.parse(text)
         except SyntaxError:
@@ -83,15 +92,16 @@ def imports_of(ctx: Context, path: str) -> list[str]:
 
 # Input: ctx (Context), path (str)
 # Output: list[str]
-# Processing: Project files that import any file under a path.
-# Changed by: Sourish
-# Date: 2026-10-22
+# Processing: Project files that import any file under a path (the project is listed once).
+# Changed by: Claude Code
+# Date: 2026-11-21
 def importers_of(ctx: Context, path: str) -> list[str]:
     prefix = path.strip("/")
     inside = lambda f: f == prefix or f.startswith(prefix + "/")  # noqa: E731
+    modules = python_modules(ctx)
     return sorted(
         f for f in ctx.fs.files_under()
-        if not inside(f) and codegen.language_of(f) and any(inside(t) for t in imports_of(ctx, f))
+        if not inside(f) and codegen.language_of(f) and any(inside(t) for t in imports_of(ctx, f, modules))
     )
 
 
@@ -183,24 +193,31 @@ def create_file(ctx: Context, path: str, template: str | None = None, at: Any = 
 
 # Input: ctx (Context), path (str), content (str), base (str | None)
 # Output: dict[str, Any]
-# Processing: Write new text to an existing file (refusing if it changed since it was read) and refresh line numbers.
+# Processing: Write new text to an existing file, refusing if it changed since it was opened, and refresh its blocks.
 # Changed by: Claude Code
-# Date: 2026-11-09
+# Date: 2026-11-14
 @operation("file.save", command="/file save", tool="plovane_file_save", group="plovane_project")
 def save_file(ctx: Context, path: str, content: str, base: str | None = None) -> dict[str, Any]:
-    """Saves edited text to an existing file; undo restores the old text."""
+    """Saves edited text to a file; refuses if it changed on disk since it was opened (base: its text or version)."""
     from backend.whiteboard.ops.blocks import symbol_blocks  # blocks imports this module
+    from backend.whiteboard.ops.code import version_of
 
     file = path.strip("/")
     ctx.require(file)
-    if ctx.fs.is_dir(file) or not ctx.fs.exists(file):
-        raise OpError("NOT_FOUND", f"no file {file!r}")
-    before = ctx.fs.read(file)
-    if base is not None and base != before:
-        raise OpError("CONFLICT", f"{file} changed on disk since it was opened; reopen it and edit again")
-    if content == before:
-        return {"path": file, "changed": False, "lines": len(content.splitlines())}
+    if not ctx.fs.exists(file) or ctx.fs.is_dir(file):
+        raise OpError("NOT_FOUND", f"no file {file}; create it with /file create")
+    if not isinstance(content, str):
+        raise OpError("INVALID_ARGS", "content must be the file's full text")
+    current = ctx.fs.read(file)
+    # base is the text the editor opened (whiteboard) or its version_of fingerprint (code view).
+    if base is not None and base != current and base != version_of(current):
+        raise OpError("CONFLICT", f"{file} changed on disk after it was opened; reload it before saving")
+    lines = content.count("\n") + (bool(content) and not content.endswith("\n"))
+    if content == current:
+        return {"path": file, "changed": False, "saved": False, "version": version_of(current), "lines": lines,
+                "blocks_refreshed": False}
     ctx.fs.write(file, content)
+    refreshed = False
     owner = ctx.board.block_for_path(file)
     if owner is not None and codegen.language_of(file):
         if any(b.kind in ("function", "class") and b.meta.get("file") == file for b in ctx.board.blocks.values()):
@@ -210,7 +227,37 @@ def save_file(ctx: Context, path: str, content: str, base: str | None = None) ->
                 ctx.notes.append(f"{file} does not parse now; function blocks keep their old line numbers")
         if any(b.meta.get("source") == "ai" and b.meta.get("file") == file for b in ctx.board.blocks.values()):
             ctx.notes.append(f"the AI blocks of {file} may point at old lines; run /blocks generate {file} to redo them")
-    return {"path": file, "changed": True, "lines": len(content.splitlines())}
+    steps = [b for b in ctx.board.blocks.values() if b.kind == "step" and b.meta.get("file") == file]
+    if steps and not any(b.meta.get("changed") for b in steps):
+        try:
+            ctx.execute("file.blocks", {"file": file, "detail": steps[0].meta.get("detail", 2)})
+            refreshed = True
+        except OpError as exc:
+            ctx.notes.append(f"saved, but the plain-English blocks could not be rebuilt: {exc.message}")
+    return {"path": file, "changed": True, "saved": True, "version": version_of(content), "lines": lines,
+            "blocks_refreshed": refreshed}
+
+
+# Input: ctx (Context), under (str)
+# Output: dict[str, Any]
+# Processing: Every file in the project, or under one folder, for opening.
+# Changed by: Claude
+# Date: 2026-11-10
+@operation("file.list", command="/files", tool="plovane_file_list", group="plovane_project", mutates=False)
+def list_files(ctx: Context, under: str = "") -> dict[str, Any]:
+    """Lists the project's files (skipping .git, node_modules and virtual environments)."""
+    base = under.strip("/")
+    ctx.require(base or None, "read")
+    if base and not ctx.fs.is_dir(base):
+        raise OpError("NOT_FOUND", f"no folder {base}")
+    files = ctx.fs.files_under(base)
+    return {"under": base, "count": len(files), "truncated": len(files) > MAX_LISTED,
+            "files": [{"path": f, "language": codegen.language_of(f), "on_board": ctx.board.block_for_path(f) is not None}
+                      for f in files[:MAX_LISTED]]}
+
+
+MAX_LISTED = 5000
+"""Most files /files returns; a bigger project is listed folder by folder."""
 
 
 # Input: ctx (Context), path (str)
@@ -304,9 +351,9 @@ def pack_tree(ctx: Context, added: list[str]) -> None:
 
 # Input: ctx (Context), path (str), arrows (Any)
 # Output: dict[str, Any]
-# Processing: Create blocks for the project's existing folders, files and imports.
-# Changed by: Sourish
-# Date: 2026-10-22
+# Processing: Create blocks for the project's existing folders, files and imports. A first import also adds free one-line summaries and the app's API routes (/summary, /endpoint scan).
+# Changed by: Claude Code
+# Date: 2026-11-21
 @operation("project.import", command="/project import", tool="plovane_project_import", group="plovane_project")
 def import_project(ctx: Context, path: str = "", arrows: Any = True) -> dict[str, Any]:
     """Maps existing folders, files and imports onto blocks; Git stays the source of truth."""
@@ -329,15 +376,24 @@ def import_project(ctx: Context, path: str = "", arrows: Any = True) -> dict[str
             block.status = "missing"
             missing.append(block.id)
     if flag(arrows):
+        modules = python_modules(ctx)
         for file in files:
             source = ctx.board.block_for_path(file)
-            for target_path in imports_of(ctx, file):
+            for target_path in imports_of(ctx, file, modules):
                 target = ctx.board.block_for_path(target_path)
                 if source and target and not any(
                         a.source == source.id and a.target == target.id and a.type == "import"
                         for a in ctx.board.arrows.values()):
                     added_arrows.append(new_arrow(ctx, source, target, "import").id)
+    extras: dict[str, Any] = {}
     if added_blocks:
         pack_tree(ctx, added_blocks)
+        # A new project also gets its free one-line summaries and its API routes, in the same undo step.
+        for op, args, key in (("code.summary", {"target": base}, "summaries"), ("endpoint.scan", {"under": base}, "routes")):
+            try:
+                extras[key] = ctx.execute(op, args)
+            except OpError as exc:  # e.g. an agent without whole-board access: the import still stands
+                ctx.notes.append(f"{op} skipped: {exc.message}")
     return {"files_found": len(files), "blocks_added": added_blocks, "import_arrows_added": added_arrows,
-            "missing_on_disk": missing}
+            "missing_on_disk": missing, "summarised": sum(1 for v in ((extras.get("summaries") or {}).get("files") or {}).values() if v),
+            "routes_found": (extras.get("routes") or {}).get("routes", 0)}

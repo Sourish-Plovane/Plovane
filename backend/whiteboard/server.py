@@ -11,7 +11,15 @@ response is the ``{"ok", "data", "error"}`` envelope.
     POST /api/v1/whiteboard/op          {"op": "block.add", "args": {...}, "confirm"?, "dry_run"?}
     POST /api/v1/whiteboard/undo        undo the last change
     POST /api/v1/whiteboard/redo        redo it
+    POST /api/v1/whiteboard/traffic     requests the app handled ({"method","path","status",...} or
+                                        {"requests": [...]}): arrows go green/red, attacks are flagged
     GET  /api/v1/whiteboard/log         ?actor=NAME&last=N
+
+board, board/file, command, op, undo, redo and prompt/* act on one whiteboard: the
+.plo file named by an X-Plovane-Board header or ?board= (default whiteboard.plo).
+
+    GET  /api/v1/whiteboard/board/file   person only: the board as a .plo file of commands (#72)
+    GET  /api/v1/whiteboard/boards       every whiteboard (.plo file) in the project, for the tabs
     GET  /api/v1/whiteboard/events      live changes as Server-Sent Events (?token= for EventSource)
     GET  /api/v1/whiteboard/events/recent  ?after=SEQ, the same events as JSON
     POST /api/v1/whiteboard/agents/<name>/token   person only: make an agent and its API token
@@ -20,6 +28,9 @@ response is the ``{"ok", "data", "error"}`` envelope.
     POST /api/v1/whiteboard/providers/<name>/key  person only: save an API key
     POST /api/v1/whiteboard/agent/run   person only: let Claude or DeepSeek work on the board
     GET  /api/v1/whiteboard/agent/runs[/<id>]     run status;  POST .../<id>/stop stops one
+    GET  /api/v1/whiteboard/agents/<name>/chat     ?since=N, the chat with one agent
+    POST /api/v1/whiteboard/agents/<name>/chat     {"message": "..."}, see agent_chat.py
+    DELETE /api/v1/whiteboard/agents/<name>/chat   forget that chat
 
 Every /api/v1/ request carries ``Authorization: Bearer <token>`` (see
 auth.py): the person's token from .plovane/server.json or the served page,
@@ -43,8 +54,12 @@ from typing import Any
 from flask import Flask, Response, g, jsonify, request, send_from_directory, stream_with_context
 
 from backend.whiteboard import llm_agent
+from backend.whiteboard.ops.agents import instructions_for
+from backend.whiteboard.agent_chat import AgentChat
 from backend.whiteboard.auth import Auth, new_token, remove_server_file, write_server_file
-from backend.whiteboard.engine import USER, Workspace
+from backend.whiteboard.engine import USER, Workspace, board_name
+from backend.whiteboard.registry import OpError
+from backend.whiteboard.store import MAIN_BOARD
 from backend.whiteboard.events import EventBus
 from backend.whiteboard.store import now
 
@@ -66,21 +81,89 @@ def parse_model_json(text: str) -> Any:
     return json.loads(fenced.group(1) if fenced else text)
 
 
-# Input: workspace (Workspace), person_token (str | None), lock (threading.RLock | None)
+# Input: text (str)
+# Output: str
+# Processing: Drop a ```json ... ``` fence some models put around a JSON-only reply.
+# Changed by: Claude
+# Date: 2026-11-10
+def strip_fence(text: str) -> str:
+    body = text.strip()
+    if body.startswith("```"):
+        body = body.split("\n", 1)[1] if "\n" in body else ""
+        body = body.rsplit("```", 1)[0]
+    return body.strip()
+
+
+# Input: none
+# Output: list[dict[str, str]]
+# Processing: Every slash command with one example, for the planner's prompt.
+# Changed by: Claude
+# Date: 2026-11-10
+def command_reference() -> list[dict[str, str]]:
+    from backend.whiteboard.commands import COMMANDS
+    from backend.whiteboard.registry import OPERATIONS
+
+    return [{"command": "/" + c.phrase, "example": c.example, "does": OPERATIONS[c.op].summary}
+            for c in COMMANDS]
+
+
+# Input: text (str), recommendations (list[dict])
+# Output: tuple[str, list[str], str]
+# Processing: Parse a planner reply into (summary, commands, problem); problem is "" when it is valid.
+# Changed by: Claude
+# Date: 2026-11-10
+def check_plan(text: str, recommendations: list[dict[str, Any]]) -> tuple[str, list[str], str]:
+    from backend.whiteboard.commands import parse
+    from backend.whiteboard.registry import OPERATIONS, OpError
+
+    try:
+        plan = parse_model_json(text)
+    except json.JSONDecodeError:
+        return "", [], "the reply was not JSON"
+    if not isinstance(plan, dict):
+        return "", [], "the reply was not a JSON object"
+    commands = plan.get("commands")
+    summary = str(plan.get("summary", ""))
+    if not isinstance(commands, list) or not commands or any(not isinstance(c, str) for c in commands):
+        return summary, [], "commands must be a non-empty array of strings"
+    if len(commands) > 40:
+        return summary, [], "the plan has more than 40 commands"
+    bad = []
+    for command in commands:
+        try:
+            op, args = parse(command)
+        except OpError as exc:
+            bad.append(f"{command!r}: {exc.message}")
+            continue
+        if op not in OPERATIONS:
+            bad.append(f"{command!r}: unknown operation")
+        elif op == "library.insert" and args.get("entry") not in {r.get("block_id") for r in recommendations}:
+            bad.append(f"{command!r}: library inserts must use a listed library candidate")
+    if bad:
+        return summary, [], "invalid commands: " + "; ".join(bad[:8])
+    return summary, commands, ""
+
+
+# Input: workspace (Workspace), chat (AgentChat | None), person_token (str | None), lock (threading.RLock | None)
 # Output: Flask
-# Processing: Build the Flask app over one project's workspace; with a person token every API call needs a token.
+# Processing: Build the Flask app over one project's workspace; with a person token every API call needs a token; tests inject chat.
 # Changed by: Claude Code
-# Date: 2026-11-09
-def create_app(workspace: Workspace, *, person_token: str | None = None,
+# Date: 2026-11-14
+def create_app(workspace: Workspace, chat: AgentChat | None = None, *, person_token: str | None = None,
                lock: threading.RLock | None = None) -> Flask:
     app = Flask("plovane-whiteboard")
     lock = lock or threading.RLock()  # one operation at a time: the board is shared state
     frontend = Path(__file__).resolve().parents[2] / "frontend" / "whiteboard"
     cli_frontend = frontend.parent / "cli"
     prompt_plans: dict[str, dict[str, Any]] = {}
+    chat = chat or AgentChat(workspace, lock)
+    chat.lock = lock  # agent turns and HTTP requests must take the same board lock
     auth = Auth(workspace.store.dir, person_token) if person_token else None
     bus = EventBus()
     workspace.listeners.append(bus.publish)
+    boards: dict[str, Workspace] = {MAIN_BOARD: workspace}
+    """Every open whiteboard (.plo file), by name; each tab in the page shows one."""
+    app.config["plovane_boards"] = boards
     runs: dict[str, dict[str, Any]] = {}
     app.config["plovane_bus"] = bus
     app.config["plovane_lock"] = lock
@@ -133,6 +216,15 @@ def create_app(workspace: Workspace, *, person_token: str | None = None,
     @app.get("/whiteboard")
     def whiteboard_page():
         return page_with_token(frontend / "index.html")
+
+    # Input: none
+    # Output: HTML response
+    # Processing: Serve the prototype click-to-open whiteboard (spaces, overlays, checks) next to the current one.
+    # Changed by: Claude Code
+    # Date: 2026-11-23
+    @app.get("/whiteboard/next")
+    def whiteboard_next_page():
+        return page_with_token(frontend / "next" / "index.html")
 
     # Input: none
     # Output: JPEG response
@@ -218,23 +310,58 @@ def create_app(workspace: Workspace, *, person_token: str | None = None,
     def fail(code: str, message: str):
         return send({"ok": False, "data": None, "error": {"code": code, "message": message}})
 
+    # Input: exc (OpError)
+    # Output: tuple
+    # Processing: An operation error raised outside an operation (e.g. an unknown whiteboard) as an envelope.
+    # Changed by: Claude Code
+    # Date: 2026-11-15
+    @app.errorhandler(OpError)
+    def op_error(exc: OpError):
+        return fail(exc.code, exc.message)
+
     # Input: none
+    # Output: Workspace
+    # Processing: The whiteboard this request is for (X-Plovane-Board header or ?board=), opening it on first use.
+    # Changed by: Claude Code
+    # Date: 2026-11-15
+    def current() -> Workspace:
+        name = board_name(workspace.root, request.headers.get("X-Plovane-Board") or request.args.get("board")
+                          or (body().get("board") if request.is_json else None) or MAIN_BOARD)
+        with lock:
+            if name not in boards:
+                if not (workspace.root / name).is_file():
+                    raise OpError("NOT_FOUND", f"no whiteboard {name}; make one with /board new")
+                opened = Workspace(workspace.root, library=workspace._library, llm=workspace._llm, board=name,
+                                   main=workspace)
+                opened.listeners.append(bus.publish)
+                boards[name] = opened
+            return boards[name]
+
+    # Input: target (Workspace)
     # Output: dict[str, Any]
-    # Processing: The board envelope, after picking up changes other processes made.
+    # Processing: One whiteboard's board envelope, after picking up changes other processes made.
     # Changed by: Claude Code
     # Date: 2026-11-09
-    def board_reply() -> dict[str, Any]:
+    def board_reply(target: Workspace) -> dict[str, Any]:
+        from backend.whiteboard.ops import live
         from backend.whiteboard.ops.arrows import arrow_record
+        from backend.whiteboard.overlays import overlay_state
 
         with lock:
-            workspace.sync()
-            current = workspace.board
+            target.sync()
+            current = target.board
             data = {
-                "project": str(workspace.root),
+                "project": str(target.root),
+                "file": target.board_file,  # which whiteboard (.plo) this is
+                "file_error": target.plo_error,
                 "board": current.to_dict(),
                 "block_styles": {b.id: current.resolved_style(b) for b in current.blocks.values()},
                 "absolute": {b.id: current.absolute(b) for b in current.blocks.values()},
                 "arrows": [arrow_record(a) for a in current.arrows.values()],
+                "access": target.access_map(),  # which agents reach each block, for the chips
+                "live": live.snapshot(target),  # agents working, API pass/fail, attacks (ops/live.py)
+                "about": target.main.board.view.get("about", ""),  # what the whole project is
+                "overlays": overlay_state(target, current, actor()),  # overlay definitions, view and results
                 "seq": bus.seq,
             }
         return {"ok": True, "data": data, "error": None}
@@ -260,7 +387,38 @@ def create_app(workspace: Workspace, *, person_token: str | None = None,
     # Date: 2026-10-22
     @app.get("/api/v1/whiteboard/board")
     def board():
-        return send(board_reply())
+        return send(board_reply(current()))
+
+    # Input: none
+    # Output: tuple
+    # Processing: Every whiteboard (.plo file) in the project, the main one first, for the tabs.
+    # Changed by: Claude Code
+    # Date: 2026-11-15
+    @app.get("/api/v1/whiteboard/boards")
+    def board_list():
+        from backend.whiteboard.ops.boardfile import whiteboards
+
+        return send({"ok": True, "data": {"main": MAIN_BOARD, "boards": whiteboards(workspace.root)}, "error": None})
+
+    # Input: none
+    # Output: tuple
+    # Processing: The board as a .plo whiteboard file (JSON full of commands) for the browser to download; person only.
+    # Changed by: Claude Code
+    # Date: 2026-11-15
+    @app.get("/api/v1/whiteboard/board/file")
+    def board_file_download():
+        from backend.whiteboard.ops.boardfile import board_file
+
+        refused = person_only()
+        if refused:
+            return refused
+        target = current()
+        with lock:
+            target.sync()
+            content = board_file(target.board, target.root.name, agents=target.is_main)
+        stem = target.root.name if target.is_main else Path(target.board_file).stem
+        name = "".join(c if c.isalnum() or c in "-_" else "-" for c in stem) or "whiteboard"
+        return send({"ok": True, "data": {"name": f"{name}.plo", "file": content}, "error": None})
 
     # Input: none
     # Output: tuple
@@ -273,13 +431,12 @@ def create_app(workspace: Workspace, *, person_token: str | None = None,
 
     # Input: none
     # Output: tuple
-    # Processing: Search verified code, ask Claude or DeepSeek for slash commands, and preview their effects.
+    # Processing: Search verified code, ask Claude, DeepSeek or OpenAI for slash commands (one retry), and preview them.
     # Changed by: Claude Code
-    # Date: 2026-11-09
+    # Date: 2026-11-14
     @app.post("/api/v1/whiteboard/prompt/plan")
     def prompt_plan():
-        from backend.whiteboard.commands import parse
-        from backend.whiteboard.registry import OPERATIONS, OpError
+        from backend.whiteboard.registry import OpError
 
         raw = body()
         prompt = raw.get("prompt")
@@ -290,15 +447,16 @@ def create_app(workspace: Workspace, *, person_token: str | None = None,
                 "PLOVANE_LLM_PROVIDER", "anthropic"))
         except llm_agent.AgentError as exc:
             return fail("INVALID_ARGS", str(exc))
-        label = {"anthropic": "Claude", "deepseek": "DeepSeek", "openai": "OpenAI"}[provider]
+        target = current()
         try:
             with lock:
-                ranked = workspace.execute("library.rank", {"query": prompt, "k": 5}, actor=actor())
+                ranked = target.execute("library.rank", {"query": prompt, "k": 5}, actor=actor())
             # The library is a bonus: when the model is not installed, plan without it.
             ranking = ranked["data"]["result"] if ranked["ok"] else {}
             recommendations = ranking.get("recommendations", []) if ranking.get("scores_calibrated") else []
             with lock:
-                board = workspace.board.to_dict()
+                target.sync()
+                board = target.board.to_dict()
             context = {
                 "request": prompt.strip(),
                 "project_root": str(workspace.root),
@@ -308,48 +466,50 @@ def create_app(workspace: Workspace, *, person_token: str | None = None,
                     for b in board.get("blocks", {}).values()
                 ],
                 "library_candidates": recommendations,
+                # The only commands that exist. Without this list models invent ones like /tree.
+                "command_reference": command_reference(),
             }
-            llm_reply = workspace.llm_result(
-                json.dumps(context, ensure_ascii=False),
-                system=("You are Plovane's whiteboard planner. The verified library was searched first. "
-                        "Only use a listed library candidate when it fits; insert it with /insert <id> --into <path>. "
-                        "Otherwise create new code using supported whiteboard slash commands. Prefer templates, "
-                        "presets, and relative placement. Use one /batch command per independent multi-step change. "
-                        "Return JSON only: {\"summary\": string, \"commands\": [slash-command strings]}. "
-                        "Commands must be valid Plovane commands. Never claim a write happened; this is a preview."),
-                provider=provider,
-            )
-            try:
-                plan_data = parse_model_json(llm_reply["text"])
-                commands = plan_data.get("commands")
-                summary = str(plan_data.get("summary", ""))
-                if not isinstance(commands, list) or not commands or any(not isinstance(c, str) for c in commands):
-                    raise ValueError("commands must be a non-empty array of strings")
-                if len(commands) > 40:
-                    raise ValueError("plan exceeds 40 operations")
-                for command in commands:
-                    op, args = parse(command)
-                    if op not in OPERATIONS:
-                        raise ValueError(f"unknown operation in {command}")
-                    if op == "library.insert" and args.get("entry") not in {
-                            item.get("block_id") for item in recommendations}:
-                        raise ValueError("library inserts must use a verified candidate returned by /rank")
-                batch_preview = workspace.execute("batch", {"commands": commands}, actor=actor(), dry_run=True)
+            system = ("You are Plovane's whiteboard planner. The verified library was searched first. "
+                      "Only use a listed library candidate when it fits; insert it with /insert <id> --into <path>. "
+                      "Otherwise create new code using whiteboard slash commands. Every command must start with "
+                      "one of the command names in command_reference and follow its example's syntax; never "
+                      "invent a command. Refer to existing blocks by their id. For drawing services, databases, "
+                      "queues, external APIs and the arrows between them, use ONE /sketch command with short "
+                      "lines separated by ';' (e.g. '/sketch service orders; database postgres; orders -> "
+                      "postgres'); it lays everything out itself, so never give coordinates. Return JSON only: {\"summary\": string, \"commands\": "
+                      "[slash-command strings]}. Never claim a write happened; this is a preview.")
+            usage: dict[str, Any] = {}
+            problem = ""
+            for _ in range(2):  # one retry, told exactly what was wrong
+                if problem:
+                    context["previous_plan_was_rejected"] = problem
+                llm_reply = target.llm_result(json.dumps(context, ensure_ascii=False), system=system,
+                                                 provider=provider)
+                for key, value in (llm_reply.get("usage") or {}).items():
+                    if isinstance(value, (int, float)):
+                        usage[key] = usage.get(key, 0) + value
+                summary, commands, problem = check_plan(llm_reply["text"], recommendations)
+                if problem:
+                    continue
+                with lock:
+                    batch_preview = target.execute("batch", {"commands": commands}, actor=actor(), dry_run=True)
                 if not batch_preview["ok"]:
-                    return send(batch_preview)
+                    problem = f"the plan failed its dry run: {batch_preview['error']['message']}"
+                    continue
                 plan_id = uuid.uuid4().hex
                 prompt_plans[plan_id] = {
-                    "prompt": prompt.strip(), "commands": commands, "tokens": llm_reply.get("usage", {}),
-                    "actor": actor(), "ranked": recommendations,
+                    "prompt": prompt.strip(), "commands": commands, "tokens": usage,
+                    "actor": actor(), "ranked": recommendations, "board": target.board_file,
                 }
                 return send({"ok": True, "error": None, "data": {
                     "plan_id": plan_id, "summary": summary, "commands": commands, "provider": provider,
                     "preview": batch_preview["data"], "library_candidates": recommendations,
-                    "tokens": llm_reply.get("usage", {}),
+                    "tokens": usage,
                 }})
-            except (ValueError, TypeError, KeyError) as exc:
-                return send({"ok": False, "data": None,
-                             "error": {"code": "INVALID_PLAN", "message": f"{label} returned an invalid command plan: {exc}"}})
+            return send({"ok": False, "data": None, "error": {
+                "code": "INVALID_PLAN",
+                "message": f"The planner could not produce a valid plan ({problem}). Try rephrasing, "
+                           "or use a / command directly."}})
         except OpError as exc:
             return send({"ok": False, "data": None, "error": {"code": exc.code, "message": exc.message}})
 
@@ -367,13 +527,14 @@ def create_app(workspace: Workspace, *, person_token: str | None = None,
             return send({"ok": False, "data": None, "error": {"code": "NOT_FOUND", "message": "prompt plan expired or not found"}})
         if plan["actor"] != actor():
             return send({"ok": False, "data": None, "error": {"code": "FORBIDDEN", "message": "prompt plan belongs to another actor"}})
+        target = boards.get(plan.get("board", MAIN_BOARD), workspace)  # the whiteboard it was planned on
         with lock:
-            workspace.prompt_context = {"prompt": plan["prompt"], "tokens": plan["tokens"]}
+            target.prompt_context = {"prompt": plan["prompt"], "tokens": plan["tokens"]}
             try:
-                reply = workspace.execute("batch", {"commands": plan["commands"]}, actor=actor(),
-                                          confirm=bool(raw.get("confirm")))
+                reply = target.execute("batch", {"commands": plan["commands"]}, actor=actor(),
+                                       confirm=bool(raw.get("confirm")))
             finally:
-                workspace.prompt_context = None
+                target.prompt_context = None
             if reply["ok"] and reply["data"].get("status") != "needs_confirmation":
                 result = reply["data"]
                 files = result.get("changes", {}).get("files", [])
@@ -387,37 +548,54 @@ def create_app(workspace: Workspace, *, person_token: str | None = None,
 
     # Input: none
     # Output: tuple
-    # Processing: Run a slash command.
-    # Changed by: Sourish
-    # Date: 2026-10-22
+    # Processing: Run a slash command. A library operation first waits for the models outside the lock.
+    # Changed by: Claude Code
+    # Date: 2026-11-21
     @app.post("/api/v1/whiteboard/command")
     def command():
         raw = body()
         if not isinstance(raw.get("command"), str):
             return send({"ok": False, "data": None, "error": {"code": "INVALID_ARGS", "message": "command is required"}})
+        target = current()
+        library_ready(workspace, command=raw["command"])  # outside the lock: the board stays responsive
         with lock:
-            workspace.current_command = raw["command"]
+            target.current_command = raw["command"]
             try:
-                reply = workspace.command(raw["command"], actor=actor(), confirm=bool(raw.get("confirm")),
-                                          dry_run=bool(raw.get("dry_run")))
+                reply = target.command(raw["command"], actor=actor(), confirm=bool(raw.get("confirm")),
+                                       dry_run=bool(raw.get("dry_run")))
             finally:
-                workspace.current_command = None
+                target.current_command = None
         return send(reply)
 
     # Input: none
     # Output: tuple
-    # Processing: Run a structured operation.
-    # Changed by: Sourish
-    # Date: 2026-10-22
+    # Processing: Run a structured operation. A library operation first waits for the models outside the lock.
+    # Changed by: Claude Code
+    # Date: 2026-11-21
     @app.post("/api/v1/whiteboard/op")
     def op():
         raw = body()
         if not isinstance(raw.get("op"), str) or not isinstance(raw.get("args", {}), dict):
             return send({"ok": False, "data": None, "error": {"code": "INVALID_ARGS",
                                                              "message": "op (string) and args (object) are required"}})
+        target = current()
+        library_ready(workspace, op=raw["op"], args=raw.get("args") or {})  # outside the lock: the board stays responsive
         with lock:
-            reply = workspace.execute(raw["op"], raw.get("args") or {}, actor=actor(),
-                                      confirm=bool(raw.get("confirm")), dry_run=bool(raw.get("dry_run")))
+            reply = target.execute(raw["op"], raw.get("args") or {}, actor=actor(),
+                                   confirm=bool(raw.get("confirm")), dry_run=bool(raw.get("dry_run")))
+        return send(reply)
+
+    # Input: none
+    # Output: tuple
+    # Processing: Take requests the app handled (one, or {"requests": [...]}) for live API status and attack checks.
+    # Changed by: Claude Code
+    # Date: 2026-11-18
+    @app.post("/api/v1/whiteboard/traffic")
+    def traffic():
+        raw = body()
+        batch = raw.get("requests") if isinstance(raw.get("requests"), list) else [raw]
+        with lock:
+            reply = workspace.execute("traffic.record", {"requests": batch}, actor=actor())
         return send(reply)
 
     # Input: none
@@ -427,8 +605,9 @@ def create_app(workspace: Workspace, *, person_token: str | None = None,
     # Date: 2026-10-22
     @app.post("/api/v1/whiteboard/undo")
     def undo():
+        target = current()
         with lock:
-            return send(workspace.execute("history.undo", actor=actor()))
+            return send(target.execute("history.undo", actor=actor()))
 
     # Input: none
     # Output: tuple
@@ -437,8 +616,9 @@ def create_app(workspace: Workspace, *, person_token: str | None = None,
     # Date: 2026-10-22
     @app.post("/api/v1/whiteboard/redo")
     def redo():
+        target = current()
         with lock:
-            return send(workspace.execute("history.redo", actor=actor()))
+            return send(target.execute("history.redo", actor=actor()))
 
     # Input: none
     # Output: tuple
@@ -615,8 +795,11 @@ def create_app(workspace: Workspace, *, person_token: str | None = None,
         def work() -> None:
             client = llm_agent.LocalClient(workspace, lock, name, board_reply, commands_reply)
             try:
-                result = llm_agent.run(task.strip(), provider=provider, client=client, model=raw.get("model"),
-                                       max_steps=int(raw.get("max_steps") or 30), on_step=on_step, stop=stop)
+                profile = workspace.board.agents.get(name)
+                result = llm_agent.run(task.strip(), provider=provider, client=client,
+                                       model=raw.get("model") or (profile.model if profile else None) or None,
+                                       max_steps=int(raw.get("max_steps") or 30), on_step=on_step, stop=stop,
+                                       instructions=instructions_for(workspace.board, name))
                 record.update(status=result["status"], result=result)
             except Exception as exc:  # noqa: BLE001  (report any failure to the person)
                 record.update(status="error", error=str(exc))
@@ -675,6 +858,46 @@ def create_app(workspace: Workspace, *, person_token: str | None = None,
         record["_stop"].set()
         return send({"ok": True, "data": {"id": run_id, "stopping": record["status"] == "running"}, "error": None})
 
+    # Input: name (str)
+    # Output: tuple
+    # Processing: The chat with one agent: grants, running flag and events from ?since=N.
+    # Changed by: Claude
+    # Date: 2026-11-09
+    @app.get("/api/v1/whiteboard/agents/<name>/chat")
+    def agent_chat_read(name: str):
+        since = max(request.args.get("since", default=0, type=int), 0)
+        return send({"ok": True, "data": chat.snapshot(name, since), "error": None})
+
+    # Input: name (str)
+    # Output: tuple
+    # Processing: Send the agent a message; its reply arrives through the GET above.
+    # Changed by: Claude
+    # Date: 2026-11-09
+    @app.post("/api/v1/whiteboard/agents/<name>/chat")
+    def agent_chat_send(name: str):
+        message = body().get("message")
+        if not isinstance(message, str) or not message.strip():
+            return send({"ok": False, "data": None, "error": {"code": "INVALID_ARGS", "message": "message is required"}})
+        try:
+            return send({"ok": True, "data": chat.send(name, message.strip()), "error": None})
+        except LookupError as exc:
+            return send({"ok": False, "data": None, "error": {"code": "NOT_FOUND", "message": str(exc)}})
+        except RuntimeError as exc:
+            return send({"ok": False, "data": None, "error": {"code": "CONFLICT", "message": str(exc)}})
+
+    # Input: name (str)
+    # Output: tuple
+    # Processing: Forget the chat with one agent.
+    # Changed by: Claude
+    # Date: 2026-11-09
+    @app.delete("/api/v1/whiteboard/agents/<name>/chat")
+    def agent_chat_reset(name: str):
+        try:
+            chat.reset(name)
+        except RuntimeError as exc:
+            return send({"ok": False, "data": None, "error": {"code": "CONFLICT", "message": str(exc)}})
+        return send({"ok": True, "data": {"agent": name, "cleared": True}, "error": None})
+
     # Input: none
     # Output: tuple
     # Processing: Liveness.
@@ -688,23 +911,25 @@ def create_app(workspace: Workspace, *, person_token: str | None = None,
     return app
 
 
-# Input: workspace (Workspace), lock (threading.RLock), interval (float)
+# Input: workspace (Workspace), lock (threading.RLock), interval (float), boards (dict[str, Workspace] | None)
 # Output: threading.Thread
-# Processing: Watch board.json and reload it (announcing an external change) when another process writes it.
+# Processing: Watch every open whiteboard's cache and .plo file, and reload one (announcing it) when something else writes it.
 # Changed by: Claude Code
-# Date: 2026-11-09
-def start_watcher(workspace: Workspace, lock: threading.RLock, interval: float = 0.5) -> threading.Thread:
+# Date: 2026-11-15
+def start_watcher(workspace: Workspace, lock: threading.RLock, interval: float = 0.5,
+                  boards: dict[str, Workspace] | None = None) -> threading.Thread:
     # Input: none
     # Output: None
-    # Processing: Poll the board's stamp forever.
+    # Processing: Poll the stamps forever; git pull, a teammate's push or a hand edit shows up within a second.
     # Changed by: Claude Code
-    # Date: 2026-11-09
+    # Date: 2026-11-15
     def watch() -> None:
         while True:
             time.sleep(interval)
-            if workspace.store.board_stamp() != workspace.store.last_stamp:
-                with lock:
-                    workspace.sync()
+            for board in list((boards or {workspace.board_file: workspace}).values()):
+                if board.store.board_changed():
+                    with lock:
+                        board.sync()
 
     thread = threading.Thread(target=watch, name="plovane-board-watcher", daemon=True)
     thread.start()
@@ -738,6 +963,67 @@ def start_parent_watch(pid: int, state_dir: Path) -> threading.Thread:
     thread = threading.Thread(target=watch, name="plovane-parent-watch", daemon=True)
     thread.start()
     return thread
+
+
+LIBRARY_OPS = frozenset({"library.rank", "library.insert", "library.palette", "library.suggest", "library.save",
+                         "library.cite", "block.replace", "template.fill"})
+"""Operations that need the code library's models loaded."""
+
+
+# Input: engine (Any)
+# Output: None
+# Processing: Let the library engine remember each search for two minutes, so a search run outside the board lock (library_ready) is answered instantly when the operation repeats it inside.
+# Changed by: Claude Code
+# Date: 2026-11-21
+def remember_searches(engine: Any) -> None:
+    if getattr(engine, "_plovane_searches", None) is not None or not hasattr(engine, "search"):
+        return
+    original, cache = engine.search, {}
+
+    # Input: query (str), args, kwargs (Any)
+    # Output: dict[str, Any]
+    # Processing: A recent identical search's answer, else a fresh one.
+    # Changed by: Claude Code
+    # Date: 2026-11-21
+    def search(query: str, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        key = (query, args, tuple(sorted(kwargs.items())))
+        hit = cache.get(key)
+        if hit and time.time() - hit[0] < 120:
+            return hit[1]
+        answer = original(query, *args, **kwargs)
+        cache[key] = (time.time(), answer)
+        while len(cache) > 64:
+            cache.pop(next(iter(cache)))
+        return answer
+
+    engine.search, engine._plovane_searches = search, cache
+
+
+# Input: workspace (Workspace), op (str | None), command (str | None), args (dict | None)
+# Output: None
+# Processing: Before a library operation takes the board lock, load the models (about 10 s the first time) and run its search here, so the rest of the board keeps working meanwhile.
+# Changed by: Claude Code
+# Date: 2026-11-21
+def library_ready(workspace: Workspace, op: str | None = None, command: str | None = None,
+                  args: dict[str, Any] | None = None) -> None:
+    if op is None and command:
+        from backend.whiteboard.commands import parse
+
+        try:
+            op, args = parse(command)
+        except Exception:  # noqa: BLE001  (a bad command is reported by the normal path)
+            return
+    if op not in LIBRARY_OPS:
+        return
+    try:
+        engine = workspace.library()
+        remember_searches(engine)
+        args = args or {}
+        if op == "library.rank" and args.get("query"):
+            count = int(args.get("k", 5))
+            engine.search(args["query"], language=args.get("language"), k=count * 3 if args.get("category") else count)
+    except Exception:  # noqa: BLE001  (missing models or bad arguments: the operation itself reports it)
+        pass
 
 
 # Input: none
@@ -790,7 +1076,7 @@ def main(argv: list[str] | None = None) -> None:
     workspace.store.ensure()
     write_server_file(workspace.store.dir, args.port, workspace.root, token)
     atexit.register(remove_server_file, workspace.store.dir)
-    start_watcher(workspace, lock)
+    start_watcher(workspace, lock, boards=app.config["plovane_boards"])
     start_library_warmup()
     if args.exit_with:
         start_parent_watch(args.exit_with, workspace.store.dir)

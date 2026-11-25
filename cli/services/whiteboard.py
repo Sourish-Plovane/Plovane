@@ -203,13 +203,17 @@ class PersonClient:
     def api(self, path: str, body: dict[str, Any] | None = None, method: str | None = None) -> dict[str, Any]:
         return call(f"{self.url}/api/v1/whiteboard/{path.lstrip('/')}", self.token, body, method)
 
-    # Input: command (str), confirm (bool), dry_run (bool)
+    # Input: command (str), confirm (bool), dry_run (bool), board (str | None)
     # Output: dict[str, Any]
-    # Processing: Run one slash command.
+    # Processing: Run one slash command on a whiteboard (.plo file; the main one when not given).
     # Changed by: Claude Code
-    # Date: 2026-11-09
-    def command(self, command: str, confirm: bool = False, dry_run: bool = False) -> dict[str, Any]:
-        return self.api("command", {"command": command, "confirm": confirm, "dry_run": dry_run})
+    # Date: 2026-11-15
+    def command(self, command: str, confirm: bool = False, dry_run: bool = False,
+                board: str | None = None) -> dict[str, Any]:
+        body: dict[str, Any] = {"command": command, "confirm": confirm, "dry_run": dry_run}
+        if board:
+            body["board"] = board
+        return self.api("command", body)
 
     # Input: agent (str), access (str | None), path (str)
     # Output: dict[str, Any]

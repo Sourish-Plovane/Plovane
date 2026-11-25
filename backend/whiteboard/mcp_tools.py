@@ -14,8 +14,11 @@ Where the calls go:
   one owner of the board, holds the agent to its grants and shows each change
   live in the open whiteboard.
 - **No server**: the tools edit the project in this process. The board is
-  still saved to .plovane/board.json under the project lock, and a whiteboard
+  still saved to its .plo file under the project lock, and a whiteboard
   started later, or one already watching that file, picks the change up.
+
+``PLOVANE_BOARD`` picks the whiteboard (.plo file) the agent works on; the
+default is the main one, whiteboard.plo.
 
 Either way the caller is an agent, never the person: ``PLOVANE_AGENT`` names
 it, and it defaults to ``claude``. An agent a person has not added and granted
@@ -47,13 +50,15 @@ def agent_name() -> str:
 
 # Input: path (str), payload (dict[str, Any])
 # Output: dict[str, Any] | None
-# Processing: POST to the running whiteboard server as this agent, or None when no server is configured.
+# Processing: POST to the running whiteboard server as this agent, on PLOVANE_BOARD's whiteboard; None when no server is configured.
 # Changed by: Claude Code
-# Date: 2026-11-09
+# Date: 2026-11-15
 def remote(path: str, payload: dict[str, Any]) -> dict[str, Any] | None:
     url, token = os.environ.get("PLOVANE_URL"), os.environ.get("PLOVANE_AGENT_TOKEN")
     if not url or not token:
         return None
+    if os.environ.get("PLOVANE_BOARD"):
+        payload = {**payload, "board": os.environ["PLOVANE_BOARD"]}
     from backend.whiteboard.llm_agent import http_json
 
     try:
@@ -68,13 +73,15 @@ def remote(path: str, payload: dict[str, Any]) -> dict[str, Any] | None:
 
 # Input: none
 # Output: Workspace
-# Processing: The project's workspace, opened on first use.
-# Changed by: Sourish
-# Date: 2026-10-22
+# Processing: The whiteboard the agent works on (PLOVANE_BOARD, else whiteboard.plo), opened on first use.
+# Changed by: Claude Code
+# Date: 2026-11-15
 def workspace() -> Workspace:
     global _workspace
     if _workspace is None:
-        _workspace = Workspace(os.environ.get("PLOVANE_PROJECT") or os.getcwd())
+        root = os.environ.get("PLOVANE_PROJECT") or os.getcwd()
+        board = os.environ.get("PLOVANE_BOARD")
+        _workspace = Workspace(root, board=board) if board else Workspace(root)
     return _workspace
 
 
@@ -153,6 +160,43 @@ def run(op: str, args: dict | None, confirm: bool, dry_run: bool, command: str |
         return ws.execute(op, args or {}, actor=agent_name(), confirm=confirm, dry_run=dry_run)
     finally:
         ws.current_command = None
+
+
+# Input: mcp (MCPServer)
+# Output: None
+# Processing: Register plovane_sketch and plovane_undo, the two tools an AI needs for drawing.
+# Changed by: Claude
+# Date: 2026-11-10
+def register_sketch(mcp: Any) -> None:
+    from backend.whiteboard.ops.sketch import HELP
+
+    # Input: script (str)
+    # Output: dict[str, Any]
+    # Processing: Run sketch lines on the services layer.
+    # Changed by: Claude
+    # Date: 2026-11-10
+    def plovane_sketch(script: str) -> dict[str, Any]:
+        return run("sketch", {"script": script}, False, False)
+
+    plovane_sketch.__doc__ = (
+        "Draw on the Plovane whiteboard with short lines, one change per line (or separated by ';'). "
+        "Use this for every drawing change; it writes no code and makes no stray blocks. "
+        f"{HELP}. Kinds: service, database (or db), queue, external, server. Names can be comma lists "
+        "('orders, payments -> postgres'); arrow types are picked for you. Repeating a line is harmless. "
+        "An unknown name is refused, so add blocks before linking them. Everything is laid out "
+        "automatically. 'show' lists what is on the board. All lines apply together or none do.")
+
+    # Input: none
+    # Output: dict[str, Any]
+    # Processing: Undo the last whiteboard change.
+    # Changed by: Claude
+    # Date: 2026-11-10
+    def plovane_undo() -> dict[str, Any]:
+        """Undo the last change on the Plovane whiteboard."""
+        return run("history.undo", {}, False, False)
+
+    mcp.tool()(plovane_sketch)
+    mcp.tool()(plovane_undo)
 
 
 # Input: mcp (MCPServer)

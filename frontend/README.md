@@ -20,7 +20,10 @@ To get recommendations, the backend calls the ML service:
 | Need | Endpoint | Details |
 |---|---|---|
 | Run a whiteboard command | `POST /api/v1/whiteboard/command` with `{"command": "/block add service auth"}` | `backend/whiteboard/README.md` |
-| Draw the board | `GET /api/v1/whiteboard/board` | `backend/whiteboard/README.md` |
+| Draw the board (and which agents can reach each block) | `GET /api/v1/whiteboard/board` | `backend/whiteboard/README.md` |
+| Whiteboards (one `.plo` file each; main first, the rest behind the arrow) | `GET /api/v1/whiteboard/boards`; send `X-Plovane-Board: <file>.plo` on board requests; new or imported: `POST /api/v1/whiteboard/op` `{"op": "board.new", "args": {"path", "content"?}}` | `backend/whiteboard/README.md` |
+| Download the current whiteboard | `GET /api/v1/whiteboard/board/file` | `backend/whiteboard/README.md` |
+| Live view: agents working, API pass/fail, attacks | the board reply's `live` and `about` fields; live events arrive as SSE `live`; report requests with `POST /api/v1/whiteboard/traffic` | `backend/whiteboard/README.md` (Live view) |
 | Undo / redo | `POST /api/v1/whiteboard/undo`, `/redo` | `backend/whiteboard/README.md` |
 | Autocomplete and help | `GET /api/v1/whiteboard/commands` | every command with an example |
 | Search the helper library | `POST /v1/recommend` | `ml/serving/API.md` |

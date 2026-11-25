@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "plovane:plo/1",
+  "title": "Plovane whiteboard file (.plo) version 1",
+  "description": "Confidential internal spec; see Plovane_Handbook.md section 21. A .plo file is JSON holding the commands that rebuild one whiteboard on an empty board (backend/whiteboard/ops/boardfile.py). Only board-only commands may appear (LOADABLE in boardfile.py), so opening a file can never change project code. $defs/overlay and $defs/role describe the JSON carried by /overlay put --data and /role put --data.",
+  "type": "object",
+  "required": ["format", "version", "commands"],
+  "properties": {
+    "format": { "const": "plovane-whiteboard" },
+    "version": { "const": 1 },
+    "project": { "type": "string", "description": "Only in saved copies: the folder it was saved from." },
+    "saved_at": { "type": "string", "description": "Only in saved copies: when it was saved." },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^\\s*(#.*|/(block put|arrow put|endpoint put|agent put|layer put|template put|layer remove|layer rename|preset define|theme|grid|place|size|style|block rename|project describe|overlay put|overlay remove|role put|role remove)\\b.*)?$"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "level_key": { "type": "string", "pattern": "^[0-9]+$", "description": "A zoom level number (board.layers), as a string key." },
+    "channel": { "enum": ["fill", "border", "badge", "chip", "icon", "port", "arrows", "line_highlight"] },
+    "appearance": { "enum": ["hidden", "count", "mark", "detail"] },
+    "language": { "enum": ["javascript", "html", "css", "python", "pytorch", "cpp", "cuda"] },
+    "node_type": { "enum": ["service", "folder", "file", "function", "class", "endpoint", "finding"] },
+    "relationship": { "enum": ["contains", "calls", "imports", "routes_to", "tests", "flags"] },
+    "overlay_style": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "oneOf": [
+            { "enum": ["blue", "green", "orange", "red", "purple", "gray"] },
+            { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }
+          ]
+        },
+        "badge": { "type": "string", "maxLength": 40 },
+        "icon": { "type": "string" }
+      }
+    },
+    "overlay": {
+      "description": "The --data of /overlay put: one overlay definition (handbook section 21.4).",
+      "oneOf": [
+        { "$ref": "#/$defs/group_overlay" },
+        { "$ref": "#/$defs/premade_overlay" },
+        { "$ref": "#/$defs/custom_overlay" }
+      ]
+    },
+    "overlay_common": {
+      "type": "object",
+      "required": ["label", "source"],
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "source": { "enum": ["group", "premade", "custom"] },
+        "parent": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/id" }] },
+        "description": { "type": "string" }
+      }
+    },
+    "drawing_overlay": {
+      "type": "object",
+      "required": ["channel", "appearance"],
+      "properties": {
+        "channel": { "$ref": "#/$defs/channel" },
+        "priority": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "appearance": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/level_key" },
+          "additionalProperties": { "$ref": "#/$defs/appearance" }
+        },
+        "style": { "$ref": "#/$defs/overlay_style" }
+      }
+    },
+    "group_overlay": {
+      "allOf": [{ "$ref": "#/$defs/overlay_common" }],
+      "unevaluatedProperties": false,
+      "properties": { "source": { "const": "group" } }
+    },
+    "premade_overlay": {
+      "allOf": [{ "$ref": "#/$defs/overlay_common" }, { "$ref": "#/$defs/drawing_overlay" }],
+      "unevaluatedProperties": false,
+      "required": ["engine_ref"],
+      "properties": {
+        "source": { "const": "premade" },
+        "engine_ref": { "type": "string", "pattern": "^plovane\\.overlays\\.[a-z_]+@[0-9]+$" }
+      }
+    },
+    "custom_overlay": {
+      "allOf": [{ "$ref": "#/$defs/overlay_common" }, { "$ref": "#/$defs/drawing_overlay" }],
+      "unevaluatedProperties": false,
+      "required": ["created_by", "author", "match"],
+      "properties": {
+        "source": { "const": "custom" },
+        "created_by": { "enum": ["ai", "user"] },
+        "author": { "type": "string" },
+        "define_tags": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/id" },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["engine", "language", "pattern"],
+            "properties": {
+              "engine": { "enum": ["tree_sitter", "semgrep"] },
+              "language": { "$ref": "#/$defs/language" },
+              "pattern": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "match": {
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "node_type": { "$ref": "#/$defs/node_type" },
+            "path": { "type": "string" },
+            "has_tag": { "$ref": "#/$defs/id" },
+            "reaches": { "$ref": "#/$defs/traversal" },
+            "not_reaches": { "$ref": "#/$defs/traversal" }
+          }
+        }
+      }
+    },
+    "traversal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["via", "tag"],
+      "properties": { "via": { "$ref": "#/$defs/relationship" }, "tag": { "$ref": "#/$defs/id" } }
+    },
+    "role": {
+      "description": "The --data of /role put: a saved set of overlays with a starting zoom level.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "overlays"],
+      "properties": {
+        "label": { "type": "string" },
+        "overlays": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true },
+        "default_level": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

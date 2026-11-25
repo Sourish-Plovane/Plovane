@@ -1,0 +1,44 @@
+<!--
+Input: Browser request for the prototype whiteboard at /whiteboard/next
+Output: The click-to-open whiteboard: Board, APIs and Checks spaces, with overlays
+Processing: Lays out the header, the three swipeable spaces and the tab bar; next.js fills them
+Changed by: Claude Code
+Date: 2026-11-23
+-->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Plovane</title>
+  <link rel="stylesheet" href="/whiteboard/next/next.css">
+</head>
+<body>
+  <header class="top">
+    <div class="top-row">
+      <button class="brand" data-go="root" title="Back to the whole project">
+        <img src="/whiteboard/logo.jpeg" alt="" width="30" height="30"><b id="project-name">Plovane</b>
+      </button>
+      <nav class="trail" id="trail" aria-label="Where you are"></nav>
+      <label class="find"><span aria-hidden="true">⌕</span><input id="find" placeholder="Find" autocomplete="off" spellcheck="false"><kbd>/</kbd></label>
+    </div>
+    <div class="lenses" id="lenses" role="toolbar" aria-label="Overlays"></div>
+  </header>
+
+  <main class="spaces" id="spaces">
+    <section class="space" id="space-board" aria-label="Board"><div class="pane" id="board"></div></section>
+    <section class="space" id="space-apis" aria-label="APIs"><div class="pane" id="apis"></div></section>
+    <section class="space" id="space-checks" aria-label="Checks"><div class="pane" id="checks"></div></section>
+  </main>
+
+  <nav class="tabbar" id="tabbar" aria-label="Spaces">
+    <span class="tab-pill" id="tab-pill"></span>
+    <button data-space="0"><i>▦</i><span>Board</span></button>
+    <button data-space="1"><i>⇄</i><span>APIs</span><em id="count-apis"></em></button>
+    <button data-space="2"><i>✓</i><span>Checks</span><em id="count-checks"></em></button>
+  </nav>
+
+  <div class="toast" id="toast" role="status" hidden></div>
+  <script src="/whiteboard/next/next.js"></script>
+</body>
+</html>

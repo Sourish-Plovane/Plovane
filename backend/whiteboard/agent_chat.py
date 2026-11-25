@@ -183,6 +183,16 @@ class AgentChat:
 
     # -- Public API used by the server ------------------------------------------
 
+    # Input: agent (str)
+    # Output: str
+    # Processing: The person's instructions for this agent, for the end of its system prompt.
+    # Changed by: Claude
+    # Date: 2026-11-14
+    def _instructions(self, agent: str) -> str:
+        from backend.whiteboard.ops.agents import instructions_for
+
+        return instructions_for(self.workspace.board, agent)
+
     # Input: agent (str), since (int)
     # Output: dict[str, Any]
     # Processing: The agent's grants, whether a turn is running, and events from ``since`` on.
@@ -289,7 +299,7 @@ class AgentChat:
                                             "ANTHROPIC_API_KEY or DEEPSEEK_API_KEY exported in the same "
                                             f"terminal, or run `ant auth login`. ({exc})")
             return
-        system = SYSTEM.format(agent=convo.agent)
+        system = SYSTEM.format(agent=convo.agent) + self._instructions(convo.agent)
         for _ in range(MAX_STEPS):
             try:
                 response = client.beta.messages.create(
@@ -355,7 +365,7 @@ class AgentChat:
             return
         tools = [{"type": "function", "function": {"name": t["name"], "description": t["description"],
                                                    "parameters": t["input_schema"]}} for t in TOOLS]
-        system = {"role": "system", "content": SYSTEM.format(agent=convo.agent)}
+        system = {"role": "system", "content": SYSTEM.format(agent=convo.agent) + self._instructions(convo.agent)}
         limit = "max_completion_tokens" if name == "openai" else "max_tokens"
         for _ in range(MAX_STEPS):
             try:

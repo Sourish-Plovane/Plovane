@@ -21,7 +21,7 @@ BOARD_VERSION = 1
 
 LAYER_FOR_KIND = {
     "agent": 0,
-    "service": 1, "server": 1, "external": 1, "database": 1, "queue": 1, "endpoint": 1,
+    "service": 1, "server": 1, "external": 1, "database": 1, "queue": 1, "endpoint": 1, "page": 1,
     "folder": 2, "group": 2, "slot": 2,
     "file": 3,
     "function": 4, "class": 4, "step": 4,
@@ -35,14 +35,14 @@ DEFAULT_SIZE = {
     "service": (200, 100), "server": (200, 100), "external": (180, 90), "database": (140, 100),
     "queue": (160, 80), "folder": (220, 140), "group": (240, 160), "file": (160, 60),
     "function": (180, 50), "class": (240, 80), "step": (260, 40), "agent": (120, 60), "slot": (160, 60),
-    "note": (160, 80), "scan": (240, 160), "endpoint": (120, 24), "code": (400, 300),
+    "note": (160, 80), "scan": (240, 160), "endpoint": (120, 24), "code": (400, 300), "page": (320, 220),
 }
 
 ARROW_TYPES = ("api", "import", "database", "event", "external", "calls")
 
 DEFAULT_LAYERS = (
     (0, "Agents and access", 0, 10, ["agent"]),
-    (1, "Services and endpoints", 10, 20, ["service", "server", "external", "database", "queue", "endpoint"]),
+    (1, "Services and endpoints", 10, 20, ["service", "server", "external", "database", "queue", "endpoint", "page"]),
     (2, "Folders", 20, 40, ["folder", "group", "slot"]),
     (3, "Files", 40, 70, ["file"]),
     (4, "English steps", 70, 90, ["function", "step"]),
@@ -86,6 +86,7 @@ DEFAULT_PRESETS = {
     "step": {"fill": "#F1F3F4", "border": "#DADCE0", "radius": 6},
     "agent": {"fill": "#FCE8E6", "border": "#D93025", "shape": "pill", "icon": "robot"},
     "slot": {"fill": "#FFFFFF", "border": "#9AA0A6", "border_style": "dashed", "radius": 8},
+    "page": {"fill": "#FFFFFF", "border": "#1A73E8", "radius": 10, "icon": "page"},
     "scan": {"fill": "#FCE8E6", "border": "#D93025", "border_style": "dashed", "opacity": 0.3},
 }
 
@@ -201,6 +202,17 @@ class Agent:
     block: str
     grants: list[dict[str, str]] = field(default_factory=list)
     regions: list[dict[str, Any]] = field(default_factory=list)
+    connection: str = ""
+    """How the AI reaches the board: "mcp" (it holds a token) or "api" (Plovane calls it with a key)."""
+    provider: str = ""
+    """For "api": anthropic, deepseek or openai."""
+    model: str = ""
+    instructions: str = ""
+    """What the person wants this agent to do and avoid; added to its system prompt."""
+    approvers: list[str] = field(default_factory=list)
+    """Teammates besides the project owner who may change this agent's access (once boards are shared)."""
+    place: dict[str, float] = field(default_factory=dict)
+    """Where its bubble sits on the canvas, as fractions of the view: {"x": 0.1, "y": 0.2}."""
 
 
 @dataclass
@@ -222,6 +234,12 @@ class Board:
     presets: dict[str, dict[str, Any]] = field(default_factory=dict)
     templates: dict[str, Template] = field(default_factory=dict)
     agents: dict[str, Agent] = field(default_factory=dict)
+    overlays: dict[str, dict[str, Any]] = field(default_factory=dict)
+    """Overlay definitions (handbook section 21.4), keyed by overlay id."""
+    roles: dict[str, dict[str, Any]] = field(default_factory=dict)
+    """Saved sets of overlays with a starting zoom level, keyed by role id."""
+    views: dict[str, dict[str, Any]] = field(default_factory=dict)
+    """Each actor's overlay view: its role plus overlays switched on or off, keyed by actor."""
     view: dict[str, Any] = field(default_factory=dict)
     alerts: list[dict[str, Any]] = field(default_factory=list)
     compiles: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -245,6 +263,8 @@ class Board:
     # Date: 2026-10-22
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Board:
+        from backend.whiteboard.overlays import default_overlays, default_roles
+
         return cls(
             version=data.get("version", BOARD_VERSION),
             layers={int(k): Layer(**v) for k, v in data.get("layers", {}).items()},
@@ -254,6 +274,9 @@ class Board:
             presets=dict(data.get("presets", {})),
             templates={k: Template(**v) for k, v in data.get("templates", {}).items()},
             agents={k: Agent(**v) for k, v in data.get("agents", {}).items()},
+            overlays=dict(data["overlays"]) if "overlays" in data else default_overlays(),
+            roles=dict(data["roles"]) if "roles" in data else default_roles(),
+            views=dict(data.get("views", {})),
             view=dict(data.get("view", {})),
             alerts=list(data.get("alerts", [])),
             compiles=dict(data.get("compiles", {})),
@@ -369,6 +392,8 @@ def default_board() -> Board:
               "focus": None, "highlight": [], "filter": {}, "counters": {}},
     )
     from backend.whiteboard.ops.templates import builtin_templates
+    from backend.whiteboard.overlays import default_overlays, default_roles
 
     board.templates = {t.name: t for t in builtin_templates()}
+    board.overlays, board.roles = default_overlays(), default_roles()
     return board

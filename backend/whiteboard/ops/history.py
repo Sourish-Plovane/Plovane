@@ -140,5 +140,5 @@ def git_sync(ctx: Context, direction: str) -> dict[str, Any]:
     if done.returncode != 0:
         raise OpError("GIT_FAILED", (done.stderr or done.stdout).strip()[-1500:])
     if direction == "pull":
-        ctx.ws.board = ctx.ws.store.load_board()
+        ctx.ws.board = ctx.ws.load()  # the pulled .plo is the truth
     return {"ran": " ".join(argv), "output": (done.stdout + done.stderr).strip()[-1500:]}

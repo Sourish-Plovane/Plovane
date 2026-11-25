@@ -1,0 +1,19 @@
+{
+ "format": "plovane-whiteboard",
+ "version": 1,
+ "commands": [
+  "/overlay put unvalidated_db_writes --data '{\"appearance\":{\"1\":\"count\",\"3\":\"mark\"},\"author\":\"usr_sourish\",\"channel\":\"badge\",\"created_by\":\"ai\",\"define_tags\":{\"db_write\":{\"engine\":\"semgrep\",\"language\":\"python\",\"pattern\":\"$CURSOR.execute(...)\"}},\"label\":\"Unvalidated database writes\",\"match\":{\"node_type\":\"endpoint\",\"not_reaches\":{\"tag\":\"input_validation\",\"via\":\"calls\"},\"reaches\":{\"tag\":\"db_write\",\"via\":\"calls\"}},\"parent\":\"cyber_security\",\"priority\":80,\"source\":\"custom\",\"style\":{\"badge\":\"unvalidated write\",\"color\":\"orange\"}}'",
+  "/role put qa --data '{\"default_level\":2,\"label\":\"QA\",\"overlays\":[\"test_health\",\"unvalidated_db_writes\"]}'",
+  "/block put agent-claude --kind agent --name claude --layer 0 --at 40,40 --size 120x60 --preset agent",
+  "/block put payments --kind service --name payments --layer 1 --at 120,80 --size 200x100 --path services/payments --preset service --meta '{\"language\":\"python\"}'",
+  "/block put src --kind folder --name src --layer 2 --at 40,40 --size 260x372 --path src --preset folder",
+  "/block put tests --kind folder --name tests --layer 2 --at 324,40 --size 220x140 --path tests --preset folder",
+  "/block put src-orders --kind folder --name orders --layer 2 --at 20,48 --size 220x140 --parent src --path src/orders --preset folder",
+  "/block put src-payments --kind folder --name payments --layer 2 --at 20,212 --size 220x140 --parent src --path src/payments --preset folder",
+  "/block put test-place-py --kind file --name test_place.py --layer 3 --at 20,48 --size 160x60 --parent tests --path tests/test_place.py --preset file --meta '{\"language\":\"python\",\"summary\":\"Defines test_place\",\"summary_by\":\"parser\",\"summary_hash\":\"e4e0d02fed25\"}'",
+  "/block put charge-py --kind file --name charge.py --layer 3 --at 20,48 --size 160x60 --parent src-payments --path src/payments/charge.py --preset file --meta '{\"language\":\"python\",\"summary\":\"Defines charge and cleanup\",\"summary_by\":\"parser\",\"summary_hash\":\"b2e5ac446530\"}'",
+  "/block put place-py --kind file --name place.py --layer 3 --at 20,48 --size 160x60 --parent src-orders --path src/orders/place.py --preset file --meta '{\"language\":\"python\",\"summary\":\"Defines place\",\"summary_by\":\"parser\",\"summary_hash\":\"915acbbd7a13\"}'",
+  "/endpoint put 'payments:POST /charge' --status built --handler services/payments/routes.py",
+  "/agent put claude --block agent-claude --grants '[{\"mode\":\"read-write\",\"path\":\"src/payments\"}]'"
+ ]
+}

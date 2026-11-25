@@ -1,6 +1,6 @@
 {
   "note": "Repositories and commits the harvested library was built from. seed/entries.jsonl is gitignored as regenerable output; this file is what makes it regenerable. Clone each repo at its recorded commit and run ml.ingest.local_source.harvest_clones over the clones.",
-  "entries": 378,
+  "entries": 829,
   "sources": [
     {
       "repo": "pydantic/pydantic",
@@ -48,9 +48,9 @@
     {
       "repo": "fmtlib/fmt",
       "commit": "b4ffa39b9994c961418406f47358791d89a5aa48",
-      "entries": 20,
+      "entries": 19,
       "languages": {
-        "cpp": 4,
+        "cpp": 3,
         "css": 1,
         "python": 15
       }
@@ -61,6 +61,62 @@
       "entries": 1,
       "languages": {
         "css": 1
+      }
+    },
+    {
+      "repo": "more-itertools/more-itertools",
+      "commit": "ceafee8ce96f4bc1eb74c528bc247c91d648a0bb",
+      "entries": 113,
+      "languages": {
+        "python": 113
+      }
+    },
+    {
+      "repo": "pytoolz/toolz",
+      "commit": "451af60dec590a6010e2babdbf391ea8f815122f",
+      "entries": 49,
+      "languages": {
+        "python": 49
+      }
+    },
+    {
+      "repo": "mahmoud/boltons",
+      "commit": "d31d821d56c8f7756af9c30a864077f2e5855321",
+      "entries": 59,
+      "languages": {
+        "python": 59
+      }
+    },
+    {
+      "repo": "python-humanize/humanize",
+      "commit": "a95004512dde4e8f0269946bb4af754382347441",
+      "entries": 2,
+      "languages": {
+        "python": 2
+      }
+    },
+    {
+      "repo": "jashkenas/underscore",
+      "commit": "5c1e5f686f8500af9c9d15614ed60289d6d35d6b",
+      "entries": 72,
+      "languages": {
+        "javascript": 72
+      }
+    },
+    {
+      "repo": "validatorjs/validator.js",
+      "commit": "9ff342479591ca5a43cb30000195bcf55c1bbed9",
+      "entries": 63,
+      "languages": {
+        "javascript": 63
+      }
+    },
+    {
+      "repo": "ramda/ramda",
+      "commit": "f4b2e35ff433e18c751326b82acc3c6ab3585e18",
+      "entries": 94,
+      "languages": {
+        "javascript": 94
       }
     }
   ]

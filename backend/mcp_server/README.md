@@ -29,6 +29,11 @@ whiteboard tool call to it as a named agent, so what the AI does shows up live:
 claude mcp add plovane -- plovane mcp --dir /path/to/project --agent claude
 ```
 
+The agent works on the main whiteboard, `whiteboard.plo`. To point it at
+another whiteboard, add `--board designs/payments.plo` (or set
+`PLOVANE_BOARD`). Its access is the same on every whiteboard, because agents
+belong to the whole project.
+
 The commands below run the server directly. The whiteboard tools then edit
 the project in-process as `PLOVANE_AGENT` (default `claude`), which a person
 must add and grant access first. See `backend/whiteboard/README.md`,
@@ -92,8 +97,10 @@ same as typing `/block add service auth`.
 | `plovane_connect`, `plovane_endpoint` | arrows, imports, trace, dependencies, API endpoints and their client calls |
 | `plovane_compile` | English step blocks, edit, compile with a test run, replace a step with a library helper, `blocks_generate` (the AI's own outline of a file as nested blocks) |
 | `plovane_template`, `plovane_batch` | templates and all-or-nothing batches |
-| `plovane_library`, `plovane_code`, `plovane_history`, `plovane_agent` | library, code, scans, health, undo, Git, agent logs |
+| `plovane_library`, `plovane_code`, `plovane_history`, `plovane_agent` | library, code, scans, health, undo, Git, agent logs, `summary` / `translate` (readable code), `security`, and `working` / `done` (tell the whiteboard what you are working on) |
 | `plovane_command` | any slash command as text |
+
+While working, call `plovane_agent` with `{"action": "working", "args": {"target": "src/payments", "task": "add refunds"}}` so the folder shows a banner on the whiteboard, and `done` when finished. After reading a file, `plovane_code` `summary_set` stores your one-line summary for free. `plovane_view` `board_make` builds a structure, api, security or frontend whiteboard when the task needs one.
 
 To have the AI draw the blocks inside a file without an API key, ask it to
 read the file and call `plovane_compile` with `{"action": "blocks_generate",

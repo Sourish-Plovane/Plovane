@@ -20,16 +20,19 @@ features:
 from __future__ import annotations
 
 import base64
+import copy
 import difflib
 import inspect
 import os
+import re
 import subprocess
 from pathlib import Path
+from dataclasses import asdict
 from typing import Any, Callable
 
 from backend.whiteboard.model import DEFAULT_SIZE, LAYER_FOR_KIND, Block, Board
 from backend.whiteboard.registry import OPERATIONS, OpError, OpSpec
-from backend.whiteboard.store import FileJournal, Store, apply_changes, now
+from backend.whiteboard.store import BOARD_EXTENSION, MAIN_BOARD, SKIP_DIRS, FileJournal, Store, apply_changes, now
 
 USER = "user"
 MODES = {"none": 0, "read": 1, "read-write": 2}
@@ -37,12 +40,12 @@ MODES = {"none": 0, "read": 1, "read-write": 2}
 
 # Input: before (dict[str, Any]), after (dict[str, Any]), files (dict[str, Any])
 # Output: dict[str, Any]
-# Processing: What an operation changed: blocks, arrows, endpoints and files.
-# Changed by: Sourish
-# Date: 2026-10-22
+# Processing: What an operation changed: blocks, arrows, endpoints, agents and files.
+# Changed by: Claude Code
+# Date: 2026-11-14
 def summarise(before: dict[str, Any], after: dict[str, Any], files: dict[str, Any]) -> dict[str, Any]:
     summary: dict[str, Any] = {}
-    for key in ("blocks", "arrows", "endpoints"):
+    for key in ("blocks", "arrows", "endpoints", "agents", "overlays", "roles", "views"):  # agents: grants show live and undo (#71)
         old, new = before.get(key, {}), after.get(key, {})
         added = sorted(set(new) - set(old))
         removed = sorted(set(old) - set(new))
@@ -282,45 +285,184 @@ def call(spec: OpSpec, ctx: Context, args: dict[str, Any]) -> dict[str, Any]:
     return spec.handler(ctx, **clean) or {}
 
 
+# Input: root (Path), name (str)
+# Output: str
+# Processing: A whiteboard file name as a project-relative .plo path, refusing anything outside the project.
+# Changed by: Claude Code
+# Date: 2026-11-15
+def board_name(root: Path, name: str | None) -> str:
+    cleaned = str(name or MAIN_BOARD).strip().replace("\\", "/").lstrip("/")
+    if not cleaned.endswith(BOARD_EXTENSION):
+        raise OpError("INVALID_ARGS", f"a whiteboard is a {BOARD_EXTENSION} file, got {name!r}")
+    target = (root / cleaned).resolve()
+    if not target.is_relative_to(root):
+        raise OpError("INVALID_ARGS", f"{name!r} is outside the project")
+    rel = target.relative_to(root).as_posix()
+    if any(part in SKIP_DIRS for part in rel.split("/")[:-1]):
+        raise OpError("INVALID_ARGS", f"{name!r} is inside a folder whiteboards may not live in")
+    return rel
+
+
+# Input: none
+# Output: str
+# Processing: The AI provider to use when none is named: PLOVANE_LLM_PROVIDER, else the first of Claude, DeepSeek and OpenAI whose key is set (Claude when none is, so the message says how to add one).
+# Changed by: Claude Code
+# Date: 2026-11-21
+def default_provider() -> str:
+    from ml.serving.llm import KEY_NAMES
+
+    chosen = os.environ.get("PLOVANE_LLM_PROVIDER")
+    if chosen:
+        return chosen
+    return next((p for p in ("anthropic", "deepseek", "openai") if os.environ.get(KEY_NAMES[p])), "anthropic")
+
+
 class Workspace:
     """One project's whiteboard: its board, history and files."""
 
-    # Input: root (Path | str), library (Any), llm (Any)
+    # Input: root (Path | str), library (Any), llm (Any), board (str), main (Workspace | None)
     # Output: None
-    # Processing: Open (or start) the whiteboard for a project folder.
-    # Changed by: Sourish
-    # Date: 2026-10-22
-    def __init__(self, root: Path | str, *, library: Any = None, llm: Any = None) -> None:
+    # Processing: Open (or start) one whiteboard (.plo file) of a project folder.
+    # Changed by: Claude Code
+    # Date: 2026-11-15
+    def __init__(self, root: Path | str, *, library: Any = None, llm: Any = None, board: str = MAIN_BOARD,
+                 main: Workspace | None = None) -> None:
         """``library`` is a callable returning the model engine, and ``llm`` a
         callable ``(prompt, system) -> str``. Both default to the real ones
-        and are injected by tests."""
+        and are injected by tests. ``board`` is the whiteboard file; any but
+        whiteboard.plo shares the agents of ``main`` (opened when not given)."""
         import backend.whiteboard.ops  # noqa: F401  (registers every operation)
 
         self.root = Path(root).resolve()
         if not self.root.is_dir():
             raise OpError("NOT_FOUND", f"project folder {root} does not exist")
-        self.store = Store(self.root)
-        self.board = self.store.load_board()
+        self.board_file = board_name(self.root, board)
+        self._main = None if self.board_file == MAIN_BOARD else main
         self._library = library
         self._llm = llm
+        self.store = Store(self.root, self.board_file)
+        self.plo_error: str | None = None
+        """Why the .plo could not be read; until fixed the board shows its last good state and the file is left alone."""
+        self.board = Board()
+        self.board = self.load()
         self.prompt_context: dict[str, Any] | None = None
         self.processes: dict[str, subprocess.Popen] = {}
         self.listeners: list[Callable[[dict[str, Any]], None]] = []
         """Called with one event per change: the server turns them into live updates."""
         self.current_command: str | None = None
         """The slash command being run, as typed, so its event can show it."""
+        self.live: dict[str, Any] | None = None
+        """What is happening right now (agents working, API status, attacks); see ops/live.py. Main whiteboard only."""
+        from backend.whiteboard.overlays import ScanCache
+
+        self.overlay_cache = ScanCache()
+        """File scans for the overlays, reused until a file changes."""
 
     # Input: none
     # Output: bool
-    # Processing: Reload board.json when another process changed it since this one last read or wrote it.
+    # Processing: Whether this is the main whiteboard, which holds the project's agents.
     # Changed by: Claude Code
-    # Date: 2026-11-09
+    # Date: 2026-11-15
+    @property
+    def is_main(self) -> bool:
+        return self.board_file == MAIN_BOARD
+
+    # Input: none
+    # Output: Workspace
+    # Processing: The main whiteboard: this one, or the one whose agents this one shares.
+    # Changed by: Claude Code
+    # Date: 2026-11-15
+    @property
+    def main(self) -> Workspace:
+        if self.is_main:
+            return self
+        if self._main is None:
+            self._main = Workspace(self.root, library=self._library, llm=self._llm)
+        return self._main
+
+    # Input: none
+    # Output: None
+    # Processing: On a whiteboard other than the main one, take the project's current agents from the main one.
+    # Changed by: Claude Code
+    # Date: 2026-11-15
+    def refresh_agents(self) -> None:
+        if self.is_main:
+            return
+        self.main.sync()
+        if self.board.agents != self.main.board.agents:
+            self.board.agents = copy.deepcopy(self.main.board.agents)
+
+    # Input: none
+    # Output: Board
+    # Processing: The board from the .plo file (rebuilt when it differs from the cache), or the cache, or a new board.
+    # Changed by: Claude Code
+    # Date: 2026-11-15
+    def load(self) -> Board:
+        from backend.whiteboard.ops.boardfile import build_board, render
+
+        cached = self.store.load_board()
+        if not self.is_main:
+            cached.agents = copy.deepcopy(self.main.board.agents)
+        text = self.store.read_plo()
+        self.plo_error = None
+        if text is None:
+            if self.is_main and self.store.board_path.exists():
+                self.store.write_plo(render(cached, self.is_main))  # a project from before .plo files
+            return cached
+        if text == render(cached, self.is_main):
+            return cached
+        # The file changed under us (git pull, a teammate, a hand edit): rebuild the board from it.
+        self.board = cached
+        ctx = Context(self, FileJournal(self.root), USER, dry_run=False, confirmed=True)
+        try:
+            build_board(ctx, text, keep=cached)
+        except OpError as exc:
+            self.plo_error = (f"{self.board_file} could not be read, so the whiteboard shows its last good state "
+                              f"and leaves the file alone until it is fixed: {exc.message}")
+            return cached
+        rebuilt = self.board
+        self.store.save_board(rebuilt)  # the cache only: the file stays as it was written
+        return rebuilt
+
+    # Input: force (bool)
+    # Output: None
+    # Processing: Save the cache and rewrite the .plo file, unless the file is broken and this is not forced.
+    # Changed by: Claude Code
+    # Date: 2026-11-15
+    def save(self, force: bool = False) -> None:
+        from backend.whiteboard.ops.boardfile import render
+
+        plo = None if self.plo_error and not force else render(self.board, self.is_main)
+        self.store.save_board(self.board, plo)
+
+    # Input: none
+    # Output: bool
+    # Processing: Reload when another process, Git or a person changed the cache or the .plo since this one last did.
+    # Changed by: Claude Code
+    # Date: 2026-11-15
     def sync(self) -> bool:
-        if self.store.board_stamp() == self.store.last_stamp:
+        if not self.store.board_changed():
+            self.refresh_agents()
             return False
-        self.board = self.store.load_board()
+        self.board = self.load()
         self.emit({"kind": "external", "actor": None, "op": None, "command": None, "changes": {}})
         return True
+
+    # Input: none
+    # Output: dict[str, dict[str, str]]
+    # Processing: For every block, the agents that may reach it and how ("read" or "read-write"), by the grant rules.
+    # Changed by: Claude Code
+    # Date: 2026-11-14
+    def access_map(self) -> dict[str, dict[str, str]]:
+        names = {level: mode for mode, level in MODES.items()}
+        found: dict[str, dict[str, str]] = {}
+        for agent in sorted(self.board.agents):
+            ctx = Context(self, None, agent, dry_run=True, confirmed=False)  # access() reads the board only
+            for block in self.board.blocks.values():
+                level = ctx.access(block)
+                if level:
+                    found.setdefault(block.id, {})[agent] = names[level]
+        return found
 
     # Input: event (dict[str, Any])
     # Output: None
@@ -328,7 +470,7 @@ class Workspace:
     # Changed by: Claude Code
     # Date: 2026-11-09
     def emit(self, event: dict[str, Any]) -> None:
-        event = {"at": now(), **event}
+        event = {"at": now(), "board": self.board_file, **event}
         for listener in list(self.listeners):
             try:
                 listener(event)
@@ -341,6 +483,8 @@ class Workspace:
     # Changed by: Sourish
     # Date: 2026-10-22
     def library(self) -> Any:
+        if not self.is_main:
+            return self.main.library()  # one model engine per project, shared by every tab
         if self._library is None:
             from ml.serving.engine import get_engine
 
@@ -349,6 +493,28 @@ class Workspace:
             return self._library()
         except RuntimeError as exc:
             raise OpError("MODEL_UNAVAILABLE", str(exc)) from None
+
+    # Input: none
+    # Output: list
+    # Processing: The library's entries for browsing, without loading the models unless they already are.
+    # Changed by: Claude Code
+    # Date: 2026-11-15
+    def library_entries(self) -> list:
+        from ml.serving import engine as serving
+
+        if self._library is not None and self._library is not serving.get_engine:
+            return list(self.library().entries)  # an injected engine (tests, or a custom library)
+        if serving._engine is not None:
+            return list(serving._engine.entries)
+        from ml.ingest.dataset import load_dataset
+
+        if not serving.LIBRARY.exists():
+            raise OpError("MODEL_UNAVAILABLE", "ml/data/entries.jsonl is missing. Run: python -m ml.serving.setup")
+        stamp = serving.LIBRARY.stat().st_mtime_ns
+        if getattr(self, "_entries_stamp", None) != stamp:
+            self._entries = list(load_dataset(serving.LIBRARY).entries)
+            self._entries_stamp = stamp
+        return self._entries
 
     # Input: prompt (str), system (str | None)
     # Output: str
@@ -363,22 +529,26 @@ class Workspace:
 
     # Input: prompt (str), system (str | None), provider (str | None)
     # Output: dict[str, Any]
-    # Processing: Ask Claude, DeepSeek or OpenAI and keep its token usage; a missing key says how to add one.
+    # Processing: Ask Claude, DeepSeek or OpenAI and keep its token usage; a missing or refused key says how to fix it. With no provider named, use the first one that has a key.
     # Changed by: Claude Code
-    # Date: 2026-11-09
+    # Date: 2026-11-21
     def llm_result(self, prompt: str, system: str | None = None, *, provider: str | None = None) -> dict[str, Any]:
         if self._llm is not None:
             return {"text": self._llm(prompt, system), "usage": {}}
         from ml.serving import llm
 
-        provider = provider or os.environ.get("PLOVANE_LLM_PROVIDER", "anthropic")
+        provider = provider or default_provider()
         reply = llm.ask(prompt, provider=provider, system=system, max_tokens=4096)
         if "error" in reply:
             if "is not set" in reply["error"]:
                 name = {"anthropic": "claude"}.get(provider, provider)
                 raise OpError("LLM_UNAVAILABLE", f"no API key for {name}: add one under AI providers "
                                                  f"(the A button, top right) or run 'plovane connect {name}'")
-            raise OpError("LLM_UNAVAILABLE", reply["error"])
+            name = {"anthropic": "claude"}.get(provider, provider)
+            if re.search(r"HTTP 40[13]\b", reply["error"]):
+                raise OpError("LLM_UNAVAILABLE", f"the {name} key was refused (it may be wrong or expired); "
+                                                 f"replace it with 'plovane connect {name}'")
+            raise OpError("LLM_UNAVAILABLE", f"the {name} AI could not answer: {reply['error']}")
         return reply
 
     # Input: op (str)
@@ -414,6 +584,13 @@ class Workspace:
         self, op: str, args: dict[str, Any] | None = None, *, actor: str = USER,
         confirm: bool = False, dry_run: bool = False,
     ) -> dict[str, Any]:
+        spec = OPERATIONS.get(op)
+        if not self.is_main and op.startswith("agent.") and spec is not None and spec.mutates:
+            # Agents belong to the project: changing them on any whiteboard changes the main one.
+            reply = self.main.execute(op, args, actor=actor, confirm=confirm, dry_run=dry_run)
+            with self.store.locked():
+                self.refresh_agents()
+            return reply
         with self.store.locked():
             self.sync()
             return self._execute(op, args, actor=actor, confirm=confirm, dry_run=dry_run)
@@ -470,6 +647,9 @@ class Workspace:
         ctx = Context(self, fs, actor, dry_run, confirmed)
         try:
             result = call(spec, ctx, args)
+            if not self.is_main and {k: asdict(v) for k, v in self.board.agents.items()} != before["agents"]:
+                raise OpError("FORBIDDEN", f"agents belong to the whole project; change them on {MAIN_BOARD} "
+                                           "or with /agent commands outside a batch")
         except OpError:
             fs.rollback()
             self.board = Board.from_dict(before)
@@ -529,12 +709,32 @@ class Workspace:
             history["redo"] = []
             self.store.save_history(history)
         if after != before:
-            self.store.save_board(self.board)
+            self.save()
         self._log(spec.name, args, actor, ok=True, detail=summary)
         if summary and spec.name not in ("history.undo", "history.redo"):
             self.emit({"kind": "change", "actor": actor, "op": spec.name,
                        "command": self.current_command, "changes": summary})
+        if actor != USER and summary:
+            self._mark_work(actor, spec.name, summary)
         return out
+
+    # Input: actor (str), op (str), summary (dict[str, Any])
+    # Output: None
+    # Processing: Mark the files an agent's change touched as being worked on, for the live view.
+    # Changed by: Claude Code
+    # Date: 2026-11-18
+    def _mark_work(self, actor: str, op: str, summary: dict[str, Any]) -> None:
+        from backend.whiteboard.ops import live
+
+        paths = list(summary.get("files", []))
+        for key in ("added", "changed"):
+            for block_id in summary.get("blocks", {}).get(key, []):
+                block = self.board.blocks.get(block_id)
+                if block is not None and (block.path or block.meta.get("file")):
+                    paths.append(block.path or block.meta["file"])
+        paths = [p for p in paths if not p.endswith(BOARD_EXTENSION)]
+        if paths and live.touch(self, actor, paths, op):
+            live.announce(self, {"what": "working", "agent": actor, "files": sorted(set(paths))[:50]})
 
     # Input: op (str), args (dict), actor (str), ok (bool), detail (Any)
     # Output: None
@@ -574,7 +774,8 @@ class Workspace:
         history[source].pop()
         history[target].append(entry)
         self.store.save_history(history)
-        self.store.save_board(self.board)
+        self.refresh_agents()  # an old copy of the agents must not come back with the board
+        self.save()
         self._log(f"history.{direction}", {}, actor, ok=True, detail=entry["op"])
         self.emit({"kind": "change", "actor": actor, "op": f"history.{direction}",
                    "command": f"/{direction}", "changes": {"undone" if direction == "undo" else "redone": entry["op"]}})
