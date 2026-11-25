@@ -29,7 +29,8 @@ Date: 2026-11-23
   const RISK_NAME = { shell: 'Command injection', sql_from_text: 'SQL injection', secret_in_code: 'Secret in code', eval: 'Runs text as code', unsafe_html: 'Unsafe HTML', html_injection: 'Unsafe HTML', pickle: 'Unsafe loading', weak_hash: 'Weak hashing', no_verify: 'TLS check turned off', tls_off: 'TLS check turned off', path_traversal: 'Path from user input' }
   const MAX_CODE = 40
 
-  const st = { open: null, apis: false, scan: null, risks: {}, explain: {}, lines: {}, seq: null }
+  const st = { open: null, apis: false, scan: null, risks: {}, explain: {}, lines: {}, seq: null,
+    trace: null, traceRunning: false, lastTest: localStorage.getItem('plovane-last-test') || '' }
 
   const icon = b => {
     const lang = b?.kind === 'file' && LANG_ICON[b.meta?.language]
@@ -72,6 +73,54 @@ Date: 2026-11-23
     panel.style.top = `${top + 12}px`
   }
 
+  // --------------------------------------------------------------- Trace ----
+
+  /**
+   * Input: path (string)
+   * Output: { ran: Set<number>, missed: Set<number> } | null
+   * Processing: The saved trace for one project file: which lines ran and which didn't.
+   * Changed by: Claude Code
+   * Date: 2026-11-23
+   */
+  function traceFor(path) {
+    const rec = st.trace?.files?.[path]
+    if (!rec) return null
+    return { ran: new Set(rec.ran || []), missed: new Set(rec.missed || []) }
+  }
+
+  async function loadTrace(force) {
+    if (st.trace && !force) return
+    try { st.trace = await op('trace.read') } catch (_) { st.trace = null }
+  }
+
+  /**
+   * Input: b (file block)
+   * Output: string (HTML)
+   * Processing: One-line summary above the reader: "N lines didn't run" or "every executable line ran", or empty.
+   * Changed by: Claude Code
+   * Date: 2026-11-24
+   */
+  function traceSummary(b) {
+    const t = traceFor(b.path); if (!t) return ''
+    const missed = t.missed.size, ran = t.ran.size
+    if (!ran && !missed) return `<div class="op-trace-note">Not covered by the last trace.</div>`
+    if (!missed) return `<div class="op-trace-note ok">✓ Every executable line ran (${ran}).</div>`
+    return `<div class="op-trace-note">${plural(missed, 'line')} didn't run under ${esc(st.trace?.target || 'the last trace')}.</div>`
+  }
+
+  async function runTrace(testFile) {
+    if (!testFile || st.traceRunning) return
+    st.traceRunning = true; wb.toast(`Tracing ${testFile}…`)
+    try {
+      const r = await op('trace.run', { target: testFile, timeout: 180 })
+      await loadTrace(true)
+      st.lastTest = testFile; localStorage.setItem('plovane-last-test', testFile)
+      wb.toast(`Trace done: ${r.counts?.ran || 0} lines ran, ${r.counts?.missed || 0} not reached.`)
+      if (st.open && !st.open.startsWith('ep:')) render(st.open)
+    } catch (e) { wb.toast(e.message, true) }
+    finally { st.traceRunning = false }
+  }
+
   // ----------------------------------------------------------- Risk scan -----
 
   async function scan() {
@@ -87,7 +136,26 @@ Date: 2026-11-23
   // ---------------------------------------------------------- Open panel -----
 
   function hide() { panel.classList.remove('show'); overlay.classList.remove('with-panel'); st.open = null }
-  function show() { place(); panel.classList.add('show'); overlay.classList.add('with-panel'); if (!st.scan) scan() }
+  function show() { place(); panel.classList.add('show'); overlay.classList.add('with-panel'); if (!st.scan) scan(); loadTrace() }
+
+  /**
+   * Input: id (block id or null)
+   * Output: string
+   * Processing: Guess a sibling test file for a file block ("foo.py" → "test_foo.py" in a tests folder nearby).
+   * Changed by: Claude Code
+   * Date: 2026-11-24
+   */
+  function guessTestFor(id) {
+    const b = blocks()[id]; if (!b?.path) return ''
+    const parts = b.path.split('/'), base = parts.pop(), stem = base.replace(/\.py$/, '')
+    const candidates = [
+      `${parts.join('/')}/tests/test_${stem}.py`,
+      `tests/test_${stem}.py`,
+      `tests/${stem}/test_${stem}.py`,
+    ]
+    for (const c of candidates) if (byPath()[c]) return c
+    return ''
+  }
 
   /**
    * Input: id (block id), line (number, optional)
@@ -155,7 +223,7 @@ Date: 2026-11-23
           ${isFolder && kids.length ? `<div class="op-label">Inside (${kids.length})</div>${chips(kids.map(k => k.id))}` : ''}</div>
         ${isFile || isFolder ? `<div class="op-sec"><h4>Risky code <span>${risks.length || ''}</span></h4>${risks.length ? risks.slice(0, 30).map(w => `<button class="op-risk ${esc(w.severity)}" ${isFile ? `data-op-line="${w.line}"` : `data-op-file="${esc(w.file)}" data-op-line="${w.line}"`}><b>${isFile ? '' : `${esc(w.file.split('/').pop())} · `}Line ${w.line}: ${esc(w.why)}</b><span>${esc(riskName(w.kind))} · ${esc(w.severity)}</span></button>`).join('') + (risks.length > 30 ? `<div class="op-none">+${risks.length - 30} more</div>` : '') : `<div class="op-none">${st.scan ? 'Nothing risky found.' : 'Scanning…'}</div>`}</div>` : ''}
         ${test?.own ? `<div class="op-sec"><h4>Tests</h4><span class="op-badge ${test.status === 'tested' ? 'ok' : ''}">${test.status === 'tested' ? '✓ Tested' : 'No tests'}</span></div>` : isFolder && untested ? `<div class="op-sec"><h4>Tests</h4><span class="op-badge">${plural(untested, 'file')} with no tests</span></div>` : ''}
-        ${isFile ? `<div class="op-sec"><h4>What each line does</h4><ol class="op-reader" id="op-reader"><li><span class="en">Loading…</span></li></ol></div>` : ''}
+        ${isFile ? `<div class="op-sec"><h4>What each line does <button class="op-trace-btn" data-op-trace title="Run a pytest file under coverage and mark the lines that didn't run">${st.traceRunning ? 'Tracing…' : (traceFor(b.path) ? '↻ Re-run trace' : '▶ Trace with…')}</button></h4>${traceSummary(b)}<ol class="op-reader" id="op-reader"><li><span class="en">Loading…</span></li></ol></div>` : ''}
       </div>`
     if (isFile) { loadAbout(b); loadLines(b, line) }
   }
@@ -206,10 +274,13 @@ Date: 2026-11-23
     const risky = {}
     for (const w of st.risks[b.path] || []) (risky[w.line] ||= []).push(w)
     const shown = rows.slice(0, 1500), lang = b.meta?.language || ''
+    const trace = traceFor(b.path)
     el.innerHTML = shown.map(r => {
       const w = risky[r.line], sev = w ? (w.some(x => x.severity === 'high') ? 'high' : w[0].severity) : ''
+      const miss = trace && trace.missed.has(r.line) && !w
+      const cls = w ? `risky ${sev}` : miss ? 'missed' : ''
       const en = ['continues', 'blank'].includes(r.source) || !r.english ? '' : r.english
-      return `<li data-line="${r.line}" class="${w ? `risky ${sev}` : ''}">${en ? `<span class="en">${esc(en)}</span>` : ''}<span class="n">${r.line}</span><code>${paint(r.code, lang)}</code>${w ? `<span class="why">⚠ ${w.map(x => esc(x.why)).join(' · ')}</span>` : ''}</li>`
+      return `<li data-line="${r.line}" class="${cls}">${en ? `<span class="en">${esc(en)}</span>` : ''}<span class="n">${r.line}</span><code>${paint(r.code, lang)}</code>${w ? `<span class="why">⚠ ${w.map(x => esc(x.why)).join(' · ')}</span>` : miss ? `<span class="miss">never ran under the last trace</span>` : ''}</li>`
     }).join('') + (rows.length > shown.length ? `<li><span class="en">…${rows.length - shown.length} more lines</span></li>` : '')
     if (line) jump(line)
   }
@@ -358,6 +429,12 @@ Date: 2026-11-23
     if (d.opFile && d.opLine) { const id = byPath()[d.opFile]; if (id) focusOn(id, Number(d.opLine)); return }
     if (d.opLine && !d.opOpen) return jump(Number(d.opLine))
     if (d.opOpen) return focusOn(d.opOpen, Number(d.opLine) || 0)
+    if (d.opTrace !== undefined) {
+      const guess = st.lastTest || guessTestFor(st.open) || 'tests/'
+      const ans = window.prompt('Trace which test file? (will run under coverage.py)', guess)
+      if (ans) runTrace(ans.trim())
+      return
+    }
     if (d.ovCommand) { try { await wb.request('command', { method: 'POST', body: JSON.stringify({ command: d.ovCommand }) }); await wb.refresh(); renderApis(); wb.toast('Done.') } catch (err) { wb.toast(err.message, true) } }
   })
 
