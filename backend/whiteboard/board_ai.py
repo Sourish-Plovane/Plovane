@@ -46,7 +46,7 @@ from backend.whiteboard.store import SKIP_DIRS
 
 DEFAULT_MODELS = {"anthropic": "claude-haiku-5-5", "deepseek": "deepseek-chat", "openai": "gpt-5-mini"}
 MAX_ASK_STEPS = 20
-MAX_BUILD_STEPS = 25
+MAX_BUILD_STEPS = 30
 WATCHER = "project watcher"
 MAX_OVERLAY_STEPS = 6
 SIGNALS = {
@@ -82,9 +82,12 @@ To explain a file as zoomable blocks, read it with /open <file>, then run
 summary first: one or two plain sentences on what the whole file does and why it exists. Then
 blocks top to bottom, each named by what it does in 2 to 6 plain words (not the function name),
 with a one-sentence summary and real line numbers; split a long part into children.
-Overlays put extra information on top of the board without changing it. Prefer the premade ones
-(see /overlay list; switch one on for the person with /overlay on <id> --person). When none fits,
-write one as if/else rules, which Plovane then checks on every draw with no AI:
+Overlays put extra information on top of the board without changing it. You write how the board
+is viewed; Plovane then applies it to whatever anyone changes or runs, with no AI. In order:
+1. a premade overlay (see /overlay list): switch it on for the person with /overlay on <id> --person;
+2. a template filled in for this project: /overlay from <template> --id <id> --set '{"blank": value}'
+   (templates: {templates});
+3. your own if/else rules, which Plovane checks on every draw:
   /overlay rule failing_calls --data '{"label": "Failing API calls", "rules": [
     {"on": "arrow", "if": {"type": "api", "live.ok": false}, "show": {"color": "red", "message": "failed ({live.status})"}},
     {"on": "arrow", "if": {"type": "api", "live.ok": true}, "show": {"color": "green"}}]}'
@@ -102,18 +105,27 @@ you changed on the board."""
 
 from backend.whiteboard.overlay_rules import ARROW_FACTS, BLOCK_FACTS, COLORS, OPERATORS  # noqa: E402
 
-SYSTEM = (SYSTEM.replace("{operators}", " ".join(OPERATORS)).replace("{colors}", " ".join(COLORS))
+from backend.whiteboard.overlay_templates import TEMPLATES  # noqa: E402
+
+SYSTEM = (SYSTEM.replace("{templates}", ", ".join(f"{k} ({', '.join(v['params']) or 'no blanks'})" for k, v in TEMPLATES.items()))
+          .replace("{operators}", " ".join(OPERATORS)).replace("{colors}", " ".join(COLORS))
           .replace("{block_facts}", ", ".join(BLOCK_FACTS)).replace("{arrow_facts}", ", ".join(ARROW_FACTS))
           .replace("{{fact}}", "{fact}"))
 
 ORGANISE = """The project's folders, files, import arrows and API routes were just mapped onto
-the board from the code. Organise it so a newcomer understands the project at a glance:
-1. Read the board. Add a service block (with /sketch) for each major part of the project, named
-   by what it does, and databases, queues or outside APIs the code clearly talks to.
+the board from the code. Organise it so a newcomer understands the project at a glance.
+
+What the project's own docs say (README, architecture):
+{docs}
+
+1. Read the board and the docs. Add a service block (with /sketch) for each major part of the
+   product the docs describe (or, without docs, each major part of the code), named by what it
+   does, and databases, queues or outside APIs the code clearly talks to.
 2. Join them with arrows labelled in a few plain words ("stores orders", "charges cards").
 3. Do not remove or rename what the import made.
 4. Make what matters visible: switch on premade overlays that have something to show (for the
-   person, with --person), or write a rule overlay when none fits. Use at most 15 commands.
+   person, with --person); mark each part the docs name with /overlay from area (its folder as
+   the path); fill in other templates that fit this project. Use at most 20 commands.
 Finish with two or three sentences on how the project is laid out."""
 
 
@@ -196,6 +208,40 @@ def ask(ws: Any, message: str, *, requester: str = USER, lock: Any = None, provi
     return {**result, "requester": requester}
 
 
+DOC_NAMES = ("README", "ARCHITECTURE", "DESIGN", "OVERVIEW")
+MAX_DOC = 4000
+MAX_DOCS = 10_000
+
+
+# Input: root (Path)
+# Output: str
+# Processing: The project's README and architecture docs (top level and docs/), trimmed for the prompt; "(none)" when there are none.
+# Changed by: Claude Code
+# Date: 2026-11-25
+def project_docs(root: Path) -> str:
+    found: list[Path] = []
+    for folder in (root, root / "docs", root / "doc"):
+        if not folder.is_dir():
+            continue
+        for path in sorted(folder.iterdir()):
+            stem = path.stem.upper()
+            if path.is_file() and path.suffix.lower() in (".md", ".markdown", ".rst", ".txt") and (
+                    any(stem.startswith(n) for n in DOC_NAMES) or (folder != root and len(found) < 6)):
+                found.append(path)
+    parts, total = [], 0
+    for path in found:
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace").strip()
+        except OSError:
+            continue
+        chunk = f"--- {path.relative_to(root).as_posix()} ---\n{text[:MAX_DOC]}"
+        if total + len(chunk) > MAX_DOCS:
+            break
+        parts.append(chunk)
+        total += len(chunk)
+    return "\n\n".join(parts) or "(none)"
+
+
 # Input: ws (Workspace), lock (threading.RLock | None), provider (str | None), model (str | None), on_step (Callable | None), organise (bool)
 # Output: dict[str, Any]
 # Processing: Build the board: import the project from the code, then let the whiteboard AI organise it (skipped, with a note, when no AI key is set).
@@ -218,8 +264,8 @@ def build(ws: Any, *, lock: Any = None, provider: str | None = None, model: str 
                        f"'plovane connect {'claude' if name == 'anthropic' else name}'")
         return out
     try:
-        out["organise"] = ask(ws, ORGANISE, requester=BOARD_AI, lock=lock, provider=provider, model=model,
-                              on_step=on_step, max_steps=MAX_BUILD_STEPS)
+        out["organise"] = ask(ws, ORGANISE.replace("{docs}", project_docs(ws.root)), requester=BOARD_AI, lock=lock,
+                              provider=provider, model=model, on_step=on_step, max_steps=MAX_BUILD_STEPS)
     except llm_agent.AgentError as exc:  # the import still stands; say why organising did not happen
         out["note"] = f"organising failed: {exc}"
     return out
@@ -230,8 +276,9 @@ OVERLAY_TASK = """New kinds of information appeared in the project:
 Overlays on the board now: {overlays}
 
 Decide whether the person needs a new overlay to see this. If a premade overlay already shows it,
-switch that on for the person (/overlay on <id> --person) when it is off. If none does, write one
-with /overlay rule. If nothing needs to change, reply "No change needed." Use at most 4 commands."""
+switch that on for the person (/overlay on <id> --person) when it is off. Otherwise fill in a
+template (/overlay from), or write your own with /overlay rule. If nothing needs to change, reply
+"No change needed." Use at most 4 commands."""
 
 
 # Input: ws (Workspace)

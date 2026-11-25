@@ -304,3 +304,41 @@ def overlay_rule(ctx: Context, overlay: str, data: Any, show: Any = True) -> dic
         shown = switch(ctx, oid, True, USER)["state"]
     return {"overlay": oid, "rules": len(rules), "channel": channel, "replaced": existing is not None,
             "shown_to_person": shown == "on"}
+
+
+# Input: ctx (Context)
+# Output: dict[str, Any]
+# Processing: The premade overlay templates with their descriptions and blanks.
+# Changed by: Claude Code
+# Date: 2026-11-25
+@operation("overlay.templates", command="/overlay template list", tool="plovane_overlay_templates",
+           group="plovane_overlay", mutates=False)
+def overlay_templates(ctx: Context) -> dict[str, Any]:
+    """Lists the premade overlay templates the whiteboard AI fills in for a project (blanks and defaults)."""
+    from backend.whiteboard.overlay_templates import listing
+
+    return {"templates": listing()}
+
+
+# Input: ctx (Context), template (str), id (str | None), set (Any), label (str | None), show (Any)
+# Output: dict[str, Any]
+# Processing: Fill a premade template's blanks for this project and save it as a rule overlay (shown to the person).
+# Changed by: Claude Code
+# Date: 2026-11-25
+@operation("overlay.from_template", command="/overlay from", tool="plovane_overlay_from", group="plovane_overlay")
+def overlay_from(ctx: Context, template: str, id: str | None = None, set: Any = None,  # noqa: A002
+                 label: str | None = None, show: Any = True) -> dict[str, Any]:
+    """Makes an overlay from a premade template, with its blanks filled in for this project (--set '{...}')."""
+    from backend.whiteboard.overlay_templates import instantiate
+
+    given = json_object(set, "set") if set not in (None, "") else {}
+    try:
+        spec = instantiate(str(template).strip(), given)
+    except ValueError as exc:
+        raise OpError("INVALID_ARGS", str(exc)) from None
+    if label:
+        spec["label"] = str(label)
+    oid = str(id or template).strip()
+    result = ctx.execute("overlay.rule", {"overlay": oid, "data": spec, "show": show})
+    ctx.board.overlays[oid]["template"] = str(template).strip()
+    return {**result, "template": str(template).strip(), "filled": given}

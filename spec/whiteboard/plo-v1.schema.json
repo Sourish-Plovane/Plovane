@@ -94,6 +94,7 @@
       "anyOf": [{ "required": ["match"] }, { "required": ["rules"] }],
       "properties": {
         "source": { "const": "custom" },
+        "template": { "type": "string", "description": "The premade template it was made from (/overlay from), if any." },
         "rules": {
           "description": "If/else rules checked on every draw (backend/whiteboard/overlay_rules.py): per block or arrow, the first rule whose 'if' holds decides what is shown.",
           "type": "array",

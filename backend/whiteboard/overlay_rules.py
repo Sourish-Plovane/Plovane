@@ -17,32 +17,60 @@ hold. ``{"all": [...]}``, ``{"any": [...]}`` and ``{"not": {...}}`` combine
 conditions. A fact a block or arrow does not have makes a comparison false.
 
 Facts come from the board and from what Plovane already measures (see
-:func:`block_facts` and :func:`arrow_facts`): live API status, log errors,
-trace coverage, which agent is working on a file, and the count every premade
-analyzer finds (``premade.code_vulnerabilities`` and so on). Rules are data,
-never code, so a wrong rule can only draw the wrong thing.
+:func:`block_facts` and :func:`arrow_facts`): what the code says (``code.*``:
+its text, calls, imports, error handling, outside API calls), who changed it
+and when (``change.*``, including edits made outside the whiteboard such as
+Claude Code's), what ran (``test.status``, ``trace.*``, ``live.*`` API
+status), which agent is working on a file, and the count every premade
+analyzer finds (``premade.code_vulnerabilities`` and so on). So whatever
+Claude writes, a person runs or an agent does shows up through rules written
+once. Facts are worked out only when a rule names them. Rules are data, never
+code, so a wrong rule can only draw the wrong thing.
 """
 
 from __future__ import annotations
 
+import ast
 import fnmatch
 import json
 import os
 import re
+import time
+from datetime import datetime
 from typing import Any
 
 from backend.whiteboard.store import STATE_DIR
 
 TARGETS = ("block", "arrow")
-OPERATORS = ("=", "!=", ">", ">=", "<", "<=", "in", "contains", "exists", "matches")
+OPERATORS = ("=", "!=", ">", ">=", "<", "<=", "in", "contains", "exists", "matches", "regex")
 COLORS = ("red", "orange", "blue", "green", "purple", "gray")
 MAX_RULES = 20
 MAX_DEPTH = 6
 TEMPLATE = re.compile(r"\{([a-z0-9_.]+)\}")
+MAX_CODE = 300_000
+MAX_PATTERN = 200
+LOG_ROWS = 2000
 BLOCK_FACTS = ("id", "kind", "name", "path", "folder", "layer", "status", "parent", "language", "summary",
-               "log.count", "log.worst_line", "trace.ran", "trace.missed", "live.agent", "premade.<overlay>")
+               "code.text", "code.lines", "code.functions", "code.calls", "code.imports", "code.handles_errors",
+               "code.outside_calls", "code.todos",
+               "change.by", "change.age", "change.outside",
+               "test.status", "log.count", "log.worst_line", "trace.ran", "trace.missed", "live.agent",
+               "premade.<overlay>")
 ARROW_FACTS = ("id", "type", "status", "endpoint", "label", "source.name", "source.kind", "source.path",
-               "target.name", "target.kind", "target.path", "live.ok", "live.status", "live.fails", "live.count")
+               "target.name", "target.kind", "target.path", "live.ok", "live.status", "live.fails", "live.count",
+               "live.ms")
+FACT_HELP = {
+    "code.text": "the file's source, for contains / regex",
+    "code.calls": "names the code calls, e.g. requests.post (a list: use contains)",
+    "code.imports": "modules it imports (a list: use contains)",
+    "code.handles_errors": "true when it has try/except or .catch",
+    "code.outside_calls": "how many calls to outside URLs it makes",
+    "code.todos": "TODO / FIXME count",
+    "change.by": "who last changed the file: user, an agent's name, or outside (e.g. Claude Code)",
+    "change.age": "seconds since that change",
+    "change.outside": "true when the last change came from outside the whiteboard",
+    "test.status": "failing, tested or untested",
+}
 
 
 class RuleError(ValueError):
@@ -77,6 +105,13 @@ def check_condition(cond: Any, depth: int = 0) -> None:
                 raise RuleError(f"{key!r}: 'in' takes a list")
             if op == "matches" and not isinstance(operand, str):
                 raise RuleError(f"{key!r}: 'matches' takes a pattern like 'src/billing/*'")
+            if op == "regex":
+                if not isinstance(operand, str) or len(operand) > MAX_PATTERN:
+                    raise RuleError(f"{key!r}: 'regex' takes a pattern of at most {MAX_PATTERN} characters")
+                try:
+                    re.compile(operand)
+                except re.error as exc:
+                    raise RuleError(f"{key!r}: bad regex ({exc})") from None
 
 
 # Input: rules (Any)
@@ -139,9 +174,14 @@ def compare(value: Any, op: str, operand: Any) -> bool:
         if op == "in":
             return value in operand
         if op == "contains":
+            if isinstance(value, (list, tuple, set)):
+                return any(str(operand).lower() == str(v).lower() or str(v).lower().startswith(str(operand).lower() + ".")
+                           for v in value)
             return str(operand).lower() in str(value).lower()
         if op == "matches":
             return fnmatch.fnmatch(str(value), str(operand))
+        if op == "regex":
+            return re.search(operand, str(value)[:MAX_CODE]) is not None
     except TypeError:
         return False
     return False
@@ -209,12 +249,20 @@ class Signals:
         self.logs = saved(ws, "log_errors.json").get("files") or {}
         self.trace = saved(ws, "trace.json").get("files") or {}
         self.premade: dict[str, dict[str, int]] = {}
-        names = {key.split(".", 1)[1] for key in self.fact_names(rules) if key.startswith("premade.")}
-        if names:
+        wanted = self.fact_names(rules)
+        names = {key.split(".", 1)[1] for key in wanted if key.startswith("premade.")}
+        if names or "test.status" in wanted:
             from backend.whiteboard.overlays import ANALYZERS
 
             for name in names & set(ANALYZERS):
                 self.premade[name] = {bid: len(items) for bid, items in ANALYZERS[name](ws, board).items()}
+        self.tests: dict[str, str] = {}
+        if "test.status" in wanted:
+            self.tests = {bid: items[0].get("status") for bid, items in ANALYZERS["test_health"](ws, board).items() if items}
+        self.root = ws.root
+        self.want_code = any(key.startswith("code.") for key in wanted)
+        self.changes = last_changes(ws) if any(key.startswith("change.") for key in wanted) else {}
+        self.now = time.time()
 
     # Input: rules (list[dict])
     # Output: set[str]
@@ -270,7 +318,92 @@ def block_facts(block: Any, signals: Signals) -> dict[str, Any]:
     }
     for name, counts in signals.premade.items():
         facts[f"premade.{name}"] = counts.get(block.id, 0)
+    if signals.tests:
+        facts["test.status"] = signals.tests.get(block.id)
+    if signals.want_code and path and block.kind == "file":
+        facts.update(code_facts(signals.root, path))
+    change = signals.changes.get(path or "")
+    if change:
+        facts.update({"change.by": change["by"], "change.age": round(signals.now - change["at"]),
+                      "change.outside": change["by"] == "outside"})
     return facts
+
+
+JS_CALL = re.compile(r"\b([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*\(")
+JS_IMPORT = re.compile(r"""(?:from\s+|require\(\s*|import\s+)['"]([^'"]+)['"]""")
+JS_KEYWORDS = frozenset({"if", "for", "while", "switch", "catch", "function", "return", "typeof", "await"})
+
+
+# Input: root (Path), path (str)
+# Output: dict[str, Any]
+# Processing: What one source file says, as rule facts: text, size, functions, calls, imports, error handling, outside calls, TODOs.
+# Changed by: Claude Code
+# Date: 2026-11-25
+def code_facts(root: Any, path: str) -> dict[str, Any]:
+    from backend.whiteboard.ops.outside_apis import js_urls, python_urls
+
+    try:
+        text = (root / path).read_text(encoding="utf-8", errors="replace")[:MAX_CODE]
+    except OSError:
+        return {}
+    facts: dict[str, Any] = {"code.text": text, "code.lines": text.count("\n") + (1 if text and not text.endswith("\n") else 0),
+                             "code.todos": len(re.findall(r"\b(?:TODO|FIXME|XXX)\b", text))}
+    if path.endswith(".py"):
+        try:
+            tree = ast.parse(text)
+        except SyntaxError:
+            return facts
+        calls, imports = set(), set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                parts, target = [], node.func
+                while isinstance(target, ast.Attribute):
+                    parts.append(target.attr)
+                    target = target.value
+                if isinstance(target, ast.Name):
+                    calls.add(".".join([target.id, *reversed(parts)]))
+            elif isinstance(node, ast.Import):
+                imports.update(a.name for a in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                imports.add(node.module)
+        facts.update({"code.functions": sum(isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) for n in ast.walk(tree)),
+                      "code.calls": sorted(calls), "code.imports": sorted(imports),
+                      "code.handles_errors": any(isinstance(n, ast.Try) for n in ast.walk(tree)),
+                      "code.outside_calls": len(python_urls(text))})
+    else:
+        facts.update({"code.functions": len(re.findall(r"\bfunction\b|=>", text)),
+                      "code.calls": sorted({c for c in JS_CALL.findall(text) if c not in JS_KEYWORDS}),
+                      "code.imports": sorted(set(JS_IMPORT.findall(text))),
+                      "code.handles_errors": bool(re.search(r"\btry\s*\{|\.catch\s*\(", text)),
+                      "code.outside_calls": len(js_urls(text))})
+    return facts
+
+
+# Input: ws (Workspace)
+# Output: dict[str, dict[str, Any]]
+# Processing: Who last changed each file and when, from the change log; the watcher's refreshes count as changes made outside the whiteboard.
+# Changed by: Claude Code
+# Date: 2026-11-25
+def last_changes(ws: Any) -> dict[str, dict[str, Any]]:
+    from backend.whiteboard.engine import BOARD_AI
+
+    found: dict[str, dict[str, Any]] = {}
+    for row in ws.store.read_log(last=LOG_ROWS):
+        if not row.get("ok"):
+            continue
+        try:
+            at = datetime.fromisoformat(row["at"]).timestamp()
+        except (KeyError, ValueError):
+            continue
+        if row.get("op") == "project.refresh" and row.get("actor") == BOARD_AI:
+            paths = (row.get("args") or {}).get("paths") or []
+            by = "outside"
+        else:
+            paths = (row.get("detail") or {}).get("files") or [] if isinstance(row.get("detail"), dict) else []
+            by = row.get("actor") or "user"
+        for path in paths if isinstance(paths, list) else []:
+            found[str(path)] = {"by": by, "at": at}
+    return found
 
 
 # Input: arrow (Arrow), board (Board), signals (Signals)
@@ -285,7 +418,7 @@ def arrow_facts(arrow: Any, board: Any, signals: Signals) -> dict[str, Any]:
         "id": arrow.id, "type": arrow.type, "status": arrow.status, "endpoint": arrow.endpoint,
         "label": arrow.meta.get("label"),
         "live.ok": state.get("ok"), "live.status": state.get("status"),
-        "live.fails": state.get("fails"), "live.count": state.get("count"),
+        "live.fails": state.get("fails"), "live.count": state.get("count"), "live.ms": state.get("ms"),
     }
     for side, block in (("source", source), ("target", target)):
         facts[f"{side}.name"] = block.name if block else None

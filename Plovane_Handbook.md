@@ -1763,7 +1763,7 @@ An **overlay** is information switched on top of the board. Overlays are compute
 |---|---|---|
 | **Group** | `group` | A folder of overlays. Draws nothing itself. |
 | **Premade** | `premade` | Built into Plovane; `engine_ref` names its analyzer. |
-| **Custom** | `custom` | If/else `rules` over blocks and arrows, written by the whiteboard AI or a user (`/overlay rule`) and checked on every draw with no AI, e.g. an API arrow turns red when its last request failed. Facts include live API status, log errors, trace coverage, the agent working on a file and every premade analyzer's count. A code-graph `match` (tags and traversals) can be saved but does not run yet. |
+| **Custom** | `custom` | If/else `rules` over blocks and arrows, written by the whiteboard AI or a user (`/overlay rule`, or `/overlay from <template>` to fill in a premade template) and checked on every draw with no AI, e.g. an API arrow turns red when its last request failed. Facts include what the code says (calls, imports, error handling, outside calls, text), who changed a file and when (including edits made outside the whiteboard), test status, live API status, log errors, trace coverage, the agent working on a file and every premade analyzer's count. A code-graph `match` (tags and traversals) can be saved but does not run yet. |
 
 **Default overlays** (every board starts with these):
 

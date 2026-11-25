@@ -184,3 +184,98 @@ def test_rule_overlay_travels_in_the_plo_file(tmp_path: Path) -> None:
     schema = json.loads((Path(__file__).resolve().parents[3] / "spec" / "whiteboard" / "plo-v1.schema.json").read_text())
     validator = jsonschema.Draft202012Validator({"$defs": schema["$defs"], "$ref": "#/$defs/overlay"})
     assert [e.message for e in validator.iter_errors(ws.board.overlays["failing_calls"])] == []
+
+
+# Input: none
+# Output: None
+# Processing: Every premade template fills in to valid rules; unknown templates, unknown blanks and empty required blanks are refused.
+# Changed by: Claude Code
+# Date: 2026-11-25
+def test_every_template_fills_in_to_valid_rules() -> None:
+    from backend.whiteboard.overlay_templates import TEMPLATES, instantiate
+
+    needed = {"uses_library": {"module": "stripe"}, "area": {"path": "src/billing/*", "label": "Payments"}}
+    for tid in TEMPLATES:
+        spec = instantiate(tid, needed.get(tid, {}))
+        assert validate(spec["rules"]) and "{" not in spec["label"], tid
+    assert instantiate("outside_edits", {"minutes": 5})["rules"][0]["if"]["change.age"] == {"<": 300.0}
+    for template, given, words in (("nope", {}, "no template"), ("big_files", {"size": 1}, "no blank"),
+                                   ("area", {"label": "x"}, "needs 'path'"), ("big_files", {"lines": "many"}, "number")):
+        with pytest.raises(ValueError, match=words):
+            instantiate(template, given)
+
+
+# Input: tmp_path (Path)
+# Output: None
+# Processing: Code facts: a file calling an outside API with no error handling is flagged; the README's area template marks its folder.
+# Changed by: Claude Code
+# Date: 2026-11-25
+def test_templates_read_the_code(tmp_path: Path) -> None:
+    ws = project(tmp_path, {**SHOP, "api/payments.py": (
+        "import requests\n\n\ndef charge(amount):\n"
+        "    return requests.post('https://api.stripe.com/v1/charges', data={'amount': amount})\n"),
+        "api/safe.py": ("import requests\n\n\ndef ping():\n    try:\n"
+                        "        return requests.get('https://status.example.com/ping')\n    except Exception:\n        return None\n")})
+    assert ws.command("/project import", confirm=True)["ok"]
+    made = ws.command("/overlay from unguarded_outside_calls")
+    assert made["ok"] and ws.board.overlays["unguarded_outside_calls"]["template"] == "unguarded_outside_calls"
+    assert ws.command("/overlay from area --id web_area --set '{\"path\": \"web/*\", \"label\": \"Shop front\"}'")["ok"]
+    calls = {"label": "Calls Stripe", "rules": [
+        {"on": "block", "if": {"code.calls": {"contains": "requests.post"}, "code.text": {"regex": "api\\.stripe\\.com"}},
+         "show": {"badge": "stripe"}}]}
+    assert ws.command(f"/overlay rule calls_stripe --data '{json.dumps(calls)}'")["ok"]
+    state = overlay_state(ws, ws.board, USER)["results"]
+    payments, safe = ws.board.block_for_path("api/payments.py"), ws.board.block_for_path("api/safe.py")
+    cart = ws.board.block_for_path("web/cart.js")
+    assert payments.id in state["unguarded_outside_calls"] and safe.id not in state["unguarded_outside_calls"]
+    assert state["web_area"][cart.id]["items"][0]["message"] == "part of Shop front"
+    assert payments.id not in state["web_area"]
+    assert list(k for k, v in state["calls_stripe"].items() if v["own"]) == [payments.id]
+
+
+# Input: tmp_path (Path)
+# Output: None
+# Processing: Change facts: an edit made outside the whiteboard (picked up by the watcher) shows up through the outside_edits template; a person's edit does not.
+# Changed by: Claude Code
+# Date: 2026-11-25
+def test_outside_edits_show_through_rules(tmp_path: Path) -> None:
+    ws = shop(tmp_path)
+    assert ws.command("/overlay from outside_edits --set '{\"minutes\": 10}'")["ok"]
+    watcher = board_ai.ProjectWatcher(ws, threading.RLock(), quiet=0.5)
+    (tmp_path / "api" / "app.py").write_text((tmp_path / "api" / "app.py").read_text() + "\n# tuned by Claude\n")
+    watcher.poll(now=1.0)
+    watcher.poll(now=2.0)
+    assert ws.command("/file save web/cart.js --content 'export const pay = () => 1\n'")["ok"]
+    results = overlay_state(ws, ws.board, USER)["results"]["outside_edits"]
+    app, cart = ws.board.block_for_path("api/app.py"), ws.board.block_for_path("web/cart.js")
+    assert results[app.id]["items"][0]["badge"] == "just changed"
+    assert cart.id not in results
+
+
+# Input: tmp_path (Path), monkeypatch (pytest.MonkeyPatch)
+# Output: None
+# Processing: Build hands the README and architecture docs to the whiteboard AI along with the templates.
+# Changed by: Claude Code
+# Date: 2026-11-25
+def test_build_reads_the_readme_and_architecture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    seen: list[tuple[str, str]] = []
+
+    # Input: task (str), client (Any), system (str), **_ (Any)
+    # Output: dict
+    # Processing: Record what the whiteboard AI was told, and mark the README's checkout area.
+    # Changed by: Claude Code
+    # Date: 2026-11-25
+    def fake_run(task, *, client, system, **_):
+        seen.append((task, system))
+        reply = client.run_command("/overlay from area --id checkout --set '{\"path\": \"api/*\", \"label\": \"Checkout\"}'")
+        return {"status": "done", "summary": "ok", "commands": [{"ok": reply["ok"]}]}
+
+    monkeypatch.setattr(llm_agent, "run", fake_run)
+    ws = project(tmp_path, {**SHOP, "README.md": "# Shop\nThe checkout service takes card payments.\n",
+                            "docs/architecture.md": "Web front end -> checkout API -> Stripe.\n"})
+    result = board_ai.build(ws)
+    task, system = seen[0]
+    assert "checkout service takes card payments" in task and "docs/architecture.md" in task
+    assert "area (path, label, color)" in system and result["organise"]["status"] == "done"
+    assert ws.board.overlays["checkout"]["template"] == "area"

@@ -32,6 +32,26 @@ runs `/project refresh`: new files, imports, routes, outside APIs and summaries
 follow the code, with no AI. Files the whiteboard wrote itself are ignored.
 `PLOVANE_BOARD_AI_WATCH=0` turns this off.
 
+## Overlays the whiteboard AI writes
+
+The whiteboard AI decides how the board is viewed; Plovane applies that to
+whatever anyone changes or runs, with no AI. An overlay is a list of if/else
+rules (`overlay_rules.py`) saved in the `.plo` file. Rules can test what the code
+says (`code.calls`, `code.imports`, `code.handles_errors`, `code.outside_calls`,
+`code.text` with `regex`), who changed a file and when (`change.by`,
+`change.age`, `change.outside` for edits made outside the whiteboard such as
+Claude Code's), what ran (`test.status`, `trace.*`, live API `live.*`), and
+every premade analyzer's count. On a build it reads the README and
+architecture docs and fills in premade templates (`overlay_templates.py`) for
+the project, e.g. one `area` overlay per part of the product:
+
+```
+/overlay template list
+/overlay from area --id payments --set '{"path": "src/billing/*", "label": "Payments"}'
+/overlay from failing_api_calls
+/overlay rule <id> --data '{"label": ..., "rules": [{"on": "arrow", "if": {...}, "show": {...}}]}'
+```
+
 ## Sketch: short lines for drawing
 
 The whiteboard AI draws with `/sketch`, not with the detailed commands below.
@@ -628,6 +648,8 @@ command answers `needs_confirmation` first.
 | `/role use` | `role.use` | `plovane_overlay` |  | Uses a role (developer, cyber, reviewer, ...): shows that role's overlays. | `/role use cyber` |
 | `/overlay put` | `overlay.put` | `plovane_overlay` |  | Defines or replaces one overlay (used by .plo files); people only. | `/overlay put db_writes --data '{"label": "DB writes", "source": "custom", ...}'` |
 | `/overlay remove` | `overlay.remove` | `plovane_overlay` |  | Removes an overlay (and the overlays inside a group); people only. | `/overlay remove db_writes` |
+| `/overlay template list` | `overlay.templates` | `plovane_overlay` |  | Lists the premade overlay templates the whiteboard AI fills in for a project (blanks and defaults). | `/overlay template list` |
+| `/overlay from` | `overlay.from_template` | `plovane_overlay` |  | Makes an overlay from a premade template, with its blanks filled in for this project (--set '{...}'). | `/overlay from area --id payments --set '{"path": "src/billing/*", "label": "Payments"}'` |
 | `/overlay rule` | `overlay.rule` | `plovane_overlay` |  | Writes an overlay as if/else rules (e.g. an arrow turns red when its API call fails) and shows it to the person. | `/overlay rule failing_calls --data '{"label": "Failing API calls", "rules": [{"on": "arrow", "if": {"live.ok": false}, "show": {"color": "red"}}]}'` |
 | `/overlay propose` | `overlay.propose` | `plovane_overlay` |  | Asks a lightweight LLM to propose an overlay for the whiteboard; people only. | `/overlay propose "files hit hardest by log errors"` |
 | `/role put` | `role.put` | `plovane_overlay` |  | Defines or replaces one role (used by .plo files); people only. | `/role put qa --data '{"label": "QA", "overlays": ["test_health"], "default_level": 2}'` |
