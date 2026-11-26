@@ -67,6 +67,9 @@ IMAGE = "pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime"
 # What the job needs, nothing more. Per-group backward keeps GPU memory to one
 # group's activations, so 16 GB is ample. Ampere or newer for bf16 and for
 # current PyTorch builds, which have dropped Pascal and Volta.
+# Country codes whose hosts cannot reliably reach GitHub.
+NO_GITHUB = {"CN"}
+
 OFFER_FILTER = {
     "verified": {"eq": True},
     "rentable": {"eq": True},
@@ -194,6 +197,9 @@ def search_offers(job: str = "cross-encoder") -> list[dict]:
 # Date: 2026-10-16
 def choose_offer(offers: list[dict], *, max_price: float) -> dict:
     """The cheapest offer at or under the cap; refuses rather than overspend."""
+    # The box clones from and pushes to GitHub; hosts in these countries could
+    # not reach it (two runs in China died silently with nothing pushed).
+    offers = [o for o in offers if str(o.get("geolocation", "")).rsplit(",", 1)[-1].strip() not in NO_GITHUB]
     affordable = [o for o in offers if o.get("dph_total", float("inf")) <= max_price]
     if not affordable:
         cheapest = min((o.get("dph_total", float("inf")) for o in offers), default=None)

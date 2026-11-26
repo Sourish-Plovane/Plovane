@@ -100,6 +100,11 @@ class TestOfferFilter:
         assert cap["gte"] >= 800 and cap["lt"] <= 1000
         assert "cuda12.4" in vast.IMAGE
 
+    def test_skips_hosts_that_cannot_reach_github(self, vast):
+        offers = [{"dph_total": 0.10, "geolocation": "China, CN"},
+                  {"dph_total": 0.20, "geolocation": "Poland, PL"}]
+        assert vast.choose_offer(offers, max_price=0.45)["geolocation"] == "Poland, PL"
+
     def test_asks_for_one_gpu(self, vast):
         assert vast.OFFER_FILTER["num_gpus"] == {"eq": 1}
 
