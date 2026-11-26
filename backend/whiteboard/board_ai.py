@@ -129,6 +129,10 @@ the board from the code. Organise it so a newcomer understands the project at a 
 What the project's own docs say (README, architecture):
 {docs}
 
+If the docs contain Mermaid flowcharts, they are the authors' own picture of the project: follow
+their parts and arrows for the services, and draw each one as its own tab with /flow import
+<file> --diagram <n> (see /flow list <file>).
+
 1. Read the board and the docs. Add a service block (with /sketch) for each major part of the
    product the docs describe (or, without docs, each major part of the code), named by what it
    does, and databases, queues or outside APIs the code clearly talks to.

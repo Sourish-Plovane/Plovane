@@ -13,6 +13,7 @@ from backend.whiteboard.ops import (  # noqa: F401
     code,
     endpoints,
     english,
+    flows,
     health,
     history,
     layers,

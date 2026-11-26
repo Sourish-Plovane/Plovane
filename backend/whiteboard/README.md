@@ -32,6 +32,15 @@ runs `/project refresh`: new files, imports, routes, outside APIs and summaries
 follow the code, with no AI. Files the whiteboard wrote itself are ignored.
 `PLOVANE_BOARD_AI_WATCH=0` turns this off.
 
+## Flowcharts from the project's own docs
+
+`/flow list README.md` numbers the Mermaid flowcharts in a file; `/flow import
+README.md --diagram 2` draws one as its own whiteboard tab under
+`whiteboards/flows/`. A map of parts keeps its services, databases, queues and
+outside systems; a process (decisions, start and end) becomes steps with each
+decision marked. Arrow labels are kept. The whiteboard AI follows a project's
+own diagrams when it builds the board (`mermaid.py`).
+
 ## Readable for people, on their own theme
 
 The browser measures every label on screen (its size, its contrast against
@@ -819,5 +828,7 @@ command answers `needs_confirmation` first.
 | `/project describe` | `project.describe` | `plovane_project` |  | Sets the one line saying what the whole project is, shown at the top of the whiteboard. | `/project describe "A shop backend: orders, payments and emails"` |
 | `/translate` | `code.translate` | `plovane_code` |  | Translates a file line by line into plain English; rules are free, the AI only words the rest. | `/translate src/pay.py --start 1 --end 40` |
 | `/board make` | `board.make` | `plovane_view` |  | Builds a whiteboard for one job (structure, api, security or frontend) as its own .plo tab. | `/board make api  or  /board make frontend --refresh` |
+| `/flow list` | `flow.list` | `plovane_view` |  | Lists the Mermaid flowcharts in a file (a README or docs page), numbered for /flow import. | `/flow list README.md` |
+| `/flow import` | `flow.import` | `plovane_view` |  | Draws a Mermaid flowchart from the project's docs as its own whiteboard tab. | `/flow import README.md --diagram 2` |
 | `/pages` | `frontend.pages` | `plovane_view` |  | Lists the app's pages, the file behind each, and the links between them. | `/pages` |
 | `/frontend` | `frontend.run` | `plovane_view` |  | Starts or stops the app's dev server (npm run dev, or a static server for HTML pages). | `/frontend start  or  /frontend stop` |

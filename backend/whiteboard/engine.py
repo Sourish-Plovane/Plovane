@@ -690,7 +690,7 @@ class Workspace:
         ctx = Context(self, fs, actor, dry_run, confirmed)
         try:
             result = call(spec, ctx, args)
-            if actor == BOARD_AI and fs.changes()["files"]:
+            if actor == BOARD_AI and any(not f.endswith(".plo") for f in fs.changes()["files"]):  # whiteboard files are board work
                 raise OpError("FORBIDDEN", f"{spec.command} would change project files; the whiteboard AI "
                                            "changes the board only, never code")
             if actor == BOARD_AI:

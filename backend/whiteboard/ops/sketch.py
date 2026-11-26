@@ -113,13 +113,15 @@ def add(ctx: Context, kind: str, rest: str) -> list[str]:
 
 # Input: ctx (Context), rest (str)
 # Output: list[str]
-# Processing: Draw arrows along "a, b -> c -> d "label"", skipping ones that exist.
-# Changed by: Claude
-# Date: 2026-11-10
+# Processing: Draw arrows along "a, b -> c -> d "label"", skipping ones that exist; a quoted last name is a target, not a label.
+# Changed by: Claude Code
+# Date: 2026-11-26
 def link(ctx: Context, rest: str) -> list[str]:
     label = None
     quoted = re.search(r"\s+[\"']([^\"']+)[\"']\s*$", rest)
-    if quoted and "->" not in quoted.group(1):
+    # A trailing quoted text is the label only if a target is still left after the last "->"
+    # ('a -> "Big API"' names the target; 'a -> b "reads"' labels the arrow).
+    if quoted and "->" not in quoted.group(1) and rest[: quoted.start()].split("->")[-1].strip():
         label, rest = quoted.group(1), rest[: quoted.start()]
     stages = [[need(ctx, n) for n in names(part)] for part in rest.split("->")]
     if len(stages) < 2 or not all(stages):
