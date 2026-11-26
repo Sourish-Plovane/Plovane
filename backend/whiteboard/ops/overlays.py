@@ -16,12 +16,16 @@ from backend.whiteboard.registry import OpError, flag, operation
 
 # Input: ctx (Context), overlay (str)
 # Output: str
-# Processing: An overlay id that exists, or NOT_FOUND listing the ones that do.
+# Processing: An overlay id that exists, or NOT_FOUND listing the ones that do (pointing a template name at /overlay from).
 # Changed by: Claude Code
 # Date: 2026-11-22
 def known(ctx: Context, overlay: str) -> str:
+    from backend.whiteboard.overlay_templates import TEMPLATES
+
     oid = str(overlay).strip()
     if oid not in ctx.board.overlays:
+        if oid in TEMPLATES:
+            raise OpError("NOT_FOUND", f"{oid!r} is a template, not an overlay yet: make it with /overlay from {oid}")
         raise OpError("NOT_FOUND", f"no overlay {oid!r}; overlays: {sorted(ctx.board.overlays)}")
     return oid
 
@@ -272,8 +276,8 @@ def overlay_rule(ctx: Context, overlay: str, data: Any, show: Any = True) -> dic
     """Writes an overlay as if/else rules (e.g. an arrow turns red when its API call fails) and shows it to the person."""
     from backend.whiteboard.overlay_rules import RuleError, validate
 
-    oid = str(overlay).strip()
-    if not oid.replace("_", "").isalnum() or not oid[:1].isalpha() or oid.lower() != oid:
+    oid = "_".join(str(overlay).strip().lower().replace("-", " ").split())  # "area-api" and "Area API" mean area_api
+    if not oid.replace("_", "").isalnum() or not oid[:1].isalpha():
         raise OpError("INVALID_ARGS", "an overlay id is lowercase letters, digits and _, starting with a letter")
     existing = ctx.board.overlays.get(oid)
     if existing is not None and existing.get("source") != "custom":
@@ -304,8 +308,14 @@ def overlay_rule(ctx: Context, overlay: str, data: Any, show: Any = True) -> dic
     shown = None
     if flag(show) and oid not in active(ctx.board, USER):
         shown = switch(ctx, oid, True, USER)["state"]
-    return {"overlay": oid, "rules": len(rules), "channel": channel, "replaced": existing is not None,
-            "shown_to_person": shown == "on"}
+    from backend.whiteboard.overlay_rules import evaluate
+
+    blocks, arrows = evaluate(ctx.ws, ctx.board, ctx.board.overlays[oid])
+    out = {"overlay": oid, "rules": len(rules), "channel": channel, "replaced": existing is not None,
+           "shown_to_person": shown == "on", "matches_now": {"blocks": len(blocks), "arrows": len(arrows)}}
+    if not blocks and not arrows:
+        out["note"] = "matches nothing on the board right now"
+    return out
 
 
 # Input: ctx (Context)
@@ -340,7 +350,6 @@ def overlay_from(ctx: Context, template: str, id: str | None = None, set: Any = 
         raise OpError("INVALID_ARGS", str(exc)) from None
     if label:
         spec["label"] = str(label)
-    oid = str(id or template).strip()
-    result = ctx.execute("overlay.rule", {"overlay": oid, "data": spec, "show": show})
-    ctx.board.overlays[oid]["template"] = str(template).strip()
+    result = ctx.execute("overlay.rule", {"overlay": str(id or template), "data": spec, "show": show})
+    ctx.board.overlays[result["overlay"]]["template"] = str(template).strip()
     return {**result, "template": str(template).strip(), "filled": given}

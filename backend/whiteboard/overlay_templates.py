@@ -103,10 +103,10 @@ TEMPLATES: dict[str, dict[str, Any]] = {
              "show": {"color": "{color}", "badge": "{module}", "message": "imports {module}"}}]},
     },
     "area": {
-        "description": "One part of the product (from the README or architecture docs), marked on every file in it.",
+        "description": "One part of the product (from the README or architecture docs), marked on every file in it; path is a folder or a pattern.",
         "params": {"path": "", "label": "", "color": "purple"},
         "spec": {"label": "{label}", "channel": "border", "priority": 20, "rules": [
-            {"on": "block", "if": {"path": {"matches": "{path}"}},
+            {"on": "block", "if": {"any": [{"path": {"matches": "{path}"}}, {"path": {"matches": "{path}/*"}}]},
              "show": {"color": "{color}", "badge": "{label}", "message": "part of {label}"}}]},
     },
 }

@@ -230,6 +230,12 @@ def test_templates_read_the_code(tmp_path: Path) -> None:
     assert payments.id in state["unguarded_outside_calls"] and safe.id not in state["unguarded_outside_calls"]
     assert state["web_area"][cart.id]["items"][0]["message"] == "part of Shop front"
     assert payments.id not in state["web_area"]
+    assert ws.command("/overlay from area --id api-area --set '{\"path\": \"api\", \"label\": \"Checkout\"}' --show false")["ok"]
+    api_area = overlay_state(ws, ws.board, USER)
+    assert "api_area" not in api_area["results"]  # made with --show false: not switched on
+    assert ws.command("/overlay on api_area")["ok"]
+    assert payments.id in overlay_state(ws, ws.board, USER)["results"]["api_area"]  # a bare folder covers its files
+    assert "/overlay from todo_markers" in ws.command("/overlay on todo_markers")["error"]["message"]
     assert list(k for k, v in state["calls_stripe"].items() if v["own"]) == [payments.id]
 
 

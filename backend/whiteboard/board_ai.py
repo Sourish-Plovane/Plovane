@@ -73,7 +73,8 @@ only, never project code: commands that would write a project file are refused, 
 them. If a request needs code changed, say so in your reply instead.
 
 Work only through the tools. run_command takes one Plovane slash command exactly as a person
-types it, for example:
+types it. /sketch kinds are service, database, queue, external and server, with no flags; names
+with spaces go in quotes. For example:
   /sketch service payments; database postgres; payments -> postgres "stores charges"
   /block edit <id> --summary "Takes card payments"
   /overlay on log_errors
@@ -91,6 +92,10 @@ is viewed; Plovane then applies it to whatever anyone changes or runs, with no A
   /overlay rule failing_calls --data '{"label": "Failing API calls", "rules": [
     {"on": "arrow", "if": {"type": "api", "live.ok": false}, "show": {"color": "red", "message": "failed ({live.status})"}},
     {"on": "arrow", "if": {"type": "api", "live.ok": true}, "show": {"color": "green"}}]}'
+Do not crowd the person's view: switch on at most 3 overlays for them in one go, the ones that
+matter most for this project, and make the rest with --show false (they stay in /overlay list).
+Every new overlay reports matches_now: one that matches nothing now and whose signal is not
+coming soon is not worth keeping on.
 For each block or arrow the first rule whose "if" holds decides what shows; "if": {} is the
 final else. A condition maps facts to a value or to one operator ({">": 0}): {operators}.
 Combine with "all", "any", "not". Colors: {colors}. Messages may use {{fact}}.
@@ -129,9 +134,9 @@ What the project's own docs say (README, architecture):
    does, and databases, queues or outside APIs the code clearly talks to.
 2. Join them with arrows labelled in a few plain words ("stores orders", "charges cards").
 3. Do not remove or rename what the import made (a long file name can get a short label instead).
-4. Make what matters visible: switch on premade overlays that have something to show (for the
-   person, with --person); mark each part the docs name with /overlay from area (its folder as
-   the path); fill in other templates that fit this project. Use at most 20 commands.
+4. Make what matters visible, without crowding: mark each part the docs name with /overlay from
+   area (its folder as the path, --show false), then switch on for the person at most 3 overlays
+   that matter most here. Templates are made with /overlay from, not /overlay on. Use at most 20 commands.
 Finish with two or three sentences on how the project is laid out."""
 
 
