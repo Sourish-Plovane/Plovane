@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 import urllib.error
 import urllib.request
@@ -364,7 +365,7 @@ def trim_history(messages: list[dict[str, Any]], provider: str, keep: int = KEEP
 
 # Input: client (Any), name (str), args (dict[str, Any])
 # Output: str
-# Processing: Run one tool call against the whiteboard and return its JSON text, trimmed.
+# Processing: Run one tool call against the whiteboard and return its JSON text, trimmed; several slash commands in one run_command run in turn.
 # Changed by: Claude Code
 # Date: 2026-11-09
 def call_tool(client: Any, name: str, args: dict[str, Any]) -> str:
@@ -374,7 +375,17 @@ def call_tool(client: Any, name: str, args: dict[str, Any]) -> str:
             result: dict[str, Any] = {"ok": False, "error": {"code": "INVALID_ARGS",
                                                              "message": "command must be a slash command"}}
         else:
-            result = client.run_command(command.strip(), bool(args.get("confirm")))
+            # Models often send several commands at once ("/a ...; /b ..." or one per line): run each in turn.
+            parts = [p.strip() for p in re.split(r"(?:\n|;\s*)(?=/[a-z])", command.strip()) if p.strip()]
+            if len(parts) == 1:
+                result = client.run_command(parts[0], bool(args.get("confirm")))
+            else:
+                replies = [client.run_command(p, bool(args.get("confirm"))) for p in parts]
+                failed = [{"command": p, "error": (r.get("error") or {}).get("message")} for p, r in zip(parts, replies) if not r.get("ok")]
+                result = {"ok": not failed, "ran": len(parts), "failed": failed,
+                          "results": [r.get("data") for r in replies]}
+                if failed:
+                    result["error"] = {"code": "SOME_FAILED", "message": "; ".join(f"{f['command'][:60]}: {f['error']}" for f in failed)[:500]}
     elif name == "get_board":
         result = compact_board(client.board())
     elif name == "list_commands":

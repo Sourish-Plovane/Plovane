@@ -1,0 +1,395 @@
+{
+ "provider": "deepseek",
+ "model": "deepseek-chat",
+ "repositories": 12,
+ "scored": 12,
+ "mean": {
+  "parts_recall": 0.452,
+  "parts_precision": 0.278,
+  "parts_f1": 0.332,
+  "arrow_recall": 0.1,
+  "failed": 4.333,
+  "commands": 11.417,
+  "duplicates": 0.0,
+  "labelled_arrows": 1.0,
+  "overlays_on": 0.75,
+  "long_labels_left": 1.833,
+  "input_tokens": 70430.167,
+  "output_tokens": 1367.083,
+  "seconds": 12.6
+ },
+ "rows": [
+  {
+   "repo": "DaveSimoes/VercelZero",
+   "seconds": 11.5,
+   "parts_recall": 0.143,
+   "parts_precision": 0.143,
+   "parts_f1": 0.143,
+   "arrow_recall": 0.0,
+   "commands": 12,
+   "failed": 4,
+   "failed_examples": [
+    "/flow list README.md -> README.md has no Mermaid flowchart (```mermaid with flowchart or graph)",
+    "/sketch server \"Copilot chat API\" --summary \"Edge route that streams CopilotKit chat respo -> line 4 (the project is open source there.\"): don't know 'the'; lines look like: service or",
+    "/sketch external GitHub --summary \"Used for signing in; the project is open source there.\" -> line 2 (the project is open source there.\"): don't know 'the'; lines look like: service or",
+    "/sketch external GitHub\n\"Copilot chat API\" -> OpenAI API \"asks gpt-4 for replies\"\n\"AI text -> line 2 (\"Copilot chat API\" -> OpenAI API \"asks gpt-4 for replies\"): no block 'Copilot chat"
+   ],
+   "duplicates": 0,
+   "labelled_arrows": 1.0,
+   "overlays_on": 2,
+   "long_labels_left": 0,
+   "input_tokens": 62105,
+   "output_tokens": 1058,
+   "status": "max_steps",
+   "note": null,
+   "reference_parts": 7,
+   "drawn_parts": 7,
+   "matched": {
+    "Next: Faster contributor onboarding": "Next.js App"
+   }
+  },
+  {
+   "repo": "FOMO-RUN/codex-desktop-zh-cn-portable",
+   "seconds": 13.2,
+   "parts_recall": 0.444,
+   "parts_precision": 0.267,
+   "parts_f1": 0.333,
+   "arrow_recall": 0.0,
+   "commands": 10,
+   "failed": 5,
+   "failed_examples": [
+    "/flow list README.md -> README.md has no Mermaid flowchart (```mermaid with flowchart or graph)",
+    "/overlay rule entry_scripts --data '{\"label\": \"Entry scripts\", \"channel\": \"border\", \"rules -> --data must be JSON",
+    "/overlay rule entry_scripts '{\"label\": \"Entry scripts\", \"channel\": \"border\", \"rules\": [{\"o -> unexpected ['{\"label\": \"Entry scripts\", \"channel\": \"border\", \"rules\": [{\"on\": \"block\", \"if",
+    "/overlay rule entry_scripts --data '{\"label\":\"Entry scripts\",\"channel\":\"border\",\"rules\":[{ -> rule 3: 'show' says what to draw, e.g. {\"color\": \"red\", \"message\": \"...\"}",
+    "/overlay on entry_scripts --person; /readable check -> unexpected ['check']; usage: /overlay on cyber_security"
+   ],
+   "duplicates": 0,
+   "labelled_arrows": 1.0,
+   "overlays_on": 2,
+   "long_labels_left": 1,
+   "input_tokens": 60304,
+   "output_tokens": 1520,
+   "status": "max_steps",
+   "note": null,
+   "reference_parts": 9,
+   "drawn_parts": 15,
+   "matched": {
+    "\u5b98\u65b9 Codex \u4fdd\u6301\u4e0d\u53d8": "Portable Codex App (patched)",
+    "Codex zh-CN \u4fbf\u643a\u7248": "Official Codex Install",
+    "\u66f4\u65b0 ASAR \u6587\u4ef6 integrity": "ASAR Integrity Fixer",
+    "\u8865\u4e01 app.asar \u4e2d\u7684\u83dc\u5355\u786c\u7f16\u7801": "Copy Official App"
+   }
+  },
+  {
+   "repo": "mayukh4/jansky",
+   "seconds": 13.8,
+   "parts_recall": 0.25,
+   "parts_precision": 0.154,
+   "parts_f1": 0.19,
+   "arrow_recall": 0.0,
+   "commands": 12,
+   "failed": 1,
+   "failed_examples": [
+    "/text shorten local-language-model-on-ai-hat --to \"Local brain model\"\n/text shorten plain- -> unexpected ['/text', 'shorten', 'plain-text-memory-and-list-file', '/text', 'shorten', 'wa"
+   ],
+   "duplicates": 0,
+   "labelled_arrows": 1.0,
+   "overlays_on": 1,
+   "long_labels_left": 0,
+   "input_tokens": 61202,
+   "output_tokens": 1360,
+   "status": "done",
+   "note": null,
+   "reference_parts": 8,
+   "drawn_parts": 13,
+   "matched": {
+    "Wake word sherpa-onnx, CPU": "Sherpa-onnx wake word kit",
+    "Kokoro voice CPU": "Voice synthesis"
+   }
+  },
+  {
+   "repo": "Kunnatam/V1R4",
+   "seconds": 12.7,
+   "parts_recall": 0.5,
+   "parts_precision": 0.182,
+   "parts_f1": 0.267,
+   "arrow_recall": 0.0,
+   "commands": 10,
+   "failed": 4,
+   "failed_examples": [
+    "/flow list README.md -> README.md has no Mermaid flowchart (```mermaid with flowchart or graph)",
+    "/sketch remove avatar-window-tauri-three-js -> \"Claude Code CLI\" \"reads\"; service \"Setup & -> line 1 (remove avatar-window-tauri-three-js -> \"Claude Code CLI\" \"reads\"): no block 'avata",
+    "/sketch remove tts-server-python -> kokoro-tts-model; remove tts-server-python -> avatar-w -> line 1 (remove tts-server-python -> kokoro-tts-model): no block 'tts-server-python -> koko",
+    "/sketch remove tts-server-python; remove avatar-window-tauri-three-js -> claude-code-hooks -> line 2 (remove avatar-window-tauri-three-js -> claude-code-hooks): no block 'avatar-window"
+   ],
+   "duplicates": 0,
+   "labelled_arrows": 1.0,
+   "overlays_on": 0,
+   "long_labels_left": 2,
+   "input_tokens": 77736,
+   "output_tokens": 1623,
+   "status": "max_steps",
+   "note": null,
+   "reference_parts": 4,
+   "drawn_parts": 11,
+   "matched": {
+    "FastAPI": "Voice Server WebSocket (FastAPI)",
+    "Claude Code": "Claude Code Hooks"
+   }
+  },
+  {
+   "repo": "PranithChowdary/Real-time-web-search-RAG-with-MCP",
+   "seconds": 13.1,
+   "parts_recall": 0.857,
+   "parts_precision": 0.6,
+   "parts_f1": 0.706,
+   "arrow_recall": 0.5,
+   "commands": 12,
+   "failed": 9,
+   "failed_examples": [
+    "/flow list README.md -> README.md has no Mermaid flowchart (```mermaid with flowchart or graph)",
+    "/flow list docs/SYSTEM_DESIGN.md -> docs/SYSTEM_DESIGN.md has no Mermaid flowchart (```mermaid with flowchart or graph)",
+    "/sketch service \"Web Frontend\" \"Frontend UI for typing queries and reading answers with ci -> line 7 (\"Web Frontend\" -> \"API Server\" \"sends the question\"): no block 'Web Frontend'; add",
+    "/sketch service \"Web Frontend\" \"Frontend UI for typing queries and reading answers with ci -> line 7 (\"Web Frontend\" -> \"API Server\" \"sends the question\"): no block 'Web Frontend'; add",
+    "/sketch service \"REST API\" \"FastAPI app serving /query and the /health check\"; service \"We -> line 4 (\"Web Frontend\" -> \"orchestrator\" \"sends the question\"): no block 'Web Frontend'; a",
+    "/block add service \"Web Frontend\" --summary \"Frontend UI where people type questions and r -> /block add: got an unexpected keyword argument 'summary'; parameters: ['kind', 'name', 'la"
+   ],
+   "duplicates": 0,
+   "labelled_arrows": 1.0,
+   "overlays_on": 1,
+   "long_labels_left": 0,
+   "input_tokens": 70532,
+   "output_tokens": 1679,
+   "status": "max_steps",
+   "note": null,
+   "reference_parts": 7,
+   "drawn_parts": 10,
+   "matched": {
+    "User Query": "User",
+    "MCP Server": "MCP Server",
+    "RAG Agent Orchestrator": "RAG Agent",
+    "Search Tool, Scraper": "Search Tools",
+    "FAISS/Chroma Vector DB": "Vector Store",
+    "LLM Response Generator": "LLM Provider"
+   }
+  },
+  {
+   "repo": "mirmisbahali/deakin_rover",
+   "seconds": 14.7,
+   "parts_recall": 0.5,
+   "parts_precision": 0.125,
+   "parts_f1": 0.2,
+   "arrow_recall": 0.0,
+   "commands": 10,
+   "failed": 4,
+   "failed_examples": [
+    "/flow list README.md -> README.md has no Mermaid flowchart (```mermaid with flowchart or graph)",
+    "/sketch remove joystick-to-motor-node -> motor-node-arm-ik-fk; remove ros2-topics-services -> line 1 (remove joystick-to-motor-node -> motor-node-arm-ik-fk): no block 'joystick-to-moto",
+    "/arrow remove joystick-to-motor-node->motor-node-arm-ik-fk -> no command /arrow remove; did you mean ['/arrow style', '/arrow route', '/arrow put']",
+    "/arrow remove ros2-topics-services->joystick-to-motor-node -> no command /arrow remove; did you mean ['/arrow style', '/arrow route', '/arrow put']"
+   ],
+   "duplicates": 0,
+   "labelled_arrows": 1.0,
+   "overlays_on": 0,
+   "long_labels_left": 3,
+   "input_tokens": 97169,
+   "output_tokens": 1555,
+   "status": "max_steps",
+   "note": null,
+   "reference_parts": 6,
+   "drawn_parts": 24,
+   "matched": {
+    "6-wheel drivetrain": "drivetrain motor controller",
+    "BLD-305s (RS485/Modbus RTU)": "BLD-305S Motor Controllers",
+    "USB Joystick": "USB Gamepad"
+   }
+  },
+  {
+   "repo": "eran-broder/jev-skills",
+   "seconds": 13.6,
+   "parts_recall": 0.6,
+   "parts_precision": 0.214,
+   "parts_f1": 0.316,
+   "arrow_recall": 0.0,
+   "commands": 11,
+   "failed": 4,
+   "failed_examples": [
+    "/sketch remove \"TypeSafe Jev API -> Selector / threshold\"; service config-and-setup \"Reads -> line 1 (remove \"TypeSafe Jev API -> Selector / threshold\"): no block 'TypeSafe Jev API -> ",
+    "/sketch service config-and-setup \"Reads config and installs host hooks\"; database local-se -> line 4 (config-and-setup -> \"Claude Code / Codex host\" \"installs hooks\"): no block 'config",
+    "/arrow relabel skill-files-skill-md-library -> injector-once-per-session \"supplies SKILL.m -> no command /arrow relabel; did you mean ['/arrow style', '/arrow route', '/arrow put']",
+    "/overlay on failing_api_calls --person -> 'failing_api_calls' is a template, not an overlay yet: make it with /overlay from failing_"
+   ],
+   "duplicates": 0,
+   "labelled_arrows": 1.0,
+   "overlays_on": 0,
+   "long_labels_left": 6,
+   "input_tokens": 68581,
+   "output_tokens": 1719,
+   "status": "max_steps",
+   "note": null,
+   "reference_parts": 5,
+   "drawn_parts": 14,
+   "matched": {
+    "Jev": "TypeSafe Jev API",
+    "hook": "Hook entry (UserPromptSubmit + tool results)",
+    "skill library on disk": "Skill files (SKILL.md library)"
+   }
+  },
+  {
+   "repo": "timothystewart6/techno-boto-chat",
+   "seconds": 10.6,
+   "parts_recall": 0.4,
+   "parts_precision": 0.333,
+   "parts_f1": 0.364,
+   "arrow_recall": 0.0,
+   "commands": 9,
+   "failed": 5,
+   "failed_examples": [
+    "/sketch LLM Endpoint -> Model Info API Route \"reports loaded model\"; User -> Next.js Web A -> line 4 (remove llm-endpoint -> model-info-api-route \"reports loaded model\"): no block 'llm",
+    "/sketch Model Info API Route -> LLM Endpoint \"asks for model name\"; User -> Next.js Web Ap -> line 4 (remove Chat API Route -> LLM Endpoint): no block 'Chat API Route -> LLM Endpoint';",
+    "/sketch server LLM Client \"talks to models from server\"; server API Routes \"bridge browser -> line 6 (Next.js Web App -> API Routes \"UI requests\"): no block 'API Routes'; did you mean ",
+    "/sketch server LLM Client \"talks to models from server\"; external Docker Model Runner \"loc -> line 5 (Next.js Web App -> LLM Client \"server-side calls\"): no block 'LLM Client'; did you",
+    "/sketch server LLM Client \"talks to models from server\"; external Docker Model Runner \"loc -> line 5 (Chat API Route -> LLM Client \"server-side calls\"): no block 'LLM Client'; did you "
+   ],
+   "duplicates": 0,
+   "labelled_arrows": 1.0,
+   "overlays_on": 0,
+   "long_labels_left": 1,
+   "input_tokens": 56154,
+   "output_tokens": 1038,
+   "status": "max_steps",
+   "note": null,
+   "reference_parts": 5,
+   "drawn_parts": 6,
+   "matched": {
+    "OpenAI API": "Model Info API Route",
+    "Browser Client": "Browser LocalStorage"
+   }
+  },
+  {
+   "repo": "daddi1987/DynamicAxisControl",
+   "seconds": 13.5,
+   "parts_recall": 0.25,
+   "parts_precision": 0.143,
+   "parts_f1": 0.182,
+   "arrow_recall": 0.0,
+   "commands": 14,
+   "failed": 4,
+   "failed_examples": [
+    "/sketch service profile_generator \"Builds speed/accel profiles for one axis\"; service core -> line 6 (profile_generator -> trajectory-profiles-position-time-arrays \"writes position and",
+    "/sketch service profile_generator \"Builds speed/accel profiles for one axis\"; service core -> line 6 (user_script -> gantry_system \"asks for a move home\"): no block 'user_script'; did ",
+    "/sketch service profile_generator \"Builds speed/accel profiles for one axis\"; service core -> line 5 (user-gantry-script -> gantry_system \"asks for a move home\"): no block 'gantry_syst",
+    "/text shorten profile-generator-builds-speed-accel-profiles-for-one-axis --to \"Single axis -> unexpected ['/text', 'shorten', 'core-xy-sync-slows-the-short-axis-so-both-motors-finish-t"
+   ],
+   "duplicates": 0,
+   "labelled_arrows": 1.0,
+   "overlays_on": 2,
+   "long_labels_left": 1,
+   "input_tokens": 50514,
+   "output_tokens": 1836,
+   "status": "max_steps",
+   "note": null,
+   "reference_parts": 4,
+   "drawn_parts": 7,
+   "matched": {
+    "Sync Speed and Acc/Dec": "Sync Core X/Y"
+   }
+  },
+  {
+   "repo": "ResDream/MindPilot",
+   "seconds": 11.5,
+   "parts_recall": 0.429,
+   "parts_precision": 0.214,
+   "parts_f1": 0.286,
+   "arrow_recall": 0.0,
+   "commands": 10,
+   "failed": 2,
+   "failed_examples": [
+    "/connect agent-chat-engine -> web-search-bing --type external --label \"runs web searches\"\n -> no block 'web-search-bing /connect electron-desktop-app -> backend-api-server /connect ele",
+    "/block remove \"External Tools (Bing\" -> no command /block remove; did you mean ['/block add', '/block move', '/block group', '/blo"
+   ],
+   "duplicates": 0,
+   "labelled_arrows": 1.0,
+   "overlays_on": 0,
+   "long_labels_left": 3,
+   "input_tokens": 85583,
+   "output_tokens": 911,
+   "status": "max_steps",
+   "note": null,
+   "reference_parts": 7,
+   "drawn_parts": 14,
+   "matched": {
+    "SQLite": "SQLite (mindpilot.db)",
+    "Electron / Vue": "Electron Desktop App",
+    "LangChain Agent": "Agent Chat Engine"
+   }
+  },
+  {
+   "repo": "jiayu-here/stm32-vision-robot-arm-sorter",
+   "seconds": 11.2,
+   "parts_recall": 0.333,
+   "parts_precision": 0.333,
+   "parts_f1": 0.333,
+   "arrow_recall": 0.0,
+   "commands": 11,
+   "failed": 4,
+   "failed_examples": [
+    "/sketch list -> line 1 (list): don't know 'list'; lines look like: service orders | database postgres | qu",
+    "/sketch list -> line 1 (list): don't know 'list'; lines look like: service orders | database postgres | qu",
+    "/layer define 1 --zoom 10-20 --show services -> layer 1 exists; change it with /layer edit",
+    "/flow list docs/01_\u7cfb\u7edf\u8bbe\u8ba1.md -> docs/01_\u7cfb\u7edf\u8bbe\u8ba1.md has no Mermaid flowchart (```mermaid with flowchart or graph)"
+   ],
+   "duplicates": 0,
+   "labelled_arrows": 1.0,
+   "overlays_on": 0,
+   "long_labels_left": 2,
+   "input_tokens": 85666,
+   "output_tokens": 725,
+   "status": "max_steps",
+   "note": null,
+   "reference_parts": 9,
+   "drawn_parts": 9,
+   "matched": {
+    "Task queue and workspace validation": "Task Queue",
+    "USB camera": "USB Camera",
+    "STM32F103 + FreeRTOS": "STM32 Firmware"
+   }
+  },
+  {
+   "repo": "Praneetha1844/Metamorph",
+   "seconds": 11.8,
+   "parts_recall": 0.714,
+   "parts_precision": 0.625,
+   "parts_f1": 0.667,
+   "arrow_recall": 0.7,
+   "commands": 16,
+   "failed": 6,
+   "failed_examples": [
+    "/flow list README.md -> README.md has no Mermaid flowchart (```mermaid with flowchart or graph)",
+    "/flow list docs/ARCHITECTURE.md -> docs/ARCHITECTURE.md has no Mermaid flowchart (```mermaid with flowchart or graph)",
+    "/flow list docs/index.md -> docs/index.md has no Mermaid flowchart (```mermaid with flowchart or graph)",
+    "/block info Refactor & Verify Pipeline -> unexpected ['&', 'Verify', 'Pipeline']; usage: /block info checkout",
+    "/block info Run Report Store -> unexpected ['Report', 'Store']; usage: /block info checkout",
+    "/block info Browser Workbench (React) -> unexpected ['Workbench', '(React)']; usage: /block info checkout"
+   ],
+   "duplicates": 0,
+   "labelled_arrows": 1.0,
+   "overlays_on": 1,
+   "long_labels_left": 3,
+   "input_tokens": 69616,
+   "output_tokens": 1381,
+   "status": "max_steps",
+   "note": null,
+   "reference_parts": 7,
+   "drawn_parts": 8,
+   "matched": {
+    "React workbench": "Browser Workbench (React)",
+    "Sandbox": "Sandboxed Test Runner",
+    "Pipeline": "Refactor & Verify Pipeline",
+    "LLM provider": "LLM Provider (Ollama / OpenAI-compatible)",
+    "FastAPI": "Metamorph Engine API (FastAPI)"
+   }
+  }
+ ]
+}

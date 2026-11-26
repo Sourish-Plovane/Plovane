@@ -64,6 +64,9 @@ def chart_name(chart: dict[str, Any]) -> str:
 @operation("flow.list", command="/flow list", tool="plovane_flow_list", group="plovane_view", mutates=False)
 def flow_list(ctx: Context, path: str) -> dict[str, Any]:
     """Lists the Mermaid flowcharts in a file (a README or docs page), numbered for /flow import."""
+    rel = str(path or "").strip().strip("/")
+    if rel and ctx.fs.exists(rel) and not ctx.fs.is_dir(rel) and not mermaid.diagrams(ctx.fs.read(rel)):
+        return {"file": path, "diagrams": [], "note": "no Mermaid flowcharts in this file"}
     return {"file": path, "diagrams": [
         {"diagram": i + 1, "name": chart_name(c), "nodes": len(c["nodes"]), "arrows": len(c["edges"]),
          "kind": "process" if mermaid.is_process(c) else "parts"}

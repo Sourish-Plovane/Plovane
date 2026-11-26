@@ -93,20 +93,30 @@ def arrow_type(source: Block, target: Block) -> str:
 
 # Input: ctx (Context), kind (str), rest (str)
 # Output: list[str]
-# Processing: Add blocks of one kind, skipping names that already exist.
-# Changed by: Claude
-# Date: 2026-11-10
+# Processing: Add blocks of one kind, skipping names that already exist; a trailing --summary "..." describes them.
+# Changed by: Claude Code
+# Date: 2026-11-26
 def add(ctx: Context, kind: str, rest: str) -> list[str]:
     done = []
+    summary = None
+    tail = re.search(r"\s+--summary\s+[\"']([^\"']*)[\"']\s*$", rest)
+    if tail:  # service payments --summary "Takes card payments"
+        summary, rest = tail.group(1).strip(), rest[: tail.start()]
     for name in names(rest):
         existing = find(ctx, name)
         if existing:
             if existing.kind != kind:
                 raise OpError("CONFLICT", f"{existing.name!r} already exists as a {existing.kind}")
+            if summary and existing.meta.get("summary") != summary:
+                ctx.require(existing)
+                existing.meta["summary"] = summary
+                done.append(f"described {existing.id}")
             continue
         ctx.require(None)
         block = ctx.new_block(kind, name, layer=LAYER)
         block.meta["sketch"] = True
+        if summary:
+            block.meta["summary"] = summary
         done.append(f"added {kind} {block.id}")
     return done
 
@@ -282,12 +292,24 @@ VERBS = {
 
 # Input: script (Any)
 # Output: list[str]
-# Processing: The non-empty, non-comment lines of a sketch, from text or a list.
-# Changed by: Claude
-# Date: 2026-11-10
+# Processing: The non-empty, non-comment lines of a sketch, from text or a list; ";" inside quotes does not split.
+# Changed by: Claude Code
+# Date: 2026-11-26
 def lines_of(script: Any) -> list[str]:
     text = "\n".join(map(str, script)) if isinstance(script, list) else str(script or "")
-    return [line.strip() for line in re.split(r"[\n;]", text) if line.strip() and not line.strip().startswith("#")]
+    lines, current, quote = [], [], None
+    for char in text:  # split on newlines and ";" outside quotes, so a quoted label may hold ";"
+        if quote:
+            quote = None if char == quote else quote
+        elif char in "\"'":
+            quote = char
+        elif char in "\n;":
+            lines.append("".join(current))
+            current = []
+            continue
+        current.append(char)
+    lines.append("".join(current))
+    return [line.strip() for line in lines if line.strip() and not line.strip().startswith("#")]
 
 
 # Input: ctx (Context), script (Any)

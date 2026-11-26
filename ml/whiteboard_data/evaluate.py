@@ -141,6 +141,7 @@ def score(example: dict[str, Any], ws: Any, result: dict[str, Any]) -> dict[str,
         "parts_f1": round(2 * recall * precision / (recall + precision), 3) if recall + precision else 0.0,
         "arrow_recall": round(hit / max(len(edges), 1), 3),
         "commands": len(commands), "failed": sum(not c.get("ok") for c in commands),
+        "failed_examples": [f"{c.get('command', '')[:90]} -> {str(c.get('error'))[:90]}" for c in commands if not c.get("ok")][:6],
         "duplicates": len(names) - len(set(names)),
         "labelled_arrows": round(sum(bool(a.style.get("label")) for a in ai_arrows) / max(len(ai_arrows), 1), 3),
         "overlays_on": len(custom_on),
@@ -232,6 +233,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="use the key saved with 'plovane connect' even if the environment has another")
     parser.add_argument("--mode", choices=("build", "sketch"), default="build",
                         help="build: the whiteboard AI builds a real board; sketch: one call, scored offline")
+    parser.add_argument("--examples", default=None,
+                        help="read examples from this file instead of the harvested set (to compare runs on a fixed set)")
     parser.add_argument("--rescore", action="store_true",
                         help="score the boards the last build run left in the clone cache again, without calling a model")
     args = parser.parse_args(argv)
@@ -254,7 +257,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     previous = {r["repo"]: r for r in json.loads(RESULTS.read_text())["rows"]} if args.rescore and RESULTS.exists() else {}
     seen, rows = set(), []
-    for example in (json.loads(line) for line in EXAMPLES.read_text().splitlines()):
+    source = Path(args.examples) if args.examples else EXAMPLES
+    for example in (json.loads(line) for line in source.read_text().splitlines()):
         if example["split"] != "eval" or example["repo"] in seen:
             continue
         seen.add(example["repo"])

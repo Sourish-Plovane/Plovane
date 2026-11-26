@@ -272,6 +272,9 @@ def parsed(value: Any, name: str, kind: type | None = None) -> Any:
     if isinstance(value, str):
         try:
             value = json.loads(value)
+        except json.JSONDecodeError as exc:
+            near = value[max(0, exc.pos - 20): exc.pos + 20]
+            raise OpError("INVALID_ARGS", f"--{name} must be JSON ({exc.msg} at character {exc.pos}, near {near!r})") from None
         except ValueError:
             raise OpError("INVALID_ARGS", f"--{name} must be JSON") from None
     if kind is not None and not isinstance(value, kind):

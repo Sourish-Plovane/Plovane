@@ -22,7 +22,8 @@ python3 --version
 echo
 echo "== python packages =="
 python3 -m pip install -q --upgrade pip
-python3 -m pip install -q "transformers>=4.46" "peft>=0.13" "trl>=0.19" "accelerate>=1.0" "datasets>=3.0" bitsandbytes
+# Pinned: the training script is written and smoke-tested against exactly these.
+python3 -m pip install -q "transformers==4.56.2" "peft==0.17.1" "trl==0.21.0" "accelerate==1.10.1" "datasets==4.0.0" bitsandbytes
 python3 -m pip install -q -e . --no-deps
 
 echo

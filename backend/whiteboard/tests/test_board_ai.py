@@ -309,3 +309,24 @@ def test_old_tool_results_are_trimmed() -> None:
     llm_agent.trim_history(chat, "deepseek", keep=2)
     assert [m["content"] for m in chat if m["role"] == "tool"][-4:] == ["A3", "B3", "A4", "B4"]
     assert "trimmed" in chat[2]["content"]
+
+
+# Input: tmp_path (Path)
+# Output: None
+# Processing: Fixes from the eval's failed commands: sketch lines take --summary and keep ";" inside quotes, several commands in one run_command run in turn, bad JSON says where it breaks, /flow list on a file without diagrams is an empty list.
+# Changed by: Claude Code
+# Date: 2026-11-26
+def test_eval_failures_are_handled(tmp_path: Path) -> None:
+    ws = project(tmp_path, {**FILES, "README.md": "# Shop\nNo diagrams here.\n"})
+    board_ai.ensure_board_ai(ws)
+    assert ws.command('/sketch external GitHub --summary "Sign in; the code is there"; service api', actor=BOARD_AI)["ok"]
+    assert ws.board.blocks["github"].meta["summary"] == "Sign in; the code is there" and "api" in ws.board.blocks
+    client = llm_agent.LocalClient(ws, __import__("threading").RLock(), BOARD_AI, lambda: board_ai.board_reply(ws),
+                                   board_ai.commands_reply)
+    out = llm_agent.json.loads(llm_agent.call_tool(client, "run_command",
+                                                   {"command": '/text weight api bold; /text shorten api --to "API"\n/nope'}))
+    assert out["ran"] == 3 and not out["ok"] and len(out["failed"]) == 1
+    assert ws.board.blocks["api"].style["text_weight"] == "bold" and ws.board.blocks["api"].meta["short_name"] == "API"
+    bad = ws.command("/overlay rule x --data '{\"label\": \"X\", \"rules\": [}'", actor=BOARD_AI)
+    assert "at character" in bad["error"]["message"]
+    assert ws.command("/flow list README.md")["data"]["result"]["diagrams"] == []
