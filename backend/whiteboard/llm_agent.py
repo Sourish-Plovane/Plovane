@@ -508,3 +508,31 @@ def run(task: str, *, provider: str, client: Any, model: str | None = None, max_
     return {"status": "max_steps", "steps": max_steps, "commands": commands, "usage": usage,
             "provider": provider, "model": model,
             "summary": f"Stopped after {max_steps} steps without finishing."}
+
+
+# Input: provider (str), model (str), system (str), prompt (str), max_tokens (int)
+# Output: tuple[str, dict[str, int]]
+# Processing: One plain chat call, no tools: the reply text and token use (any provider, or an OpenAI-compatible local server via PLOVANE_<P>_BASE_URL).
+# Changed by: Claude Code
+# Date: 2026-11-26
+def complete(provider: str, model: str, system: str, prompt: str, max_tokens: int = 1500) -> tuple[str, dict[str, int]]:
+    provider = canonical(provider)
+    key = api_key(provider) or "none"
+    if provider == "anthropic":
+        reply = http_json(f"{base_url('anthropic')}/v1/messages", {"x-api-key": key, "anthropic-version": "2023-06-01"},
+                          {"model": model, "max_tokens": max_tokens, "system": system,
+                           "messages": [{"role": "user", "content": prompt}]})
+        if "_http_status" in reply or reply.get("type") == "error":
+            raise AgentError(f"Claude returned an error: {json.dumps(reply.get('error') or reply)[:400]}")
+        text = "".join(b.get("text", "") for b in reply.get("content") or [] if b.get("type") == "text")
+        usage = reply.get("usage") or {}
+        return text, {"input_tokens": int(usage.get("input_tokens") or 0), "output_tokens": int(usage.get("output_tokens") or 0)}
+    limit = "max_completion_tokens" if provider == "openai" else "max_tokens"
+    reply = http_json(f"{base_url(provider)}/chat/completions", {"authorization": f"Bearer {key}"},
+                      {"model": model, limit: max_tokens,
+                       "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}]})
+    if "_http_status" in reply or "choices" not in reply:
+        raise AgentError(f"{provider} returned an error: {json.dumps(reply.get('error') or reply)[:400]}")
+    usage = reply.get("usage") or {}
+    return reply["choices"][0]["message"].get("content") or "", {
+        "input_tokens": int(usage.get("prompt_tokens") or 0), "output_tokens": int(usage.get("completion_tokens") or 0)}

@@ -66,6 +66,10 @@ def test_parse_process_and_find_diagrams() -> None:
     board = to_board(chart)
     assert {b.kind for b in board.blocks.values()} == {"step"}
     assert board.blocks["card-valid"].meta["decision"] is True
+    order = sorted(board.blocks.values(), key=lambda b: b.meta["flow_order"])
+    assert [b.name for b in order][:3] == ["Start", "Card valid?", "Charge card"]  # read in flow order
+    assert board.blocks["card-valid"].meta["summary"] == "yes → Charge card · no → Show error"
+    assert board.blocks["done"].meta["summary"] == "end"
     with pytest.raises(ValueError):
         parse("sequenceDiagram\n A->>B: hi")
 

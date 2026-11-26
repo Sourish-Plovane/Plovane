@@ -275,6 +275,9 @@ def to_board(chart: dict[str, Any], title: str = "", steps_only: bool = False) -
     rank = ranks(chart)
     across = chart["direction"] in ("LR", "RL")
     columns: dict[int, int] = {}
+    appearance = {nid: i for i, nid in enumerate(chart["nodes"])}
+    # The board lists blocks by meta.lines, so a step's place in the flow (rank, then first appearance) is its "line".
+    order = {nid: n + 1 for n, nid in enumerate(sorted(chart["nodes"], key=lambda k: (rank[k], appearance[k])))}
     for nid, node in chart["nodes"].items():
         kind = "step" if steps_only or (process and kind_of(node) == "service") else kind_of(node)
         w, h = DEFAULT_SIZE.get(kind, (200, 100))
@@ -284,7 +287,7 @@ def to_board(chart: dict[str, Any], title: str = "", steps_only: bool = False) -
         column, row = rank[nid], columns.get(rank[nid], 0)
         columns[column] = row + 1
         x, y = (60 + column * 300, 60 + row * 160) if across else (60 + row * 300, 60 + column * 160)
-        meta = {"from": "mermaid", "mermaid_id": nid}
+        meta = {"from": "mermaid", "mermaid_id": nid, "lines": [order[nid], order[nid]], "flow_order": order[nid]}
         if node.get("shape") in ("decision", "hexagon") and (steps_only or process):
             meta["decision"] = True
         if node.get("shape") == "flag" and (steps_only or process):
@@ -292,6 +295,12 @@ def to_board(chart: dict[str, Any], title: str = "", steps_only: bool = False) -
         parent = ids.get("group:" + node["group"]) if node.get("group") else None
         board.blocks[block_id] = Block(id=block_id, kind=kind, name=node["label"], layer=1, x=x, y=y, w=w, h=h,
                                        parent=parent, meta=meta)
+    if steps_only or process:
+        # Say on each step where it leads ("yes → Charge card · no → Show error"): the card reads even where arrows are faint.
+        for nid in chart["nodes"]:
+            leads = [(f"{e['label']} → " if e["label"] else "→ ") + chart["nodes"][e["to"]]["label"]
+                     for e in chart["edges"] if e["from"] == nid]
+            board.blocks[ids[nid]].meta["summary"] = " · ".join(leads)[:160] if leads else "end"
     for n, edge in enumerate(chart["edges"]):
         source, target = board.blocks[ids[edge["from"]]], board.blocks[ids[edge["to"]]]
         kind = {"database": "database", "external": "external", "queue": "event"}.get(target.kind, "calls")

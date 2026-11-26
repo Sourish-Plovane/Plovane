@@ -278,6 +278,7 @@ def test_build_reads_the_readme_and_architecture(tmp_path: Path, monkeypatch: py
         return {"status": "done", "summary": "ok", "commands": [{"ok": reply["ok"]}]}
 
     monkeypatch.setattr(llm_agent, "run", fake_run)
+    monkeypatch.setattr(llm_agent, "complete", lambda *a, **k: ('service "Checkout"', {"input_tokens": 1, "output_tokens": 1}))
     ws = project(tmp_path, {**SHOP, "README.md": "# Shop\nThe checkout service takes card payments.\n",
                             "docs/architecture.md": "Web front end -> checkout API -> Stripe.\n"})
     result = board_ai.build(ws)

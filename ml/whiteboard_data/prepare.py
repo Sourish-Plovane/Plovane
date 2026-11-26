@@ -17,21 +17,12 @@ import json
 import re
 from typing import Any
 
+from backend.whiteboard.board_ai import DRAW_SYSTEM as SYSTEM, draw_prompt  # training prompt = inference prompt
 from ml.whiteboard_data.harvest import EXAMPLES, ROOT
 
 TRAIN = ROOT / "ml" / "data" / "whiteboard_sft_train.jsonl"
 EVAL = ROOT / "ml" / "data" / "whiteboard_sft_eval.jsonl"
-MAX_TREE_LINES = 200
-MAX_DOCS = 5000
 EMOJI = re.compile("[\U0001F000-\U0001FAFF☀-➿️‍]")
-
-SYSTEM = """You draw a software project's architecture for the Plovane whiteboard.
-Read the file tree and the README, then reply with /sketch lines only, one per line:
-  service "Name"      database "Name"      queue "Name"      external "Name"
-  "From" -> "To" "short label"
-Use one block per real part of the system (apps, services, workers, databases, queues,
-outside APIs, the user), named in plain words. Join them in the direction data or
-requests flow, with a few-word label where it helps. Usually 4 to 12 blocks."""
 
 
 # Input: text (str)
@@ -50,11 +41,7 @@ def plain(text: str) -> str:
 # Changed by: Claude Code
 # Date: 2026-11-26
 def prompt_for(example: dict[str, Any]) -> str:
-    tree = "\n".join(example["tree"][:MAX_TREE_LINES])
-    more = len(example["tree"]) - MAX_TREE_LINES
-    if more > 0:
-        tree += f"\n... and {more} more files"
-    return f"Project: {example['repo']}\n\nFiles:\n{tree}\n\nREADME:\n{example['readme'][:MAX_DOCS]}\n\nDraw the architecture."
+    return draw_prompt(example["repo"], example["tree"], example["readme"])
 
 
 # Input: example (dict[str, Any])

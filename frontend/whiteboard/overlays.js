@@ -94,7 +94,10 @@ Date: 2026-11-25
     const more = badges.length > MAX_BADGES ? `<span class="ov-badge more">+${badges.length - MAX_BADGES}</span>` : ''
     const portHTML = ports.slice(0, 3).map(p => `<span class="ov-port">⇄ ${esc(p)}</span>`).join('') +
       (ports.length > 3 ? `<span class="ov-port more">+${ports.length - 3}</span>` : '')
-    out.cls = `${fill ? ` ov-fill ov-fill-${fill.status}` : ''}${border ? ' ov-border' : ''}`
+    // Flowcharts (/flow make, /flow import): mark decisions and error paths so the shape of the flow reads at a glance.
+    if (b.meta?.decision) icon = `<span class="flow-mark decision" title="Decision">◇</span>` + icon
+    if (b.meta?.error_path) icon = `<span class="flow-mark error" title="Error path">!</span>` + icon
+    out.cls = `${fill ? ` ov-fill ov-fill-${fill.status}` : ''}${border ? ' ov-border' : ''}${b.meta?.decision ? ' flow-decision' : ''}${b.meta?.error_path ? ' flow-error' : ''}`
     out.style = border ? `--ov-border:${border.color};` : ''
     out.html = icon + (shown || more || portHTML ? `<span class="ov-marks">${shown}${more}${portHTML}</span>` : '')
     out.tip = tips.join('\n')

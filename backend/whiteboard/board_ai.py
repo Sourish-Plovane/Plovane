@@ -35,6 +35,7 @@ from __future__ import annotations
 import difflib
 import json
 import os
+import re
 import threading
 import time
 from pathlib import Path
@@ -46,7 +47,7 @@ from backend.whiteboard.store import SKIP_DIRS
 
 DEFAULT_MODELS = {"anthropic": "claude-haiku-5-5", "deepseek": "deepseek-chat", "openai": "gpt-5-mini"}
 MAX_ASK_STEPS = 20
-MAX_BUILD_STEPS = 30
+MAX_BUILD_STEPS = 20
 WATCHER = "project watcher"
 MAX_OVERLAY_STEPS = 6
 SIGNALS = {
@@ -124,7 +125,10 @@ SYSTEM = (SYSTEM.replace("{templates}", ", ".join(f"{k} ({', '.join(v['params'])
           .replace("{{fact}}", "{fact}"))
 
 ORGANISE = """The project's folders, files, import arrows and API routes were just mapped onto
-the board from the code. Organise it so a newcomer understands the project at a glance.
+the board from the code, and a first drawing of its main parts was made from its file tree and
+README (see get_board: services, databases, queues and outside systems with arrows). Check and
+finish it so a newcomer understands the project at a glance: correct wrong parts, add what is
+missing, label arrows, rather than drawing everything again.
 
 What the project's own docs say (README, architecture):
 {docs}
@@ -223,6 +227,73 @@ def ask(ws: Any, message: str, *, requester: str = USER, lock: Any = None, provi
     return {**result, "requester": requester}
 
 
+DRAW_SYSTEM = """You draw a software project's architecture for the Plovane whiteboard.
+Read the file tree and the README, then reply with /sketch lines only, one per line:
+  service "Name"      database "Name"      queue "Name"      external "Name"
+  "From" -> "To" "short label"
+Use one block per real part of the system (apps, services, workers, databases, queues,
+outside APIs, the user), named in plain words. Join them in the direction data or
+requests flow, with a few-word label where it helps. Usually 4 to 12 blocks."""
+"""The one-shot draw prompt. The whiteboard model is trained on exactly this (ml/whiteboard_data/prepare.py)."""
+MAX_TREE_LINES = 200
+MAX_DRAW_DOCS = 5000
+SKETCH_LINE = re.compile(r'^\s*(?:(?:service|database|queue|external|server)\s+"[^"]+"|"[^"]+"\s*->\s*"[^"]+"(?:\s+"[^"]*")?)\s*$',
+                         re.IGNORECASE)
+
+
+# Input: name (str), tree (list[str]), readme (str)
+# Output: str
+# Processing: The user message of the draw prompt: the project's name, file tree (trimmed) and README (trimmed).
+# Changed by: Claude Code
+# Date: 2026-11-26
+def draw_prompt(name: str, tree: list[str], readme: str) -> str:
+    listing = "\n".join(tree[:MAX_TREE_LINES])
+    if len(tree) > MAX_TREE_LINES:
+        listing += f"\n... and {len(tree) - MAX_TREE_LINES} more files"
+    return f"Project: {name}\n\nFiles:\n{listing}\n\nREADME:\n{readme[:MAX_DRAW_DOCS]}\n\nDraw the architecture."
+
+
+# Input: root (Path)
+# Output: list[str]
+# Processing: The project's files, as paths, skipping folders the board never shows (.git, node_modules, ...).
+# Changed by: Claude Code
+# Date: 2026-11-26
+def project_tree(root: Path) -> list[str]:
+    found = []
+    for folder, dirs, files in os.walk(root):
+        dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS and not d.startswith("."))
+        found.extend((Path(folder) / f).relative_to(root).as_posix() for f in sorted(files) if not f.startswith("."))
+    return found
+
+
+# Input: ws (Workspace), lock (Any), provider (str | None), model (str | None)
+# Output: dict[str, Any]
+# Processing: One call draws the architecture from the file tree and README; the valid /sketch lines go on the board as the whiteboard AI (line by line if the batch is refused).
+# Changed by: Claude Code
+# Date: 2026-11-26
+def draw(ws: Any, *, lock: Any = None, provider: str | None = None, model: str | None = None) -> dict[str, Any]:
+    lock = lock or threading.RLock()
+    name, chosen = provider_and_model(provider or os.environ.get("PLOVANE_BOARD_AI_DRAW_PROVIDER"),
+                                      model or os.environ.get("PLOVANE_BOARD_AI_DRAW_MODEL"))
+    readme_path = next((p for p in sorted(ws.root.glob("README*")) if p.is_file()), None)
+    readme = readme_path.read_text(encoding="utf-8", errors="replace") if readme_path else ""
+    text, usage = llm_agent.complete(name, chosen, DRAW_SYSTEM, draw_prompt(ws.root.name, project_tree(ws.root), readme))
+    lines = [line.strip() for line in text.splitlines() if SKETCH_LINE.match(line)]
+    applied, failed = 0, []
+    with lock:
+        ensure_board_ai(ws)
+        if lines and ws.command("/sketch " + "; ".join(lines), actor=BOARD_AI)["ok"]:
+            applied = len(lines)
+        else:
+            for line in lines:
+                if ws.command("/sketch " + line, actor=BOARD_AI)["ok"]:
+                    applied += 1
+                else:
+                    failed.append(line)
+    return {"provider": name, "model": chosen, "lines": len(lines), "applied": applied, "failed": failed[:10],
+            "usage": usage}
+
+
 DOC_NAMES = ("README", "ARCHITECTURE", "DESIGN", "OVERVIEW")
 MAX_DOC = 4000
 MAX_DOCS = 10_000
@@ -259,7 +330,7 @@ def project_docs(root: Path) -> str:
 
 # Input: ws (Workspace), lock (threading.RLock | None), provider (str | None), model (str | None), on_step (Callable | None), organise (bool)
 # Output: dict[str, Any]
-# Processing: Build the board: import the project from the code, then let the whiteboard AI organise it (skipped, with a note, when no AI key is set).
+# Processing: Build the board: import the project from the code, draw its main parts in one call, then let the whiteboard AI check and finish it (skipped, with a note, when no AI key is set).
 # Changed by: Claude Code
 # Date: 2026-11-25
 def build(ws: Any, *, lock: Any = None, provider: str | None = None, model: str | None = None,
@@ -278,6 +349,10 @@ def build(ws: Any, *, lock: Any = None, provider: str | None = None, model: str 
         out["note"] = (f"organising skipped: no API key for {name}; run "
                        f"'plovane connect {'claude' if name == 'anthropic' else name}'")
         return out
+    try:
+        out["draw"] = draw(ws, lock=lock, provider=provider, model=model)
+    except llm_agent.AgentError as exc:  # the loop below can still draw
+        out["draw"] = {"error": str(exc)}
     try:
         out["organise"] = ask(ws, ORGANISE.replace("{docs}", project_docs(ws.root)), requester=BOARD_AI, lock=lock,
                               provider=provider, model=model, on_step=on_step, max_steps=MAX_BUILD_STEPS)

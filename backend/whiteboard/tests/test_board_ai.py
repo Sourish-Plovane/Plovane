@@ -37,6 +37,8 @@ def fake_model(monkeypatch: pytest.MonkeyPatch, commands: list[str]) -> list[str
         return {"status": "done", "summary": "done", "commands": [{"ok": r["ok"]} for r in replies]}
 
     monkeypatch.setattr(llm_agent, "run", run)
+    monkeypatch.setattr(llm_agent, "complete", lambda *a, **k: ('service "Billing"\nexternal "Stripe"\n"Billing" -> "Stripe" "charges"',
+                                                              {"input_tokens": 10, "output_tokens": 5}))
     return tasks
 
 
@@ -87,9 +89,11 @@ def test_build_keeps_the_import_when_the_model_fails(tmp_path: Path, monkeypatch
         raise llm_agent.AgentError("Claude returned an error: invalid x-api-key")
 
     monkeypatch.setattr(llm_agent, "run", refuse)
+    monkeypatch.setattr(llm_agent, "complete", refuse)
     ws = project(tmp_path, FILES)
     result = board_ai.build(ws)
     assert "invalid x-api-key" in result["note"] and ws.board.block_for_path("src/billing/charge.py")
+    assert "invalid x-api-key" in result["draw"]["error"]
 
 
 # Input: tmp_path (Path), monkeypatch (pytest.MonkeyPatch)
@@ -101,11 +105,14 @@ def test_build_then_organise(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
     monkeypatch.delenv("PLOVANE_BOARD_AI_MODEL", raising=False)
     monkeypatch.delenv("PLOVANE_BOARD_AI_PROVIDER", raising=False)
-    tasks = fake_model(monkeypatch, ['/sketch service billing; external stripe; billing -> stripe "charges cards"'])
+    tasks = fake_model(monkeypatch, ['/sketch service ledger; billing -> ledger "records"'])
     ws = project(tmp_path, FILES)
     result = board_ai.build(ws)
-    assert "Organise" in tasks[0] and result["organise"]["status"] == "done"
-    assert "billing" in ws.board.blocks and "stripe" in ws.board.blocks
+    # One call drew the main parts; the loop then checked and finished the drawing.
+    assert result["draw"]["applied"] == 3 and result["draw"]["usage"]["input_tokens"] == 10
+    assert "first drawing" in tasks[0] and result["organise"]["status"] == "done"
+    assert {"billing", "stripe", "ledger"} <= set(ws.board.blocks)
+    assert next(a for a in ws.board.arrows.values() if a.target == "stripe").style["label"] == "charges"
     assert board_ai.provider_and_model() == ("anthropic", "claude-haiku-5-5")
 
 

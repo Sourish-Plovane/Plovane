@@ -36,7 +36,8 @@ CACHE = Path.home() / ".cache" / "plovane" / "whiteboard_repos"
 """Clones live outside the project, so their code is never scanned, tested or committed with it."""
 RESULTS = ROOT / "ml" / "artifacts" / "whiteboard_eval.json"
 TABLE = ROOT / "ml" / "artifacts" / "whiteboard_eval.md"
-PART_KINDS = {"service", "server", "database", "queue", "external", "step", "group", "page"}
+PART_KINDS = {"service", "server", "database", "queue", "external", "page"}
+"""Top-level parts only: code-level steps and groups (from explaining a file) are not architecture."""
 MAX_SOURCE_FILES = 1500
 EMOJI = re.compile(r"[^\w\s/&+().,:'-]", re.UNICODE)
 
@@ -132,7 +133,9 @@ def score(example: dict[str, Any], ws: Any, result: dict[str, Any]) -> dict[str,
     names = [n.lower() for n in drawn.values()]
     ai_arrows = [a for a in board.arrows.values() if a.source in drawn and a.target in drawn]
     custom_on = [o for o in active(board, USER) if board.overlays.get(o, {}).get("source") == "custom"]
-    usage = organise.get("usage") or {}
+    usage = dict(organise.get("usage") or {})
+    for key, value in ((result.get("draw") or {}).get("usage") or {}).items():
+        usage[key] = usage.get(key, 0) + value  # the one-shot draw call counts too
     return {
         "parts_recall": round(recall, 3), "parts_precision": round(precision, 3),
         "parts_f1": round(2 * recall * precision / (recall + precision), 3) if recall + precision else 0.0,
@@ -187,39 +190,13 @@ def score_sketch(text: str, chart: dict[str, Any]) -> dict[str, Any]:
             "drawn_parts": len(drawn), "reference_parts": len(reference)}
 
 
-# Input: provider (str), model (str), system (str), prompt (str)
-# Output: tuple[str, dict[str, int]]
-# Processing: One plain chat call to a hosted (or OpenAI-compatible local) model; the reply text and token use.
-# Changed by: Claude Code
-# Date: 2026-11-26
-def ask_once(provider: str, model: str, system: str, prompt: str) -> tuple[str, dict[str, int]]:
-    from backend.whiteboard import llm_agent
-
-    key = llm_agent.api_key(provider) or "none"
-    if provider == "anthropic":
-        reply = llm_agent.http_json(f"{llm_agent.base_url('anthropic')}/v1/messages",
-                                    {"x-api-key": key, "anthropic-version": "2023-06-01"},
-                                    {"model": model, "max_tokens": 1500, "system": system,
-                                     "messages": [{"role": "user", "content": prompt}]})
-        text = "".join(b.get("text", "") for b in reply.get("content") or [] if b.get("type") == "text")
-        usage = reply.get("usage") or {}
-        return text, {"input_tokens": usage.get("input_tokens", 0), "output_tokens": usage.get("output_tokens", 0)}
-    body = {"model": model, "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
-            ("max_completion_tokens" if provider == "openai" else "max_tokens"): 1500}
-    reply = llm_agent.http_json(f"{llm_agent.base_url(provider)}/chat/completions", {"authorization": f"Bearer {key}"}, body)
-    if "choices" not in reply:
-        raise RuntimeError(f"{provider} error: {json.dumps(reply)[:300]}")
-    usage = reply.get("usage") or {}
-    return reply["choices"][0]["message"].get("content") or "", {
-        "input_tokens": usage.get("prompt_tokens", 0), "output_tokens": usage.get("completion_tokens", 0)}
-
-
 # Input: provider (str), model (str), limit (int)
 # Output: dict[str, Any]
 # Processing: The one-shot task (the same one a fine-tuned model learns) on every held-out diagram: prompt, answer, score.
 # Changed by: Claude Code
 # Date: 2026-11-26
 def sketch_mode(provider: str, model: str, limit: int) -> dict[str, Any]:
+    from backend.whiteboard import llm_agent
     from ml.whiteboard_data.prepare import SYSTEM, prompt_for
 
     rows = []
@@ -228,7 +205,7 @@ def sketch_mode(provider: str, model: str, limit: int) -> dict[str, Any]:
             continue
         started = time.time()
         try:
-            text, usage = ask_once(provider, model, SYSTEM, prompt_for(example))
+            text, usage = llm_agent.complete(provider, model, SYSTEM, prompt_for(example))
             rows.append({"repo": example["repo"], "diagram": example["diagram"], "seconds": round(time.time() - started, 1),
                          **usage, **score_sketch(text, example["chart"]), "answer": text})
         except Exception as exc:  # noqa: BLE001
@@ -255,6 +232,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="use the key saved with 'plovane connect' even if the environment has another")
     parser.add_argument("--mode", choices=("build", "sketch"), default="build",
                         help="build: the whiteboard AI builds a real board; sketch: one call, scored offline")
+    parser.add_argument("--rescore", action="store_true",
+                        help="score the boards the last build run left in the clone cache again, without calling a model")
     args = parser.parse_args(argv)
 
     from backend.whiteboard import board_ai, llm_agent
@@ -273,6 +252,7 @@ def main(argv: list[str] | None = None) -> int:
         out.write_text(json.dumps(report, indent=1) + "\n")
         print(json.dumps({"mode": "sketch", "provider": provider, "model": model, **report["mean"], "scored": report["scored"]}))
         return 0
+    previous = {r["repo"]: r for r in json.loads(RESULTS.read_text())["rows"]} if args.rescore and RESULTS.exists() else {}
     seen, rows = set(), []
     for example in (json.loads(line) for line in EXAMPLES.read_text().splitlines()):
         if example["split"] != "eval" or example["repo"] in seen:
@@ -280,6 +260,16 @@ def main(argv: list[str] | None = None) -> int:
         seen.add(example["repo"])
         if len(rows) >= args.limit:
             break
+        if args.rescore:
+            root = CACHE / example["repo"].replace("/", "__")
+            old = previous.get(example["repo"])
+            if not (root / "whiteboard.plo").exists() or not old or "error" in old:
+                continue
+            kept = {"organise": {"commands": [{"ok": True}] * (old["commands"] - old["failed"]) + [{"ok": False}] * old["failed"],
+                                 "usage": {"input_tokens": old["input_tokens"], "output_tokens": old["output_tokens"]},
+                                 "status": old.get("status")}, "note": old.get("note")}
+            rows.append({"repo": example["repo"], "seconds": old["seconds"], **score(example, Workspace(root), kept)})
+            continue
         root = checkout(example)
         if root is None:
             print(f"skip {example['repo']}: could not fetch", file=sys.stderr)

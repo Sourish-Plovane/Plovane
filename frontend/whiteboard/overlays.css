@@ -48,3 +48,12 @@ body[data-theme="dark"] .ov-pop { background: #1f2229; border-color: #3a3f4b; }
 
 /* Arrows coloured by a rule overlay (e.g. red when the API call they carry failed). */
 .connections path.ov-arrow { stroke-width: 2.4; }
+
+/* Flowchart steps: decisions get a dashed amber edge and a diamond, error paths a red edge. */
+.flow-decision { border-style: dashed !important; border-color: #e37400 !important; }
+.flow-error { box-shadow: inset 4px 0 0 #d93025; }
+.flow-mark { display: inline-grid; place-items: center; min-width: 1.3em; height: 1.3em; margin-right: .3em;
+  border-radius: 4px; font-weight: 800; font-size: .85em; vertical-align: middle; }
+.flow-mark.decision { color: #e37400; background: #fff0e3; }
+.flow-mark.error { color: #fff; background: #d93025; }
+body[data-theme="dark"] .flow-mark.decision { background: #3a2a14; }
