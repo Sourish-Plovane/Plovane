@@ -51,6 +51,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--batch", type=int, default=1)
     parser.add_argument("--accumulate", type=int, default=8)
     parser.add_argument("--four-bit", action="store_true", help="load the base model in 4-bit (for 7B on a 24 GB card)")
+    parser.add_argument("--smoke", action="store_true",
+                        help="check the whole pipeline on a CPU in minutes: full precision, 2 steps, 2 held-out prompts")
     args = parser.parse_args(argv)
 
     import torch
@@ -70,7 +72,11 @@ def main(argv: list[str] | None = None) -> int:
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
-    load = {"torch_dtype": torch.bfloat16, "device_map": "auto"}
+    if args.smoke:
+        eval_rows = eval_rows[:2]
+    load = {"dtype": torch.float32 if args.smoke else torch.bfloat16}
+    if not args.smoke:
+        load["device_map"] = "auto"
     if args.four_bit:
         from transformers import BitsAndBytesConfig
 
@@ -87,9 +93,10 @@ def main(argv: list[str] | None = None) -> int:
                                target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]),
         args=SFTConfig(output_dir=str(OUT / "checkpoints"), num_train_epochs=args.epochs, learning_rate=args.lr,
                        per_device_train_batch_size=args.batch, gradient_accumulation_steps=args.accumulate,
-                       max_length=args.max_length, bf16=True, logging_steps=5, save_strategy="no",
-                       assistant_only_loss=False, report_to=[], gradient_checkpointing=True,
-                       lr_scheduler_type="cosine", warmup_ratio=0.05),
+                       max_length=args.max_length, bf16=not args.smoke, logging_steps=1 if args.smoke else 5,
+                       save_strategy="no", report_to=[], gradient_checkpointing=not args.smoke,
+                       lr_scheduler_type="cosine", warmup_ratio=0.05, max_steps=2 if args.smoke else -1,
+                       use_cpu=args.smoke),
     )
     result = trainer.train()
     train_seconds = round(time.time() - started, 1)
@@ -102,7 +109,8 @@ def main(argv: list[str] | None = None) -> int:
         prompt = tokenizer.apply_chat_template(row["messages"][:2], tokenize=False, add_generation_prompt=True)
         inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=args.max_length).to(trainer.model.device)
         with torch.no_grad():
-            output = trainer.model.generate(**inputs, max_new_tokens=600, do_sample=False, pad_token_id=tokenizer.pad_token_id)
+            output = trainer.model.generate(**inputs, max_new_tokens=40 if args.smoke else 600, do_sample=False,
+                                            pad_token_id=tokenizer.pad_token_id)
         answer = tokenizer.decode(output[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True)
         score = score_sketch(answer, charts[(row["repo"], row["diagram"])])
         scores.append(score)
