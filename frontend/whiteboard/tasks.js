@@ -6,6 +6,7 @@
 (() => {
   const NOTIFY_KEY = 'plovane.notify'
   const FLY_GAP_MS = 8000
+  const SHOW_FINISHED = 4
   const st = { tasks: new Map(), seq: null, lastFly: 0, highlight: null }
   const $ = s => document.querySelector(s)
   const wb = () => window.PlovaneWhiteboard
@@ -156,7 +157,12 @@
     if (!tasks.length) return
     const f = frame()
     Object.assign(z.style, { left: `${f.w * 1.06}px`, top: '0px', width: `${f.w * 0.3}px`, fontSize: `${f.w / 105}px` })
-    z.innerHTML = `<h2>⏱ Tasks <small>${running.length} running</small></h2>${tasks.map(card).join('')}`
+    // Running tasks grouped by who runs them (several agents at once); only the latest few finished ones.
+    const finished = tasks.filter(t => t.status !== 'running'), owners = [...new Set(running.map(t => t.by || ''))]
+    const groups = owners.map(by => `${owners.length > 1 ? `<h3 class="task-owner">${esc(by || 'unknown')} <small>${running.filter(t => (t.by || '') === by).length}</small></h3>` : ''}${running.filter(t => (t.by || '') === by).map(card).join('')}`).join('')
+    const recent = finished.slice(0, SHOW_FINISHED).map(card).join('')
+    const more = finished.length > SHOW_FINISHED ? `<p class="task-more">+${finished.length - SHOW_FINISHED} more finished in the last 10 min</p>` : ''
+    z.innerHTML = `<h2>⏱ Tasks <small>${running.length} running</small></h2>${groups}${finished.length ? `<h3 class="task-owner">Finished</h3>${recent}${more}` : ''}`
     const next = running.map(t => t.eta ? new Date(t.eta) - Date.now() : Infinity).sort((a, b) => a - b)[0]
     c.innerHTML = `<button data-zone title="Go to the Tasks area">⏱ ${running.length ? `${running.length} running${Number.isFinite(next) ? ` · ${human(next / 1000)}` : ''}` : 'Tasks done'}</button>`
       + `<button data-notify class="${notifyOn() ? 'on' : ''}" title="${notifyOn() ? 'Updates take you to what changed. Click to stop.' : 'Updates only show a message. Click to be taken to them.'}">${notifyOn() ? '🔔' : '🔕'}</button>`
@@ -191,8 +197,11 @@
     const target = (id && z.querySelector(`[data-task="${CSS.escape(id)}"]`)) || z
     const x = z.offsetLeft + (target === z ? 0 : target.offsetLeft), y = z.offsetTop + (target === z ? 0 : target.offsetTop)
     const w = target.offsetWidth, h = target.offsetHeight, vw = view.clientWidth, vh = view.clientHeight
-    const scale = Math.min(vw * 0.8 / w, vh * 0.8 / h)
-    wb().setView(vw / 2 - (x + w / 2) * scale, vh / 2 - (y + h / 2) * scale, scale)
+    // Fit the whole thing when it is short; when many tasks make it tall, keep the text readable and start at the top.
+    const fits = Math.min(vw * 0.8 / w, vh * 0.8 / h), readable = vw * 0.42 / w
+    const scale = Math.max(fits, Math.min(readable, vw * 0.8 / w))
+    const top = h * scale > vh * 0.85 ? 24 - y * scale : vh / 2 - (y + h / 2) * scale
+    wb().setView(vw / 2 - (x + w / 2) * scale, top, scale)
     if (id) {
       st.highlight = id
       render()
@@ -258,13 +267,18 @@
   function onTask(e) {
     const task = e.task
     if (!task?.id) return
+    const before = st.tasks.get(task.id)
     st.tasks.set(task.id, task)
     render()
     const t = timing(task), last = task.updates?.[task.updates.length - 1]?.message
-    wb()?.toast(`⏱ ${task.name}: ${e.type === 'finished' ? task.status : (last || 'updated')}${task.status === 'running' ? ` · ${t.left}` : ''}`, task.status === 'failed')
+    const moved = e.type !== 'update' || (e.go_to && e.go_to !== before?.at)
+    // A bare progress tick only refreshes the card; starts, ends, messages and moves get a message.
+    if (moved || !/^\d+%$/.test(last || '')) wb()?.toast(`⏱ ${task.name}: ${e.type === 'finished' ? task.status : (last || 'updated')}${task.status === 'running' ? ` · ${t.left}` : ''}`, task.status === 'failed')
     // Never pull the camera away while the person is typing, and not more than once every few seconds.
     const typing = document.activeElement?.matches?.('input, textarea, [contenteditable="true"]')
-    if (!notifyOn() || typing || Date.now() - st.lastFly < FLY_GAP_MS) return
+    // Move only for a change of place: a task starting or ending, or moving to another block.
+    // Progress alone only shows the message, so many agents at once do not keep pulling the camera.
+    if (!notifyOn() || typing || !moved || Date.now() - st.lastFly < FLY_GAP_MS) return
     st.lastFly = Date.now()
     if (e.go_to && wb()?.blocks()?.[e.go_to]) goToBlock(e.go_to)
     else goToZone(task.id)
