@@ -287,7 +287,8 @@ def call(spec: OpSpec, ctx: Context, args: dict[str, Any]) -> dict[str, Any]:
     return spec.handler(ctx, **clean) or {}
 
 
-MANUAL_OPS = frozenset({"block.add", "block.move", "block.rename", "size", "style", "place", "align", "distribute"})
+MANUAL_OPS = frozenset({"block.add", "block.move", "block.rename", "size", "style", "place", "align", "distribute",
+                        "text.size", "text.color", "text.weight", "text.wrap"})
 """A person's hand edits: the fields they change get pinned, so the whiteboard AI never undoes them."""
 
 

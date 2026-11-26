@@ -277,12 +277,13 @@ Date: 2026-11-25
   /**
    * Input: none
    * Output: void
-   * Processing: Colour arrows from rule overlays, redraw the drop-down panel when it is open, and show how many overlays are on on the button.
+   * Processing: Colour arrows from rule overlays, apply readable text (readable.js), redraw the drop-down panel when it is open, and show how many overlays are on on the button.
    * Changed by: Claude Code
    * Date: 2026-11-25
    */
   function afterRender() {
     paintArrows()
+    window.PlovaneReadable?.apply()
     const s = overlayState()
     button.innerHTML = `◫ Overlays${s ? `<span class="ov-open-count">${s.active.length}</span>` : ''}`
     if (!pop.hidden) pop.innerHTML = panelHTML()

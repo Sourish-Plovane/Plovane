@@ -54,6 +54,7 @@ from typing import Any
 from flask import Flask, Response, g, jsonify, request, send_from_directory, stream_with_context
 
 from backend.whiteboard import board_ai, llm_agent
+from backend.whiteboard.ops import legibility
 from backend.whiteboard.ops.agents import instructions_for
 from backend.whiteboard.agent_chat import AgentChat
 from backend.whiteboard.auth import Auth, new_token, remove_server_file, write_server_file
@@ -355,6 +356,7 @@ def create_app(workspace: Workspace, chat: AgentChat | None = None, *, person_to
                 "file": target.board_file,  # which whiteboard (.plo) this is
                 "file_error": target.plo_error,
                 "board": current.to_dict(),
+                "readable": legibility.settings(current, actor()),  # the asker's text targets and theme neutrals
                 "block_styles": {b.id: current.resolved_style(b) for b in current.blocks.values()},
                 "absolute": {b.id: current.absolute(b) for b in current.blocks.values()},
                 "arrows": [arrow_record(a) for a in current.arrows.values()],

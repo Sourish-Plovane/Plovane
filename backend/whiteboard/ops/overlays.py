@@ -92,7 +92,8 @@ def switch(ctx: Context, overlay: str, turn_on: bool, who: str | None = None) ->
                     remove.append(target)
             else:
                 add = [a for a in add if a != target]
-    ctx.board.views[who] = {"base_role": view["base_role"], "overlays_add": add, "overlays_remove": remove}
+    ctx.board.views[who] = {**(ctx.board.views.get(who) or {}), "base_role": view["base_role"],
+                            "overlays_add": add, "overlays_remove": remove}
     on = active(ctx.board, who)
     return {"overlay": oid, "state": state(ctx, oid, on), "active": on, "view": who}
 
@@ -143,7 +144,8 @@ def use_role(ctx: Context, role: str) -> dict[str, Any]:
     rid = str(role).strip()
     if rid not in ctx.board.roles:
         raise OpError("NOT_FOUND", f"no role {rid!r}; roles: {sorted(ctx.board.roles)}")
-    ctx.board.views[ctx.actor] = {"base_role": rid, "overlays_add": [], "overlays_remove": []}
+    ctx.board.views[ctx.actor] = {**(ctx.board.views.get(ctx.actor) or {}), "base_role": rid,
+                                  "overlays_add": [], "overlays_remove": []}
     return {"role": rid, "active": active(ctx.board, ctx.actor),
             "default_level": ctx.board.roles[rid].get("default_level")}
 

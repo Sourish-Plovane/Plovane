@@ -56,7 +56,8 @@ BLOCK_STYLE = {
     "border_style": ("solid", "dashed", "dotted"), "radius": "number",
     "shape": ("rectangle", "rounded", "pill", "circle", "hexagon", "cylinder"),
     "shadow": ("none", "soft", "strong"), "icon": "text", "label_size": "number",
-    "opacity": "unit",
+    "opacity": "unit", "text_color": "hex", "text_scale": "number", "text_weight": ("normal", "bold"),
+    "text_wrap": "number",
 }
 """Block style properties and what each accepts (sheet: Style Properties)."""
 

@@ -16,6 +16,7 @@ from backend.whiteboard.ops import (  # noqa: F401
     health,
     history,
     layers,
+    legibility,
     library,
     live,
     logs,

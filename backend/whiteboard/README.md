@@ -32,6 +32,27 @@ runs `/project refresh`: new files, imports, routes, outside APIs and summaries
 follow the code, with no AI. Files the whiteboard wrote itself are ignored.
 `PLOVANE_BOARD_AI_WATCH=0` turns this off.
 
+## Readable for people, on their own theme
+
+The browser measures every label on screen (its size, its contrast against
+what is really behind it, whether it is cut off) and reports it with
+`/readable report`. Where a block's text colour is automatic, the browser picks
+a neutral, tinted toward the person's theme colour, that keeps WCAG contrast
+(4.5:1 for AA, 7:1 for AAA) on their light or dark theme. The browser keeps
+`/theme accent` in step with the person's settings.
+
+```
+/readable set --min-size 13 --contrast AA|AAA    your targets (your view only)
+/readable check [target]                         what is too small, too faint, cut off or too long
+/readable fix [target]                           scale small text, auto colour faint text, wrap cut-off labels
+/text size|color|weight|wrap <target> <value>    target: a block, kind:<kind>, layer:<n> or all
+/text shorten <block> --to "Charges cards"       a short label; the full name stays as the tooltip
+```
+
+The whiteboard AI runs `/readable check` and `/readable fix` after it changes
+the board and writes short labels for what `fix` lists. Your own `/text` edits
+pin the block's style, so it leaves them alone.
+
 ## Your hand edits are pinned
 
 When you move, rename, resize, restyle, place, align or draw a block yourself,
@@ -698,7 +719,17 @@ command answers `needs_confirmation` first.
 | `/style` | `style` | `plovane_style` |  | Sets visual properties on a block, or applies a saved preset. | `/style auth --preset service` |
 | `/style --preset` | `style` | `plovane_style` |  | Sets visual properties on a block, or applies a saved preset. | `/style --preset auth service` |
 | `/preset define` | `preset.define` | `plovane_style` |  | Saves a named style for reuse. | `/preset define service --fill #E8F0FE --border #1A73E8 --radius 12 --icon server` |
+| `/theme accent` | `theme.accent` | `plovane_style` |  | Records your theme colour (and light or dark mode); text colours are neutralised to stay readable on it. | `/theme accent #7357E8 --mode dark` |
 | `/theme` | `theme` | `plovane_style` |  | Changes all colors at once. | `/theme dark` |
+| `/text size` | `text.size` | `plovane_style` |  | Makes a block's text bigger or smaller (a scale like 1.4), or auto; target: a block, kind:<kind>, layer:<n> or all. | `/text size payments 1.4  or  /text size kind:file auto` |
+| `/text color` | `text.color` | `plovane_style` |  | Sets a block's text colour (#RRGGBB), or auto: a neutral that stays readable on the person's theme. | `/text color payments auto  or  /text color layer:1 #1F2328` |
+| `/text weight` | `text.weight` | `plovane_style` |  | Makes a block's text normal or bold. | `/text weight kind:service bold` |
+| `/text wrap` | `text.wrap` | `plovane_style` |  | Lets a block's label wrap onto up to 1-3 lines instead of being cut off. | `/text wrap payments 2` |
+| `/text shorten` | `text.shorten` | `plovane_style` |  | Shows a shorter label on a block, written by the whiteboard AI or the person; the full name stays as the tooltip. | `/text shorten src-billing-charge-py --to "Charges cards"` |
+| `/readable check` | `readable.check` | `plovane_style` |  | Lists text that is too small, too faint, cut off or too long to read, from the person's last view of the board. | `/readable check  or  /readable check layer:3` |
+| `/readable fix` | `readable.fix` | `plovane_style` |  | Fixes hard-to-read text: bigger where too small, auto colour where too faint, wrapped where cut off; lists labels to shorten. | `/readable fix` |
+| `/readable set` | `readable.set` | `plovane_style` |  | Sets your readability targets: the smallest text size on screen and the contrast level (AA or AAA). | `/readable set --min-size 13 --contrast AAA` |
+| `/readable report` | `readable.report` | `plovane_style` |  | Records what the browser measured as hard to read (used by /readable check and fix); people only. | `/readable report --data '{"issues": []}'` |
 | `/connect` | `connect` | `plovane_connect` |  | Draws a typed arrow; creates or links real code. Unbuilt endpoints show as dashed "planned". | `/connect checkout -> payments --type api --endpoint "POST /charge"` |
 | `/disconnect` | `disconnect` | `plovane_connect` | yes | Removes a connection. | `/disconnect checkout -> payments` |
 | `/connections` | `connections` | `plovane_connect` |  | Lists everything a block connects to. | `/connections payments` |

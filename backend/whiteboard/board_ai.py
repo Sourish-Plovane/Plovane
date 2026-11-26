@@ -96,6 +96,10 @@ final else. A condition maps facts to a value or to one operator ({">": 0}): {op
 Combine with "all", "any", "not". Colors: {colors}. Messages may use {{fact}}.
   block facts: {block_facts}
   arrow facts: {arrow_facts}
+Keep the board readable for people: after adding or renaming things, run /readable check; then
+/readable fix, and for each block it lists under needs_short_label write a plain 2-4 word label
+with /text shorten <block> --to "...". Never shrink text below the person's minimum, and leave
+text colour on auto (it is matched to the person's theme) unless asked.
 Blocks whose meta has "pinned" were arranged by the person: never move, rename, resize, restyle
 or remove those fields (the commands are refused). Work around them.
 Call get_board before changing anything, and list_commands before guessing syntax. Keep the
@@ -124,7 +128,7 @@ What the project's own docs say (README, architecture):
    product the docs describe (or, without docs, each major part of the code), named by what it
    does, and databases, queues or outside APIs the code clearly talks to.
 2. Join them with arrows labelled in a few plain words ("stores orders", "charges cards").
-3. Do not remove or rename what the import made.
+3. Do not remove or rename what the import made (a long file name can get a short label instead).
 4. Make what matters visible: switch on premade overlays that have something to show (for the
    person, with --person); mark each part the docs name with /overlay from area (its folder as
    the path); fill in other templates that fit this project. Use at most 20 commands.
