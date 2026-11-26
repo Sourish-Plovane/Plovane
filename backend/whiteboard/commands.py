@@ -271,6 +271,10 @@ COMMANDS: tuple[Command, ...] = (
     Command("flow list", "flow.list", ("path",), example="/flow list README.md"),
     Command("flow import", "flow.import", ("path",), example="/flow import README.md --diagram 2"),
     Command("flow make", "flow.make", ("entry",), example="/flow make \"POST /checkout\" --depth 1  or  /flow make charge"),
+    Command("task start", "task.start", ("name",), example="/task start \"Train whiteboard model\" --estimate 45m --at ml"),
+    Command("task update", "task.update", ("task",), example="/task update \"Train whiteboard model\" --progress 40% --message \"epoch 2 of 3\""),
+    Command("task done", "task.done", ("task",), choices={"--failed": ("failed", "true")}, example="/task done \"Train whiteboard model\"  or  --failed"),
+    Command("task list", "task.list", example="/task list"),
     Command("pages", "frontend.pages", example="/pages"),
     Command("frontend", "frontend.run", ("action",), example="/frontend start  or  /frontend stop"),
 )

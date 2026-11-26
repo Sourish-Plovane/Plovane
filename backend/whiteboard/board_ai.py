@@ -349,15 +349,37 @@ def build(ws: Any, *, lock: Any = None, provider: str | None = None, model: str 
         out["note"] = (f"organising skipped: no API key for {name}; run "
                        f"'plovane connect {'claude' if name == 'anthropic' else name}'")
         return out
+    from backend.whiteboard.tasks import TaskBoard
+
+    # Shown on the temporary display; past builds supply the time estimate.
+    display = TaskBoard(ws.root)
+    task = display.start("Building the whiteboard", by=BOARD_AI, kind="board-build", message="drawing the architecture")
+    try:
+        return build_steps(ws, out, task["id"], display, lock=lock, provider=provider, model=model, on_step=on_step)
+    except Exception as exc:
+        display.finish(task["id"], by=BOARD_AI, failed=True, message=f"stopped: {exc}")
+        raise
+
+
+# Input: ws (Any), out (dict[str, Any]), task_id (str), display (Any), lock (Any), provider (str | None), model (str | None), on_step (Callable | None)
+# Output: dict[str, Any]
+# Processing: Draw the architecture, let the loop check it, and report each stage on the temporary display.
+# Changed by: Claude Code
+# Date: 2026-11-26
+def build_steps(ws: Any, out: dict[str, Any], task_id: str, display: Any, *, lock: Any, provider: str | None,
+                model: str | None, on_step: Callable[[dict[str, Any]], None] | None) -> dict[str, Any]:
+    task = {"id": task_id}
     try:
         out["draw"] = draw(ws, lock=lock, provider=provider, model=model)
     except llm_agent.AgentError as exc:  # the loop below can still draw
         out["draw"] = {"error": str(exc)}
+    display.update(task["id"], by=BOARD_AI, progress=0.5, message="checking the drawing")
     try:
         out["organise"] = ask(ws, ORGANISE.replace("{docs}", project_docs(ws.root)), requester=BOARD_AI, lock=lock,
                               provider=provider, model=model, on_step=on_step, max_steps=MAX_BUILD_STEPS)
     except llm_agent.AgentError as exc:  # the import still stands; say why organising did not happen
         out["note"] = f"organising failed: {exc}"
+    display.finish(task["id"], by=BOARD_AI, failed="note" in out, message=out.get("note"))
     return out
 
 

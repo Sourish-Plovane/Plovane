@@ -47,7 +47,7 @@ agent worktrees, which are whole extra copies of the repository."""
 HISTORY_LIMIT = 50
 IGNORED = ("history.json", "log.jsonl", "compile/", "monitor/", "submissions.jsonl",
            "server.json", "agent_tokens.json", "lock", "*.tmp", "board.json", "boards/",
-           "translations.json", "security.log", "frontend.json", "frontend.log")
+           "translations.json", "security.log", "frontend.json", "frontend.log", "tasks.json")
 MAIN_BOARD = "whiteboard.plo"
 """The main whiteboard file. It holds the project's agents and their access; other .plo files share them."""
 BOARD_EXTENSION = ".plo"

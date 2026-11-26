@@ -47,6 +47,7 @@ import json
 import os
 import signal
 import subprocess
+import tempfile
 import sys
 import time
 import urllib.error
@@ -348,6 +349,34 @@ def last_progress(run_id: str) -> str:
     return "\n".join(parts)
 
 
+# Input: token (str)
+# Output: str | None
+# Processing: Why the box could not push its results with this token, or None when it can; checked before renting.
+# Changed by: Claude Code
+# Date: 2026-11-26
+def token_can_push(token: str) -> str | None:
+    """A dry-run push still asks GitHub for write access, and sends nothing.
+
+    Three runs were lost to a token that could read the repository (so the box
+    cloned and trained) but not push (so nothing came back).
+    """
+    with tempfile.TemporaryDirectory() as scratch:
+        env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+        git = ["git", "-c", "user.name=check", "-c", "user.email=check@users.noreply.github.com"]
+        subprocess.run(["git", "init", "-q", scratch], check=True, env=env)
+        subprocess.run([*git, "-C", scratch, "commit", "-q", "--allow-empty", "-m", "check"], check=True, env=env)
+        out = subprocess.run(
+            ["git", "-C", scratch, "push", "--dry-run", "-q", f"https://x-access-token:{token}@{REPO_PATH}",
+             "HEAD:refs/heads/gpu-progress/permission-check"],
+            capture_output=True, text=True, timeout=60, env=env)
+    if out.returncode == 0:
+        return None
+    said = (out.stderr or out.stdout).replace(token, "<redacted>").strip().splitlines()
+    return ("GH_RESULTS_TOKEN cannot push to " + REPO_SLUG + " (" + (said[0] if said else "no reason given") + "). "
+            "Edit the token at https://github.com/settings/personal-access-tokens: Repository permissions, "
+            "Contents: Read and write.")
+
+
 # Input: offers (list[dict])
 # Output: None
 # Processing: Print a short table of offers.
@@ -408,6 +437,10 @@ def run(args: argparse.Namespace) -> int:
         # injected by the proxy rather than exported, in which case it will
         # not appear here at all.
         print(f"not set in this session's environment (any capitalisation): {', '.join(missing)}")
+        return 2
+    problem = token_can_push(secret("GH_RESULTS_TOKEN"))
+    if problem:
+        print(f"not renting: {problem}")
         return 2
 
     created = api("PUT", f"/asks/{offer['id']}/", key=key, body=body)

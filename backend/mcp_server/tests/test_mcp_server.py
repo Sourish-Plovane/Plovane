@@ -159,7 +159,7 @@ def test_server_registers_the_tools(engine):
         "rerank_candidates", "check_file_against_library", "recommend_for_file", "explain_ranking",
         "batch_search", "ask_llm", *WHITEBOARD_TOOLS,
     }
-    assert len(WHITEBOARD_TOOLS) == 16  # plovane_ask, 14 read-only groups, plovane_command
+    assert len(WHITEBOARD_TOOLS) == 17  # plovane_ask, 15 groups that leave the drawing alone (tasks included), plovane_command
 
 
 # Input: monkeypatch

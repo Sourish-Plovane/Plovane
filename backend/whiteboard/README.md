@@ -839,5 +839,9 @@ command answers `needs_confirmation` first.
 | `/flow list` | `flow.list` | `plovane_view` |  | Lists the Mermaid flowcharts in a file (a README or docs page), numbered for /flow import. | `/flow list README.md` |
 | `/flow import` | `flow.import` | `plovane_view` |  | Draws a Mermaid flowchart from the project's docs as its own whiteboard tab. | `/flow import README.md --diagram 2` |
 | `/flow make` | `flow.make` | `plovane_view` |  | Draws what a function or API route does as a flowchart tab (decisions, loops, error paths), read from the Python code. | `/flow make "POST /checkout" --depth 1  or  /flow make charge` |
+| `/task start` | `task.start` | `plovane_task` |  | Starts a long task on the temporary display (estimate like 45m; without one, past runs of the same kind decide). | `/task start "Train whiteboard model" --estimate 45m --at ml` |
+| `/task update` | `task.update` | `plovane_task` |  | Updates a task (progress like 40%, a message, a new estimate, or --at the block it is now about). | `/task update "Train whiteboard model" --progress 40% --message "epoch 2 of 3"` |
+| `/task done` | `task.done` | `plovane_task` |  | Marks a task done (or --failed); its time teaches the estimate for the next task of that kind. | `/task done "Train whiteboard model"  or  --failed` |
+| `/task list` | `task.list` | `plovane_task` |  | Lists the tasks on the temporary display and how long each has left. | `/task list` |
 | `/pages` | `frontend.pages` | `plovane_view` |  | Lists the app's pages, the file behind each, and the links between them. | `/pages` |
 | `/frontend` | `frontend.run` | `plovane_view` |  | Starts or stops the app's dev server (npm run dev, or a static server for HTML pages). | `/frontend start  or  /frontend stop` |

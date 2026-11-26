@@ -28,6 +28,7 @@ from backend.whiteboard.ops import (  # noqa: F401
     sketch,
     project,
     readable,
+    tasks,
     routes,
     style,
     outside_apis,

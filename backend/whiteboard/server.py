@@ -162,6 +162,11 @@ def create_app(workspace: Workspace, chat: AgentChat | None = None, *, person_to
     auth = Auth(workspace.store.dir, person_token) if person_token else None
     bus = EventBus()
     workspace.listeners.append(bus.publish)
+    from backend.whiteboard import tasks as task_display
+
+    # Task events reach browsers only for this project (several apps may run in one test process).
+    task_file = workspace.root / ".plovane" / task_display.FILE
+    task_display.LISTENERS.append(lambda event, path: bus.publish(event) if path == task_file else None)
     boards: dict[str, Workspace] = {MAIN_BOARD: workspace}
     """Every open whiteboard (.plo file), by name; each tab in the page shows one."""
     app.config["plovane_boards"] = boards
