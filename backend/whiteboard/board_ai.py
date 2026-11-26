@@ -96,6 +96,8 @@ final else. A condition maps facts to a value or to one operator ({">": 0}): {op
 Combine with "all", "any", "not". Colors: {colors}. Messages may use {{fact}}.
   block facts: {block_facts}
   arrow facts: {arrow_facts}
+Blocks whose meta has "pinned" were arranged by the person: never move, rename, resize, restyle
+or remove those fields (the commands are refused). Work around them.
 Call get_board before changing anything, and list_commands before guessing syntax. Keep the
 board tidy: reuse blocks that exist, do not duplicate them, name things by what they do in
 plain words. A destructive command answers needs_confirmation with a preview: only repeat it

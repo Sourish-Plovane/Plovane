@@ -26,7 +26,7 @@ import shlex
 from typing import Any
 
 from backend.whiteboard.engine import Context
-from backend.whiteboard.model import Arrow, Block, slug
+from backend.whiteboard.model import Arrow, Block, pinned, slug
 from backend.whiteboard.ops.arrows import arrow_record, new_arrow
 from backend.whiteboard.registry import OpError, operation
 
@@ -261,6 +261,8 @@ def tidy(ctx: Context) -> list[str]:
         top = MARGIN + (tallest - len(members)) * ROW / 2
         for index, block_id in enumerate(members):
             block = blocks[block_id]
+            if pinned(block, "x", "y"):
+                continue  # the person placed it by hand
             block.x = MARGIN + column * COLUMN + (CELL_W - block.w) / 2
             block.y = top + index * ROW + (ROW - 50 - block.h) / 2
             ctx.require(block)

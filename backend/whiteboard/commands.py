@@ -105,6 +105,8 @@ COMMANDS: tuple[Command, ...] = (
     Command("block split", "block.split", ("block",), example="/block split payments --by file"),
     Command("block merge", "block.merge", ("blocks",), example="/block merge invoice,billing"),
     Command("block rename", "block.rename", ("block", "name"), rest=True, example='/block rename svc1 "checkout"'),
+    Command("pin", "block.pin", ("block",), example="/pin payments  or  /pin payments --fields x,y"),
+    Command("unpin", "block.unpin", ("block",), example="/unpin payments"),
     Command("block delete", "block.delete", ("block",), example="/block delete old-cache"),
     Command("block info", "block.info", ("block",), example="/block info checkout"),
     # English blocks and compile

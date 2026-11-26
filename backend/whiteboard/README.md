@@ -32,6 +32,15 @@ runs `/project refresh`: new files, imports, routes, outside APIs and summaries
 follow the code, with no AI. Files the whiteboard wrote itself are ignored.
 `PLOVANE_BOARD_AI_WATCH=0` turns this off.
 
+## Your hand edits are pinned
+
+When you move, rename, resize, restyle, place, align or draw a block yourself,
+the fields you changed are pinned (`meta.pinned`). The whiteboard AI is refused
+any change to a pinned field, and automatic layout (`/sketch`, `/project import`,
+or `/layout` run by the AI) leaves pinned places and sizes alone. Your own
+`/layout` still arranges everything, since you asked for it. `/pin <block>` pins a
+block outright; `/unpin <block>` lets it be arranged again.
+
 ## Overlays the whiteboard AI writes
 
 The whiteboard AI decides how the board is viewed; Plovane applies that to
@@ -668,6 +677,8 @@ command answers `needs_confirmation` first.
 | `/block split` | `block.split` | `plovane_block` |  | Splits a block into smaller blocks. | `/block split payments --by file` |
 | `/block merge` | `block.merge` | `plovane_block` | yes | Combines blocks into one. | `/block merge invoice,billing` |
 | `/block rename` | `block.rename` | `plovane_block` |  | Renames a block. | `/block rename svc1 "checkout"` |
+| `/pin` | `block.pin` | `plovane_block` |  | Pins a block (name, place, size, style...) so the whiteboard AI never changes it; hand edits pin on their own. | `/pin payments  or  /pin payments --fields x,y` |
+| `/unpin` | `block.unpin` | `plovane_block` |  | Unpins a block so the whiteboard AI and automatic layout may arrange it again. | `/unpin payments` |
 | `/block delete` | `block.delete` | `plovane_block` | yes | Removes a block and its code after showing dependents. | `/block delete old-cache` |
 | `/block info` | `block.info` | `plovane_block` |  | Shows a block's code, connections, and source. | `/block info checkout` |
 | `/blocks view` | `file.blocks` | `plovane_compile` |  | Shows a code file as plain-English step blocks at the chosen detail level. | `/blocks view src/orders.py --detail 2` |

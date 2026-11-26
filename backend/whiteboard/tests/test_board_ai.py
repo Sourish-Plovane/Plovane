@@ -220,3 +220,43 @@ def test_watcher_small_edits_are_not_structural(tmp_path: Path, monkeypatch: pyt
     watcher.poll(now=10.0)
     result = watcher.poll(now=12.0)
     assert result["edited"] == ["src/billing/charge.py"] and not result["structural"] and tasks == []
+
+
+# Input: tmp_path (Path)
+# Output: None
+# Processing: A person's move pins the block's place; the whiteboard AI cannot move, rename or delete it, but can still sketch around it.
+# Changed by: Claude Code
+# Date: 2026-11-26
+def test_hand_edits_pin_and_the_ai_leaves_them(tmp_path: Path) -> None:
+    ws = project(tmp_path, FILES)
+    board_ai.ensure_board_ai(ws)
+    assert ws.command("/sketch service payments; service orders; orders -> payments", actor=BOARD_AI)["ok"]
+    assert ws.command("/block move payments --at 900,700")["ok"]
+    payments = ws.board.blocks["payments"]
+    assert set(payments.meta["pinned"]) == {"x", "y"}
+    spot = (payments.x, payments.y)
+
+    moved = ws.command("/block move payments --at 10,10", actor=BOARD_AI)
+    assert moved["error"]["code"] == "FORBIDDEN" and "pinned" in moved["error"]["message"]
+    assert ws.command("/block delete payments", actor=BOARD_AI, confirm=True)["error"]["code"] == "FORBIDDEN"
+    # Re-laying out the services skips the pinned block instead of failing.
+    assert ws.command("/sketch service refunds; refunds -> payments", actor=BOARD_AI)["ok"]
+    assert (ws.board.blocks["payments"].x, ws.board.blocks["payments"].y) == spot
+    # Its name was not pinned, so the AI may still rename it.
+    assert ws.command("/sketch rename payments \"card payments\"", actor=BOARD_AI)["ok"]
+
+
+# Input: tmp_path (Path)
+# Output: None
+# Processing: /pin holds every layout field until /unpin; an unknown field is refused.
+# Changed by: Claude Code
+# Date: 2026-11-26
+def test_pin_and_unpin(tmp_path: Path) -> None:
+    ws = project(tmp_path, FILES)
+    board_ai.ensure_board_ai(ws)
+    ws.command("/sketch service payments", actor=BOARD_AI)
+    assert ws.command("/pin payments --fields colour")["error"]["code"] == "INVALID_ARGS"
+    assert "name" in ws.command("/pin payments")["data"]["result"]["pinned"]
+    assert ws.command("/sketch rename payments billing", actor=BOARD_AI)["error"]["code"] == "FORBIDDEN"
+    assert ws.command("/unpin payments")["ok"]
+    assert ws.command("/sketch rename payments billing", actor=BOARD_AI)["ok"]

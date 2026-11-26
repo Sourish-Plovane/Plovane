@@ -287,6 +287,44 @@ def call(spec: OpSpec, ctx: Context, args: dict[str, Any]) -> dict[str, Any]:
     return spec.handler(ctx, **clean) or {}
 
 
+MANUAL_OPS = frozenset({"block.add", "block.move", "block.rename", "size", "style", "place", "align", "distribute"})
+"""A person's hand edits: the fields they change get pinned, so the whiteboard AI never undoes them."""
+
+
+# Input: before (dict[str, dict]), blocks (dict[str, Block])
+# Output: list[str]
+# Processing: Pinned blocks whose pinned fields changed or that were removed, as "id.field" (or the id) for the message.
+# Changed by: Claude Code
+# Date: 2026-11-26
+def pins_broken(before: dict[str, dict[str, Any]], blocks: dict[str, Any]) -> list[str]:
+    broken: list[str] = []
+    for block_id, old in before.items():
+        fields = (old.get("meta") or {}).get("pinned") or []
+        if not fields:
+            continue
+        new = blocks.get(block_id)
+        if new is None:
+            broken.append(block_id)
+            continue
+        broken.extend(f"{block_id}.{f}" for f in fields if old.get(f) != getattr(new, f, None))
+    return broken
+
+
+# Input: before (dict[str, dict]), blocks (dict[str, Block])
+# Output: None
+# Processing: Pin the fields a person's hand edit changed (a block they drew gets its name and place pinned).
+# Changed by: Claude Code
+# Date: 2026-11-26
+def pin_manual_edits(before: dict[str, dict[str, Any]], blocks: dict[str, Any]) -> None:
+    from backend.whiteboard.model import PIN_FIELDS
+
+    for block_id, block in blocks.items():
+        old = before.get(block_id)
+        fields = {"name", "x", "y"} if old is None else {f for f in PIN_FIELDS if old.get(f) != getattr(block, f)}
+        if fields:
+            block.meta["pinned"] = sorted(set(block.meta.get("pinned") or ()) | fields)
+
+
 # Input: root (Path), name (str)
 # Output: str
 # Processing: A whiteboard file name as a project-relative .plo path, refusing anything outside the project.
@@ -654,6 +692,13 @@ class Workspace:
             if actor == BOARD_AI and fs.changes()["files"]:
                 raise OpError("FORBIDDEN", f"{spec.command} would change project files; the whiteboard AI "
                                            "changes the board only, never code")
+            if actor == BOARD_AI:
+                broken = pins_broken(before["blocks"], self.board.blocks)
+                if broken:
+                    raise OpError("FORBIDDEN", f"{spec.command} would change what the person pinned ("
+                                               f"{', '.join(broken[:4])}); the whiteboard AI leaves pinned blocks as they are")
+            elif actor == USER and spec.name in MANUAL_OPS:
+                pin_manual_edits(before["blocks"], self.board.blocks)
             if not self.is_main and {k: asdict(v) for k, v in self.board.agents.items()} != before["agents"]:
                 raise OpError("FORBIDDEN", f"agents belong to the whole project; change them on {MAIN_BOARD} "
                                            "or with /agent commands outside a batch")

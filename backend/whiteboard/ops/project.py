@@ -15,7 +15,7 @@ from typing import Any
 from backend.whiteboard import codegen
 from backend.whiteboard.refactor import resolve_from
 from backend.whiteboard.engine import Context
-from backend.whiteboard.model import Block
+from backend.whiteboard.model import Block, pinned
 from backend.whiteboard.ops.placement import apply_position
 from backend.whiteboard.registry import OpError, flag, operation
 
@@ -302,7 +302,8 @@ def pack_rows(children: list[Block], origin: tuple[float, float], ratio: float) 
     for block in children:
         if x and x + block.w > limit:
             x, y, row_h = 0.0, y + row_h + PACK_GAP, 0.0
-        block.x, block.y = origin[0] + x, origin[1] + y
+        if not pinned(block, "x", "y"):
+            block.x, block.y = origin[0] + x, origin[1] + y
         x += block.w + PACK_GAP
         row_h = max(row_h, block.h)
         used_w = max(used_w, x - PACK_GAP)
@@ -333,7 +334,8 @@ def pack_tree(ctx: Context, added: list[str]) -> None:
         for child in children:
             pack(child)
         w, h = pack_rows(children, (PACK_PAD, PACK_HEAD), ratio=1.8)
-        block.w, block.h = max(block.w, w + 2 * PACK_PAD), max(block.h, h + PACK_HEAD + PACK_PAD)
+        if not pinned(block, "w", "h"):
+            block.w, block.h = max(block.w, w + 2 * PACK_PAD), max(block.h, h + PACK_HEAD + PACK_PAD)
 
     roots = []
     for block_id in added:

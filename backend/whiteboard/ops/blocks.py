@@ -499,3 +499,38 @@ def info(ctx: Context, block: str) -> dict[str, Any]:
         "endpoints": [e.id for e in ctx.board.endpoints.values() if e.service == target.id],
         "library_entry": target.meta.get("library"),
     }
+
+
+# Input: ctx (Context), block (str), fields (Any)
+# Output: dict[str, Any]
+# Processing: Pin a block (all its layout fields, or the ones given) so the whiteboard AI and automatic layout leave them as they are.
+# Changed by: Claude Code
+# Date: 2026-11-26
+@operation("block.pin", command="/pin", tool="plovane_block_pin", group="plovane_block")
+def pin(ctx: Context, block: str, fields: Any = None) -> dict[str, Any]:
+    """Pins a block (name, place, size, style...) so the whiteboard AI never changes it; hand edits pin on their own."""
+    from backend.whiteboard.model import PIN_FIELDS
+
+    target = ctx.board.block(block)
+    ctx.require(target)
+    wanted = [f.strip() for f in (fields if isinstance(fields, list) else str(fields or "").split(",")) if f.strip()]
+    unknown = [f for f in wanted if f not in PIN_FIELDS]
+    if unknown:
+        raise OpError("INVALID_ARGS", f"{unknown[0]!r} cannot be pinned; fields: {list(PIN_FIELDS)}")
+    held = sorted(set(target.meta.get("pinned") or ()) | set(wanted or PIN_FIELDS))
+    target.meta["pinned"] = held
+    return {"block": target.id, "pinned": held}
+
+
+# Input: ctx (Context), block (str)
+# Output: dict[str, Any]
+# Processing: Unpin a block so the whiteboard AI and automatic layout may arrange it again.
+# Changed by: Claude Code
+# Date: 2026-11-26
+@operation("block.unpin", command="/unpin", tool="plovane_block_unpin", group="plovane_block")
+def unpin(ctx: Context, block: str) -> dict[str, Any]:
+    """Unpins a block so the whiteboard AI and automatic layout may arrange it again."""
+    target = ctx.board.block(block)
+    ctx.require(target)
+    was = target.meta.pop("pinned", None) or []
+    return {"block": target.id, "unpinned": was}

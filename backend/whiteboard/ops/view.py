@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from backend.whiteboard.engine import Context
-from backend.whiteboard.model import ARROW_TYPES, BLOCK_KINDS, Block
+from backend.whiteboard.engine import USER, Context
+from backend.whiteboard.model import ARROW_TYPES, BLOCK_KINDS, Block, pinned
 from backend.whiteboard.ops.placement import grow_to_fit
 from backend.whiteboard.registry import OpError, flag, integer, items, operation
 
@@ -118,11 +118,14 @@ def arrange(ctx: Context, blocks: dict[str, Block], direction: str, start: tuple
         offset = y0 if direction == "left-to-right" else x0
         for block_id in members:
             block = blocks[block_id]
+            keep = ctx.actor != USER and pinned(block, "x", "y")  # the person's own /layout may move anything
             if direction == "left-to-right":
-                block.x, block.y = ctx.snap(x0 + column * across), ctx.snap(offset)
+                if not keep:
+                    block.x, block.y = ctx.snap(x0 + column * across), ctx.snap(offset)
                 offset += block.h + GAP
             else:
-                block.x, block.y = ctx.snap(offset), ctx.snap(y0 + column * across)
+                if not keep:
+                    block.x, block.y = ctx.snap(offset), ctx.snap(y0 + column * across)
                 offset += block.w + GAP
 
 

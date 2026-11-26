@@ -146,6 +146,20 @@ class Layer:
     shows: list[str] = field(default_factory=list)
 
 
+PIN_FIELDS = ("name", "kind", "layer", "x", "y", "w", "h", "parent", "style", "preset")
+"""Fields a person can pin on a block, so the whiteboard AI and automatic layout leave them as they are."""
+
+
+# Input: block (Block), fields (str)
+# Output: bool
+# Processing: Whether any of the given fields is pinned on a block (any field at all when none are given).
+# Changed by: Claude Code
+# Date: 2026-11-26
+def pinned(block: Any, *fields: str) -> bool:
+    held = set(block.meta.get("pinned") or ())
+    return bool(held & set(fields)) if fields else bool(held)
+
+
 @dataclass
 class Block:
     id: str
