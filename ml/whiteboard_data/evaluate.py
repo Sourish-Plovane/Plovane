@@ -150,6 +150,97 @@ def score(example: dict[str, Any], ws: Any, result: dict[str, Any]) -> dict[str,
     }
 
 
+SKETCH_PART = re.compile(r'^\s*(service|database|queue|external|server)\s+"([^"]+)"', re.IGNORECASE)
+SKETCH_ARROW = re.compile(r'^\s*"([^"]+)"\s*->\s*"([^"]+)"')
+
+
+# Input: text (str), chart (dict[str, Any])
+# Output: dict[str, Any]
+# Processing: Score /sketch lines (a model's one-shot answer) against the authors' diagram, with no board: parts F1, arrow recall, and how many lines were not valid sketch.
+# Changed by: Claude Code
+# Date: 2026-11-26
+def score_sketch(text: str, chart: dict[str, Any]) -> dict[str, Any]:
+    drawn: dict[str, str] = {}
+    arrows: set[frozenset] = set()
+    bad = 0
+    lines = [line for line in text.splitlines() if line.strip() and not line.strip().startswith("```")]
+    for line in lines:
+        part, arrow = SKETCH_PART.match(line), SKETCH_ARROW.match(line)
+        if part:
+            drawn.setdefault(part.group(2).lower(), part.group(2))
+        elif arrow:
+            for name in arrow.groups():
+                drawn.setdefault(name.lower(), name)
+            arrows.add(frozenset((arrow.group(1).lower(), arrow.group(2).lower())))
+        else:
+            bad += 1
+    reference = {nid: n["label"] for nid, n in chart["nodes"].items()}
+    pairs = match(reference, drawn)
+    recall = len(pairs) / max(len(reference), 1)
+    precision = len(pairs) / max(len(drawn), 1) if drawn else 0.0
+    edges = [e for e in chart["edges"] if e["from"] != e["to"]]
+    hit = sum(1 for e in edges if e["from"] in pairs and e["to"] in pairs
+              and frozenset((pairs[e["from"]], pairs[e["to"]])) in arrows)
+    return {"parts_recall": round(recall, 3), "parts_precision": round(precision, 3),
+            "parts_f1": round(2 * recall * precision / (recall + precision), 3) if recall + precision else 0.0,
+            "arrow_recall": round(hit / max(len(edges), 1), 3), "bad_lines": bad, "lines": len(lines),
+            "drawn_parts": len(drawn), "reference_parts": len(reference)}
+
+
+# Input: provider (str), model (str), system (str), prompt (str)
+# Output: tuple[str, dict[str, int]]
+# Processing: One plain chat call to a hosted (or OpenAI-compatible local) model; the reply text and token use.
+# Changed by: Claude Code
+# Date: 2026-11-26
+def ask_once(provider: str, model: str, system: str, prompt: str) -> tuple[str, dict[str, int]]:
+    from backend.whiteboard import llm_agent
+
+    key = llm_agent.api_key(provider) or "none"
+    if provider == "anthropic":
+        reply = llm_agent.http_json(f"{llm_agent.base_url('anthropic')}/v1/messages",
+                                    {"x-api-key": key, "anthropic-version": "2023-06-01"},
+                                    {"model": model, "max_tokens": 1500, "system": system,
+                                     "messages": [{"role": "user", "content": prompt}]})
+        text = "".join(b.get("text", "") for b in reply.get("content") or [] if b.get("type") == "text")
+        usage = reply.get("usage") or {}
+        return text, {"input_tokens": usage.get("input_tokens", 0), "output_tokens": usage.get("output_tokens", 0)}
+    body = {"model": model, "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
+            ("max_completion_tokens" if provider == "openai" else "max_tokens"): 1500}
+    reply = llm_agent.http_json(f"{llm_agent.base_url(provider)}/chat/completions", {"authorization": f"Bearer {key}"}, body)
+    if "choices" not in reply:
+        raise RuntimeError(f"{provider} error: {json.dumps(reply)[:300]}")
+    usage = reply.get("usage") or {}
+    return reply["choices"][0]["message"].get("content") or "", {
+        "input_tokens": usage.get("prompt_tokens", 0), "output_tokens": usage.get("completion_tokens", 0)}
+
+
+# Input: provider (str), model (str), limit (int)
+# Output: dict[str, Any]
+# Processing: The one-shot task (the same one a fine-tuned model learns) on every held-out diagram: prompt, answer, score.
+# Changed by: Claude Code
+# Date: 2026-11-26
+def sketch_mode(provider: str, model: str, limit: int) -> dict[str, Any]:
+    from ml.whiteboard_data.prepare import SYSTEM, prompt_for
+
+    rows = []
+    for example in (json.loads(line) for line in EXAMPLES.read_text().splitlines()):
+        if example["split"] != "eval" or len(rows) >= limit:
+            continue
+        started = time.time()
+        try:
+            text, usage = ask_once(provider, model, SYSTEM, prompt_for(example))
+            rows.append({"repo": example["repo"], "diagram": example["diagram"], "seconds": round(time.time() - started, 1),
+                         **usage, **score_sketch(text, example["chart"]), "answer": text})
+        except Exception as exc:  # noqa: BLE001
+            rows.append({"repo": example["repo"], "diagram": example["diagram"], "error": str(exc)[:300]})
+        print(json.dumps({k: v for k, v in rows[-1].items() if k != "answer"}), file=sys.stderr, flush=True)
+    scored = [r for r in rows if "error" not in r]
+    keys = ("parts_recall", "parts_precision", "parts_f1", "arrow_recall", "bad_lines", "input_tokens", "output_tokens", "seconds")
+    mean = {k: round(sum(r[k] for r in scored) / len(scored), 3) for k in keys} if scored else {}
+    return {"mode": "sketch", "provider": provider, "model": model, "examples": len(rows), "scored": len(scored),
+            "mean": mean, "rows": rows}
+
+
 # Input: argv (list[str] | None)
 # Output: int
 # Processing: Evaluate the whiteboard AI on the held-out repositories and write the results and a table.
@@ -162,6 +253,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--model", default=None)
     parser.add_argument("--use-saved-key", action="store_true",
                         help="use the key saved with 'plovane connect' even if the environment has another")
+    parser.add_argument("--mode", choices=("build", "sketch"), default="build",
+                        help="build: the whiteboard AI builds a real board; sketch: one call, scored offline")
     args = parser.parse_args(argv)
 
     from backend.whiteboard import board_ai, llm_agent
@@ -173,6 +266,13 @@ def main(argv: list[str] | None = None) -> int:
             os.environ[llm_agent.KEY_NAMES[provider]] = key
     llm_agent.load_saved_keys()
     provider, model = board_ai.provider_and_model(args.provider, args.model)
+    if args.mode == "sketch":
+        report = sketch_mode(provider, model, args.limit)
+        out = RESULTS.with_name(f"whiteboard_sketch_{provider}.json")
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(report, indent=1) + "\n")
+        print(json.dumps({"mode": "sketch", "provider": provider, "model": model, **report["mean"], "scored": report["scored"]}))
+        return 0
     seen, rows = set(), []
     for example in (json.loads(line) for line in EXAMPLES.read_text().splitlines()):
         if example["split"] != "eval" or example["repo"] in seen:

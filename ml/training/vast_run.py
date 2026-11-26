@@ -84,6 +84,14 @@ OFFER_FILTER = {
 }
 
 
+JOBS = {
+    "cross-encoder": {"script": "ml/training/gpu_box_setup.sh", "gpu_ram": 16000, "disk": 40, "label": "plovane-stage2"},
+    # Fine-tuning a ~1.5B model (or a 7B in 4-bit) with LoRA wants a 24 GB card and room for the base weights.
+    "whiteboard": {"script": "ml/training/whiteboard_box_setup.sh", "gpu_ram": 24000, "disk": 60, "label": "plovane-whiteboard"},
+}
+"""What each job runs on the box and needs from it."""
+
+
 # Input: name (str)
 # Output: str | None
 # Processing: An environment secret by name, ignoring case.
@@ -172,9 +180,10 @@ def destroy(instance: int, key: str) -> str:
 # Processing: Offers that can run the job, cheapest first.
 # Changed by: Sourish
 # Date: 2026-10-16
-def search_offers() -> list[dict]:
+def search_offers(job: str = "cross-encoder") -> list[dict]:
     """Offers that can run the job, cheapest first."""
-    query = urllib.parse.quote(json.dumps(OFFER_FILTER))
+    query = urllib.parse.quote(json.dumps({**OFFER_FILTER, "gpu_ram": {"gte": JOBS[job]["gpu_ram"]},
+                                           "disk_space": {"gte": JOBS[job]["disk"]}}))
     return api("GET", f"/bundles/?q={query}").get("offers", [])
 
 
@@ -200,7 +209,7 @@ def choose_offer(offers: list[dict], *, max_price: float) -> dict:
 # Processing: The script the box runs on boot.
 # Changed by: Sourish
 # Date: 2026-10-16
-def build_onstart(run_id: str, *, max_hours: float) -> str:
+def build_onstart(run_id: str, *, max_hours: float, job: str = "cross-encoder") -> str:
     """The script the box runs on boot.
 
     The token is referenced as ``$GH_TOKEN`` and never interpolated here, so
@@ -219,7 +228,7 @@ export REPO="https://x-access-token:${{GH_TOKEN}}@{REPO_PATH}"
 export WORKDIR=/root/plovane BRANCH={BRANCH}
 git clone --branch {BRANCH} --depth 50 "$REPO" "$WORKDIR"
 cd "$WORKDIR"
-timeout {seconds} bash ml/training/gpu_box_setup.sh > /root/run.log 2>&1
+timeout {seconds} bash {JOBS[job]["script"]} > /root/run.log 2>&1
 echo $? > /root/exit_status
 
 # Report back on a fresh orphan branch: metrics, logs, exit status.
@@ -242,6 +251,24 @@ if [ -s ml/artifacts/cross_encoder_final.pt ]; then
       > "$OUT"/release_asset.json
   fi
 fi
+# The whiteboard job's LoRA adapter (tens of MB) goes up as a release asset too.
+if [ -d ml/artifacts/whiteboard_lora/adapter ]; then
+  tar -czf /root/whiteboard_lora_adapter.tar.gz -C ml/artifacts/whiteboard_lora adapter
+  curl -s -X POST -H "Authorization: Bearer ${{GH_TOKEN}}" \\
+    -H "Accept: application/vnd.github+json" \\
+    "https://api.github.com/repos/{REPO_SLUG}/releases" \\
+    -d '{{"tag_name":"whiteboard-lora-{run_id}","target_commitish":"{BRANCH}","name":"Whiteboard LoRA {run_id}","prerelease":true,"body":"LoRA adapter from GPU run {run_id}. Settings and held-out scores are in metrics.json on branch {result_branch}."}}' \\
+    > "$OUT"/release_wb.json
+  WB_RELEASE=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("id", ""))' "$OUT"/release_wb.json)
+  if [ -n "$WB_RELEASE" ]; then
+    curl -s -X POST -H "Authorization: Bearer ${{GH_TOKEN}}" \\
+      -H "Content-Type: application/gzip" \\
+      --data-binary @/root/whiteboard_lora_adapter.tar.gz \\
+      "https://uploads.github.com/repos/{REPO_SLUG}/releases/$WB_RELEASE/assets?name=whiteboard_lora_adapter.tar.gz" \\
+      > "$OUT"/release_wb_asset.json
+  fi
+fi
+cp ml/artifacts/whiteboard_lora/metrics.json ml/artifacts/whiteboard_lora/predictions.jsonl "$OUT"/ 2>/dev/null
 cp /root/run.log /root/onstart.log /root/exit_status "$OUT"/ 2>/dev/null
 cp ml/artifacts/cross_encoder_metrics.json "$OUT"/ 2>/dev/null
 cp ml/artifacts/cross_encoder_scores.jsonl "$OUT"/ 2>/dev/null
@@ -296,7 +323,8 @@ def print_offers(offers: list[dict]) -> None:
 # Changed by: Sourish
 # Date: 2026-10-16
 def run(args: argparse.Namespace) -> int:
-    offers = search_offers()
+    job = getattr(args, "job", "cross-encoder")
+    offers = search_offers(job)
     offer = choose_offer(offers, max_price=args.max_price)
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     result_branch = f"gpu-results/{run_id}"
@@ -309,14 +337,16 @@ def run(args: argparse.Namespace) -> int:
     body = {
         "client_id": "me",
         "image": IMAGE,
-        "disk": 40,
-        "label": f"plovane-stage2-{run_id}",
+        "disk": JOBS[job]["disk"],
+        "label": f"{JOBS[job]['label']}-{run_id}",
         "runtype": "ssh",
-        "onstart": build_onstart(run_id, max_hours=args.max_hours),
-        "env": {"GH_TOKEN": secret("GH_RESULTS_TOKEN") or "<GH_RESULTS_TOKEN>"},
+        "onstart": build_onstart(run_id, max_hours=args.max_hours, job=job),
+        "env": {"GH_TOKEN": secret("GH_RESULTS_TOKEN") or "<GH_RESULTS_TOKEN>",
+                **{k: v for k, v in (("WB_MODEL", getattr(args, "model", None)), ("WB_EPOCHS", getattr(args, "epochs", None)))
+                   if v}},
     }
     if args.dry_run:
-        shown = dict(body, env={"GH_TOKEN": "<redacted>"})
+        shown = dict(body, env={**body["env"], "GH_TOKEN": "<redacted>"})
         print("\n-- dry run: this would be sent, nothing rented --")
         print(json.dumps({k: v for k, v in shown.items() if k != "onstart"}, indent=2))
         print("\n-- onstart --\n" + body["onstart"])
@@ -394,8 +424,13 @@ def run(args: argparse.Namespace) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("search", help="list the cheapest suitable offers (read-only)")
+    search_parser = sub.add_parser("search", help="list the cheapest suitable offers (read-only)")
+    search_parser.add_argument("--job", choices=sorted(JOBS), default="cross-encoder")
     run_parser = sub.add_parser("run", help="rent, train, bring back metrics, destroy")
+    run_parser.add_argument("--job", choices=sorted(JOBS), default="cross-encoder",
+                            help="cross-encoder (Stage 2 ranking) or whiteboard (LoRA fine-tune of the whiteboard model)")
+    run_parser.add_argument("--model", default=None, help="whiteboard job: base model (default Qwen2.5-Coder-1.5B-Instruct)")
+    run_parser.add_argument("--epochs", default=None, help="whiteboard job: training epochs (default 3)")
     run_parser.add_argument("--yes", action="store_true", help="actually rent (costs money)")
     run_parser.add_argument("--dry-run", action="store_true", help="show the request, rent nothing")
     run_parser.add_argument("--max-price", type=float, default=0.20, help="$/hr cap (default 0.20)")
@@ -404,7 +439,7 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.command == "search":
-        print_offers(search_offers())
+        print_offers(search_offers(args.job))
         return 0
     return run(args)
 

@@ -29,10 +29,15 @@ import argparse
 import base64
 import hashlib
 import json
+import os
 import re
+import shutil
 import subprocess
 import sys
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -59,6 +64,8 @@ EVAL_SHARE = 5  # one repository in five is held out
 # Changed by: Claude Code
 # Date: 2026-11-26
 def gh(args: list[str], retries: int = 3) -> Any:
+    if shutil.which("gh") is None:
+        return rest(args, retries)
     for attempt in range(retries):
         result = subprocess.run(["gh", "api", *args], capture_output=True, text=True, timeout=120)
         if result.returncode == 0:
@@ -67,6 +74,41 @@ def gh(args: list[str], retries: int = 3) -> Any:
             time.sleep(20 * (attempt + 1))
             continue
         return None
+    return None
+
+
+# Input: args (list[str]), retries (int)
+# Output: Any
+# Processing: The same call as gh() over plain HTTPS with GH_TOKEN or GITHUB_TOKEN, for machines without the gh CLI.
+# Changed by: Claude Code
+# Date: 2026-11-26
+def rest(args: list[str], retries: int = 3) -> Any:
+    path, params = "", {}
+    items = iter(args)
+    for arg in items:
+        if arg == "-X":
+            next(items)
+        elif arg == "-f":
+            key, _, value = next(items).partition("=")
+            params[key] = value
+        else:
+            path = arg
+    url = f"https://api.github.com/{path}" + (("&" if "?" in path else "?") + urllib.parse.urlencode(params) if params else "")
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    headers = {"Accept": "application/vnd.github+json", "User-Agent": "plovane-harvest"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    for attempt in range(retries):
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=60) as reply:
+                return json.loads(reply.read() or b"null")
+        except urllib.error.HTTPError as exc:
+            if exc.code in (403, 429):
+                time.sleep(20 * (attempt + 1))
+                continue
+            return None
+        except OSError:
+            time.sleep(5)
     return None
 
 
