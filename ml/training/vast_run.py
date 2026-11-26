@@ -74,7 +74,7 @@ OFFER_FILTER = {
     "num_gpus": {"eq": 1},
     "gpu_ram": {"gte": 16000},
     "disk_space": {"gte": 40},
-    "reliability2": {"gte": 0.95},
+    "reliability2": {"gte": 0.98},
     "inet_down": {"gte": 200},
     "compute_cap": {"gte": 800, "lt": 1000},
     "cuda_max_good": {"gte": 12.4},
@@ -218,6 +218,7 @@ def build_onstart(run_id: str, *, max_hours: float, job: str = "cross-encoder") 
     a log of a crash is the thing most worth having back.
     """
     result_branch = f"gpu-results/{run_id}"
+    progress_branch = f"gpu-progress/{run_id}"
     seconds = int(max_hours * 3600)
     return f"""#!/bin/bash
 exec > /root/onstart.log 2>&1
@@ -228,8 +229,28 @@ export REPO="https://x-access-token:${{GH_TOKEN}}@{REPO_PATH}"
 export WORKDIR=/root/plovane BRANCH={BRANCH}
 git clone --branch {BRANCH} --depth 50 "$REPO" "$WORKDIR"
 cd "$WORKDIR"
+
+# Every 5 minutes, copy the logs (token removed) to gpu-progress/<run>, so a
+# box that dies or never pushes its results still leaves a trail to read.
+progress() {{
+  while true; do
+    sleep 300
+    P=$(mktemp -d)
+    cp /root/run.log /root/onstart.log "$P"/ 2>/dev/null
+    sed -i "s#${{GH_TOKEN}}#<redacted>#g" "$P"/*.log 2>/dev/null
+    (cd "$P" && git init -q -b progress \
+      && git -c user.name=gpu-box -c user.email=gpu-box@users.noreply.github.com add -A \
+      && git -c user.name=gpu-box -c user.email=gpu-box@users.noreply.github.com commit -qm "progress $(date -u +%H:%M)" \
+      && git push -qf "$REPO" HEAD:refs/heads/{progress_branch}) >/dev/null 2>&1
+    rm -rf "$P"
+  done
+}}
+progress &
+PROGRESS_PID=$!
+
 timeout {seconds} bash {JOBS[job]["script"]} > /root/run.log 2>&1
 echo $? > /root/exit_status
+kill $PROGRESS_PID 2>/dev/null
 
 # Report back on a fresh orphan branch: metrics, logs, exit status.
 OUT=$(mktemp -d)
@@ -280,7 +301,7 @@ cd "$OUT" && git init -q -b {result_branch} \\
   && git -c user.name=gpu-box -c user.email=gpu-box@users.noreply.github.com add -A \\
   && git -c user.name=gpu-box -c user.email=gpu-box@users.noreply.github.com \\
        commit -qm "GPU run {run_id}: exit $(cat /root/exit_status)" \\
-  && git push -q "$REPO" HEAD:refs/heads/{result_branch}
+  && for attempt in 1 2 3; do git push -q "$REPO" HEAD:refs/heads/{result_branch} && break; sleep 20; done
 
 # Best effort: release the box even if the session that rented it is gone.
 curl -s -X DELETE -H "Authorization: Bearer ${{CONTAINER_API_KEY}}" \\
@@ -300,6 +321,25 @@ def branch_exists(branch: str) -> bool:
         capture_output=True, text=True, timeout=60,
     )
     return bool(out.stdout.strip())
+
+
+# Input: run_id (str)
+# Output: str
+# Processing: The tail of the logs the box last copied to its progress branch, or a note that it copied none.
+# Changed by: Claude Code
+# Date: 2026-11-26
+def last_progress(run_id: str) -> str:
+    """The end of the box's last progress logs, to show why a run brought nothing back."""
+    branch = f"gpu-progress/{run_id}"
+    if not branch_exists(branch):
+        return f"no progress logs on {branch}: the box died within 5 minutes or could not reach GitHub"
+    subprocess.run(["git", "fetch", "-q", "origin", branch], check=True)
+    parts = []
+    for name in ("onstart.log", "run.log"):
+        shown = subprocess.run(["git", "show", f"FETCH_HEAD:{name}"], capture_output=True, text=True)
+        tail = "\n".join((shown.stdout or shown.stderr).splitlines()[-30:])
+        parts.append(f"== last lines of {name} ({branch}) ==\n{tail}")
+    return "\n".join(parts)
 
 
 # Input: offers (list[dict])
@@ -388,6 +428,7 @@ def run(args: argparse.Namespace) -> int:
     signal.signal(signal.SIGHUP, _stop)
 
     deadline = time.time() + args.max_hours * 3600 + 600  # box's own timeout, plus push time
+    missing = 0
     try:
         while time.time() < deadline:
             if branch_exists(result_branch):
@@ -395,10 +436,17 @@ def run(args: argparse.Namespace) -> int:
                 break
             try:
                 info = api("GET", f"/instances/{instance}/", key=key).get("instances") or {}
-                status = info.get("actual_status") or info.get("cur_state") or "?"
+                status = info.get("actual_status") or info.get("cur_state") or "gone"
             except RuntimeError as exc:
-                status = f"status check failed: {exc}"
+                info, status = None, f"status check failed: {exc}"
             print(f"{datetime.now(timezone.utc):%H:%M:%S}  instance {instance}: {status}", flush=True)
+            # vast.ai returns nothing for an instance that no longer exists.
+            # Three empty answers in a row: the box is gone, and so is any
+            # chance of results beyond what it already pushed.
+            missing = missing + 1 if info == {} else 0
+            if missing >= 3 and not branch_exists(result_branch):
+                print("the instance disappeared without pushing results")
+                break
             time.sleep(args.poll_seconds)
         else:
             print(f"time cap of {args.max_hours}h reached without results")
@@ -406,6 +454,7 @@ def run(args: argparse.Namespace) -> int:
         print(destroy(instance, key))
 
     if not branch_exists(result_branch):
+        print(last_progress(run_id))
         return 1
     subprocess.run(["git", "fetch", "-q", "origin", result_branch], check=True)
     for name in ("exit_status", "cross_encoder_metrics.json"):

@@ -82,6 +82,16 @@ class TestOnstart:
         assert "HEAD:refs/heads/Sourish" not in script
 
 
+    def test_copies_logs_to_a_progress_branch_while_running(self, vast):
+        # A box that dies mid-run must still leave its logs somewhere.
+        script = vast.build_onstart("20261126T000000Z", max_hours=1)
+        assert "HEAD:refs/heads/gpu-progress/20261126T000000Z" in script
+        assert script.index("progress &") < script.index("timeout 3600 ")
+
+    def test_retries_the_results_push(self, vast):
+        assert "for attempt in 1 2 3" in vast.build_onstart("run1", max_hours=1)
+
+
 class TestOfferFilter:
     def test_excludes_gpus_this_image_cannot_drive(self, vast):
         # Pascal/Volta are dropped by current PyTorch; Blackwell needs a newer
@@ -140,7 +150,7 @@ class TestFinalWeights:
         assert "cross-encoder-20261017T000000Z" in script
         assert "assets?name=cross_encoder_final.pt" in script
         # Before the results push, so the upload's answer is pushed with it.
-        assert script.index("release_asset.json") < script.index("git push")
+        assert script.index("release_asset.json") < script.index("HEAD:refs/heads/gpu-results/")
 
     def test_the_upload_never_runs_curl_verbose(self, vast):
         script = vast.build_onstart("run1", max_hours=1)
