@@ -1,0 +1,26 @@
+{
+ "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+ "settings": {
+  "model": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+  "epochs": 3.0,
+  "lr": 0.0002,
+  "rank": 16,
+  "max_length": 4096,
+  "batch": 1,
+  "accumulate": 8,
+  "four_bit": false,
+  "smoke": false
+ },
+ "train_examples": 216,
+ "eval_examples": 32,
+ "train_loss": 1.1603,
+ "train_seconds": 672.8,
+ "gpu": "NVIDIA GeForce RTX 3090",
+ "held_out": {
+  "parts_recall": 0.376,
+  "parts_precision": 0.268,
+  "parts_f1": 0.269,
+  "arrow_recall": 0.011,
+  "bad_lines": 7.719
+ }
+}
