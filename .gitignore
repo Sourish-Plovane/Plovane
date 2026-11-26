@@ -32,6 +32,9 @@ ml/data/*
 # without it the committed model artefact could not be reproduced.
 !ml/data/sources.json
 !ml/data/README.md
+# ...and the manifest of public projects the whiteboard examples come from (pinned commits, licences);
+# whiteboard_examples.jsonl is rebuilt from it with `python -m ml.whiteboard_data.harvest --from-manifest`.
+!ml/data/whiteboard_sources.json
 
 
 # Encoder weights. Fetched via `ml/training/fetch_weights.py`; see ml/weights/README.md

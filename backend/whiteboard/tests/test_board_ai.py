@@ -260,3 +260,45 @@ def test_pin_and_unpin(tmp_path: Path) -> None:
     assert ws.command("/sketch rename payments billing", actor=BOARD_AI)["error"]["code"] == "FORBIDDEN"
     assert ws.command("/unpin payments")["ok"]
     assert ws.command("/sketch rename payments billing", actor=BOARD_AI)["ok"]
+
+
+# Input: tmp_path (Path)
+# Output: None
+# Processing: get_board gives the model an outline: parts in full with short labels and pins, many files as counts per folder, import arrows counted.
+# Changed by: Claude Code
+# Date: 2026-11-26
+def test_board_outline_for_the_model(tmp_path: Path) -> None:
+    files = {f"src/pkg/m{i}.py": "" for i in range(70)}
+    ws = project(tmp_path, {**FILES, **files})
+    ws.command("/project import", confirm=True)
+    board_ai.ensure_board_ai(ws)
+    ws.command("/sketch service payments; database ledger; payments -> ledger \"writes\"", actor=BOARD_AI)
+    ws.command("/pin payments --fields x,y")
+    outline = llm_agent.compact_board(board_ai.board_reply(ws))
+    payments = next(p for p in outline["parts"] if p["id"] == "payments")
+    assert payments["pinned"] == ["x", "y"] and "files" not in outline
+    assert sum(outline["files_per_folder"].values()) >= 70
+    assert {"source": "payments", "target": "ledger", "type": "database", "label": "writes"} in outline["arrows"]
+    assert len(llm_agent.json.dumps(outline)) < len(llm_agent.json.dumps(board_ai.board_reply(ws))) / 5
+
+
+# Input: none
+# Output: None
+# Processing: Tool results older than the last few turns are trimmed, in both message formats.
+# Changed by: Claude Code
+# Date: 2026-11-26
+def test_old_tool_results_are_trimmed() -> None:
+    claude = []
+    for n in range(6):
+        claude.append({"role": "assistant", "content": [{"type": "tool_use", "id": f"t{n}"}]})
+        claude.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": f"t{n}", "content": f"big {n}"}]})
+    llm_agent.trim_history(claude, "anthropic", keep=2)
+    kept = [m["content"][0]["content"] for m in claude if m["role"] == "user"]
+    assert kept[-2:] == ["big 4", "big 5"] and all("trimmed" in k for k in kept[:4])
+    chat = []
+    for n in range(5):
+        chat.append({"role": "assistant", "content": "", "tool_calls": [{"id": f"a{n}"}, {"id": f"b{n}"}]})
+        chat += [{"role": "tool", "tool_call_id": f"a{n}", "content": f"A{n}"}, {"role": "tool", "tool_call_id": f"b{n}", "content": f"B{n}"}]
+    llm_agent.trim_history(chat, "deepseek", keep=2)
+    assert [m["content"] for m in chat if m["role"] == "tool"][-4:] == ["A3", "B3", "A4", "B4"]
+    assert "trimmed" in chat[2]["content"]

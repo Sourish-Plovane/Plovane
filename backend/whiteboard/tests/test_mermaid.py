@@ -103,3 +103,46 @@ def test_flow_list_and_import(tmp_path: Path) -> None:
     by_ai = ws.command("/flow import README.md --diagram 1", actor=BOARD_AI)
     assert by_ai["ok"], by_ai  # writing a whiteboard file is board work, not code
     assert ws.command("/file create notes.py", actor=BOARD_AI)["error"]["code"] == "FORBIDDEN"
+
+
+CHECKOUT = {
+    "api/__init__.py": "",
+    "api/app.py": ("from flask import Flask, request\nfrom api.payments import charge\n\napp = Flask(__name__)\n\n\n"
+                   "@app.post('/checkout')\ndef checkout():\n    order = request.get_json()\n"
+                   "    if not order.get('items'):\n        return {'error': 'empty cart'}, 400\n"
+                   "    for item in order['items']:\n        print(item)\n"
+                   "    try:\n        receipt = charge(order['total'])\n    except ValueError:\n"
+                   "        return {'error': 'card declined'}, 402\n    return {'ok': True}\n"),
+    "api/payments.py": ("import requests\n\n\ndef charge(total):\n    if total <= 0:\n        raise ValueError('bad total')\n"
+                        "    return requests.post('https://api.stripe.com/v1/charges', data={'amount': total}).json()\n"),
+}
+
+
+# Input: tmp_path (Path)
+# Output: None
+# Processing: /flow make reads a route's handler: decisions with yes/no, a loop back, a call opened as a group whose raise reaches the except and whose return flows back.
+# Changed by: Claude Code
+# Date: 2026-11-26
+def test_flow_make_reads_the_code(tmp_path: Path) -> None:
+    from backend.whiteboard import flowgraph
+
+    ws = project(tmp_path, CHECKOUT)
+    ws.command("/project import", confirm=True)
+    made = ws.command('/flow make "POST /checkout" --depth 1')["data"]["result"]
+    assert made["board"] == "whiteboards/flows/post-checkout.plo" and made["decisions"] == 2 and made["groups"] == 1
+    chart = parse(made["mermaid"])  # the Mermaid it returns reads back
+    labels = {n["label"]: nid for nid, n in chart["nodes"].items()}
+    edges = {(e["from"], e["to"]): e for e in chart["edges"]}
+    assert edges[(labels["not order.get('items')?"], labels["return ({'error': 'empty cart'}, 400)"])]["label"] == "yes"
+    assert (labels["raise ValueError('bad total')"], labels["on ValueError"]) in edges
+    assert (labels["back from charge()"], labels["return {'ok': True}"]) in edges
+    loop = labels["for each item in order['items']"]
+    assert any(e["to"] == loop and e["style"] == "dotted" for e in chart["edges"])  # the loop points back
+    tab = Workspace(tmp_path, board=made["board"])
+    assert all(b.kind in ("step", "group") for b in tab.board.blocks.values())
+    assert sum(bool(b.meta.get("decision")) for b in tab.board.blocks.values()) == 3  # two ifs and the loop
+    flat = ws.command("/flow make charge --to whiteboards/flows/charge.plo")["data"]["result"]
+    assert flat["groups"] == 0 and flat["decisions"] == 1
+    assert ws.command("/flow make nowhere")["error"]["code"] == "NOT_FOUND"
+    with pytest.raises(ValueError, match="no function"):
+        flowgraph.find_entry({}, "missing")

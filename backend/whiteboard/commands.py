@@ -270,6 +270,7 @@ COMMANDS: tuple[Command, ...] = (
     Command("board make", "board.make", ("kind",), example="/board make api  or  /board make frontend --refresh"),
     Command("flow list", "flow.list", ("path",), example="/flow list README.md"),
     Command("flow import", "flow.import", ("path",), example="/flow import README.md --diagram 2"),
+    Command("flow make", "flow.make", ("entry",), example="/flow make \"POST /checkout\" --depth 1  or  /flow make charge"),
     Command("pages", "frontend.pages", example="/pages"),
     Command("frontend", "frontend.run", ("action",), example="/frontend start  or  /frontend stop"),
 )

@@ -83,7 +83,12 @@ def read_node(text: str, pos: int) -> tuple[dict[str, str] | None, int]:
     pos = m.end()
     for opener, closer, shape in SHAPES:
         if text.startswith(opener, pos):
-            end = text.find(closer, pos + len(opener))
+            inner = pos + len(opener)
+            if text.startswith('"', inner):  # a quoted label may hold brackets: n1("calls charge()")
+                quote_end = text.find('"', inner + 1)
+                end = text.find(closer, quote_end + 1) if quote_end != -1 else -1
+            else:
+                end = text.find(closer, inner)
             if end == -1:
                 continue
             node["label"] = clean_label(text[pos + len(opener):end])
@@ -239,12 +244,12 @@ def ranks(chart: dict[str, Any]) -> dict[str, int]:
     return rank
 
 
-# Input: chart (dict[str, Any]), title (str)
+# Input: chart (dict[str, Any]), title (str), steps_only (bool)
 # Output: Board
-# Processing: A Plovane board drawing the diagram: blocks by kind, subgraphs as groups, labelled arrows, laid out in ranks along its direction.
+# Processing: A Plovane board drawing the diagram: blocks by kind (all steps with steps_only, for code flows), subgraphs as groups, labelled arrows, laid out in ranks along its direction.
 # Changed by: Claude Code
 # Date: 2026-11-26
-def to_board(chart: dict[str, Any], title: str = "") -> Any:
+def to_board(chart: dict[str, Any], title: str = "", steps_only: bool = False) -> Any:
     from backend.whiteboard.model import DEFAULT_SIZE, Arrow, Block, default_board, slug
 
     board = default_board()
@@ -271,7 +276,7 @@ def to_board(chart: dict[str, Any], title: str = "") -> Any:
     across = chart["direction"] in ("LR", "RL")
     columns: dict[int, int] = {}
     for nid, node in chart["nodes"].items():
-        kind = "step" if process and kind_of(node) == "service" else kind_of(node)
+        kind = "step" if steps_only or (process and kind_of(node) == "service") else kind_of(node)
         w, h = DEFAULT_SIZE.get(kind, (200, 100))
         w, h = max(w, 180), max(h, 70)
         block_id = unique(slug(node["label"]) or slug(nid))
@@ -280,8 +285,10 @@ def to_board(chart: dict[str, Any], title: str = "") -> Any:
         columns[column] = row + 1
         x, y = (60 + column * 300, 60 + row * 160) if across else (60 + row * 300, 60 + column * 160)
         meta = {"from": "mermaid", "mermaid_id": nid}
-        if node.get("shape") == "decision":
+        if node.get("shape") in ("decision", "hexagon") and (steps_only or process):
             meta["decision"] = True
+        if node.get("shape") == "flag" and (steps_only or process):
+            meta["error_path"] = True
         parent = ids.get("group:" + node["group"]) if node.get("group") else None
         board.blocks[block_id] = Block(id=block_id, kind=kind, name=node["label"], layer=1, x=x, y=y, w=w, h=h,
                                        parent=parent, meta=meta)

@@ -46,6 +46,11 @@ BASE_URLS = {"anthropic": "https://api.anthropic.com", "deepseek": "https://api.
 KEYS_PATH = Path(os.path.expanduser("~")) / ".plovane" / "keys.json"
 RESULT_LIMIT = 6000
 """Characters of a tool result the model sees; the board can be large."""
+FILE_KINDS = frozenset({"file", "function", "class", "code"})
+MANY_FILES = 60
+"""Above this many file-level blocks, get_board lists them as counts per folder instead of one by one."""
+KEEP_RESULTS = 4
+"""Tool results older than this many turns are trimmed from the conversation, so every step does not resend them."""
 
 SYSTEM = """You are an AI agent working on a software project through the Plovane whiteboard.
 The whiteboard is a live map of the project: blocks (services, databases, folders, files,
@@ -285,19 +290,76 @@ class LocalClient:
 
 # Input: reply (dict[str, Any])
 # Output: dict[str, Any]
-# Processing: The blocks and arrows of a board envelope, without styles or coordinates.
+# Processing: An outline of a board envelope for a model: every part (services, folders, outside systems...) with its short label, summary and pins; files one by one when few, else counted per folder; arrows between parts, with import arrows only counted.
 # Changed by: Claude Code
-# Date: 2026-11-09
+# Date: 2026-11-26
 def compact_board(reply: dict[str, Any]) -> dict[str, Any]:
     if not reply.get("ok"):
         return reply
     board = (reply.get("data") or {}).get("board") or {}
-    blocks = [{k: b.get(k) for k in ("id", "kind", "name", "layer", "path", "parent", "status") if b.get(k) is not None}
-              for b in (board.get("blocks") or {}).values()]
-    arrows = [{k: a.get(k) for k in ("from", "to", "type") if a.get(k) is not None}
-              for a in (board.get("arrows") or {}).values()]
-    return {"ok": True, "blocks": blocks, "arrows": arrows,
-            "layers": {k: v.get("name") for k, v in (board.get("layers") or {}).items()}}
+    blocks = board.get("blocks") or {}
+
+    # Input: b (dict[str, Any])
+    # Output: dict[str, Any]
+    # Processing: The few fields of one block a model needs.
+    # Changed by: Claude Code
+    # Date: 2026-11-26
+    def brief(b: dict[str, Any]) -> dict[str, Any]:
+        meta = b.get("meta") or {}
+        row = {k: b.get(k) for k in ("id", "kind", "name", "path", "parent", "status") if b.get(k) not in (None, "", "built")}
+        if meta.get("short_name"):
+            row["short"] = meta["short_name"]
+        if meta.get("summary"):
+            row["summary"] = str(meta["summary"])[:90]
+        if meta.get("pinned"):
+            row["pinned"] = meta["pinned"]
+        return row
+
+    files = [b for b in blocks.values() if b.get("kind") in FILE_KINDS]
+    out: dict[str, Any] = {"ok": True, "parts": [brief(b) for b in blocks.values() if b.get("kind") not in FILE_KINDS]}
+    if len(files) <= MANY_FILES:
+        out["files"] = [brief(b) for b in files]
+    else:
+        counts: dict[str, int] = {}
+        for b in files:
+            counts[b.get("parent") or "(top)"] = counts.get(b.get("parent") or "(top)", 0) + 1
+        out["files_per_folder"] = counts
+        out["files_note"] = f"{len(files)} file blocks, counted per folder; see one with /block info <id> or /files <folder>"
+    imports = 0
+    arrows = []
+    for a in (board.get("arrows") or {}).values():
+        if a.get("type") == "import":
+            imports += 1
+            continue
+        row = {k: a.get(k) for k in ("source", "target", "type") if a.get(k) is not None}
+        if (a.get("style") or {}).get("label"):
+            row["label"] = a["style"]["label"]
+        arrows.append(row)
+    out["arrows"] = arrows
+    out["import_arrows"] = imports
+    out["layers"] = {k: v.get("name") for k, v in (board.get("layers") or {}).items()}
+    return out
+
+
+# Input: messages (list[dict[str, Any]]), provider (str), keep (int)
+# Output: None
+# Processing: Replace tool results older than the last few turns with a short marker, so each step does not resend them all.
+# Changed by: Claude Code
+# Date: 2026-11-26
+def trim_history(messages: list[dict[str, Any]], provider: str, keep: int = KEEP_RESULTS) -> None:
+    marker = "(earlier tool result trimmed; call the tool again if you need it)"
+    if provider == "anthropic":
+        turns = [m for m in messages if m["role"] == "user" and isinstance(m.get("content"), list)]
+        for message in turns[:-keep] if keep else turns:
+            for block in message["content"]:
+                if block.get("type") == "tool_result" and block.get("content") != marker:
+                    block["content"] = marker
+    else:
+        turns = [i for i, m in enumerate(messages) if m["role"] == "assistant" and m.get("tool_calls")]
+        cutoff = turns[-keep] if keep and len(turns) >= keep else (len(messages) if not keep else 0)
+        for message in messages[:cutoff]:
+            if message["role"] == "tool":
+                message["content"] = marker
 
 
 # Input: client (Any), name (str), args (dict[str, Any])
@@ -441,6 +503,7 @@ def run(task: str, *, provider: str, client: Any, model: str | None = None, max_
         else:
             messages.extend({"role": "tool", "tool_call_id": call_id, "content": output}
                             for call_id, output in results)
+        trim_history(messages, provider)
 
     return {"status": "max_steps", "steps": max_steps, "commands": commands, "usage": usage,
             "provider": provider, "model": model,
