@@ -22,7 +22,8 @@ button { font: inherit; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; clip-path: inset(50%); }
 :focus-visible { outline: 3px solid #1d1d1f; outline-offset: 4px; }
 .site-header { min-height: 72px; padding: 0 max(24px, calc((100vw - var(--page-width))/2)); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); background: var(--canvas); position: sticky; top: 0; z-index: 20; }
-.brand { font-size: 20px; font-weight: 750; letter-spacing: -1px; }
+.brand { display: inline-flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 700; letter-spacing: -1px; }
+.brand img { width: 36px; height: 36px; object-fit: contain; }
 .main-nav { display: flex; align-items: center; gap: 30px; color: var(--muted); font-size: 14px; font-weight: 550; }
 .main-nav a:not(.nav-cta):hover, .footer-links a:hover { color: var(--ink); }
 .nav-cta, .button { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 14px; font-weight: 650; }
