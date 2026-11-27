@@ -22,6 +22,7 @@ board, board/file, command, op, undo, redo and prompt/* act on one whiteboard: t
     GET  /api/v1/whiteboard/boards       every whiteboard (.plo file) in the project, for the tabs
     GET  /api/v1/whiteboard/events      live changes as Server-Sent Events (?token= for EventSource)
     GET  /api/v1/whiteboard/events/recent  ?after=SEQ, the same events as JSON
+    GET  /api/v1/whiteboard/agents/presence       which outside agents are online right now
     POST /api/v1/whiteboard/agents/<name>/token   person only: make an agent and its API token
     DELETE /api/v1/whiteboard/agents/<name>/token person only: revoke it
     GET  /api/v1/whiteboard/providers   Claude / DeepSeek / OpenAI: configured or not
@@ -167,6 +168,31 @@ def create_app(workspace: Workspace, chat: AgentChat | None = None, *, person_to
     # Task events reach browsers only for this project (several apps may run in one test process).
     task_file = workspace.root / ".plovane" / task_display.FILE
     task_display.LISTENERS.append(lambda event, path: bus.publish(event) if path == task_file else None)
+    from backend.whiteboard.presence import ACTIVE_SECONDS, Presence, describe
+
+    presence = Presence()
+    app.config["plovane_presence"] = presence
+
+    # Input: name (str), doing (str), came (bool)
+    # Output: None
+    # Processing: Tell the pages an agent has just come online, so its bubble stops saying "Not connected".
+    # Changed by: Claude Code
+    # Date: 2026-11-27
+    def announce_online(name: str, doing: str, came: bool) -> None:
+        if came:
+            bus.publish({"at": now(), "kind": "agent", "type": "online", "actor": name, "agent": name, "doing": doing})
+
+    # Input: event (dict[str, Any])
+    # Output: None
+    # Processing: Any event an agent causes (an ask it made, a run's steps) counts as it being there.
+    # Changed by: Claude Code
+    # Date: 2026-11-27
+    def note_event(event: dict[str, Any]) -> None:
+        name = event.get("actor")
+        if name and name != USER and event.get("type") != "online":
+            announce_online(name, "", presence.seen(name))
+
+    bus.listeners.append(note_event)
     boards: dict[str, Workspace] = {MAIN_BOARD: workspace}
     """Every open whiteboard (.plo file), by name; each tab in the page shows one."""
     app.config["plovane_boards"] = boards
@@ -213,6 +239,38 @@ def create_app(workspace: Workspace, chat: AgentChat | None = None, *, person_to
                          "an agent's comes from 'plovane agent token <name>'"}})
         g.actor = USER if kind == "person" else name
         return None
+
+    # Input: none
+    # Output: None
+    # Processing: Note an agent's request as presence; a held-open event stream only counts as seen, not busy.
+    # Changed by: Claude Code
+    # Date: 2026-11-27
+    @app.before_request
+    def note_agent():
+        g.present = None
+        if not request.path.startswith("/api/"):
+            return None
+        name = actor()
+        if not name or name == USER:
+            return None
+        doing = describe(request.method, request.path, request.get_json(silent=True) if request.is_json else None)
+        if request.path.endswith("/events"):
+            announce_online(name, "watching the board", presence.seen(name, "watching the board"))
+            return None
+        announce_online(name, doing, presence.begin(name, doing))
+        g.present = name
+        return None
+
+    # Input: error (BaseException | None)
+    # Output: None
+    # Processing: The agent's request is over; it stays online a little longer.
+    # Changed by: Claude Code
+    # Date: 2026-11-27
+    @app.teardown_request
+    def agent_done(error: BaseException | None = None) -> None:
+        name = g.pop("present", None)
+        if name:
+            presence.end(name)
 
     # Input: none
     # Output: HTML response
@@ -369,6 +427,7 @@ def create_app(workspace: Workspace, chat: AgentChat | None = None, *, person_to
                 "live": live.snapshot(target),  # agents working, API pass/fail, attacks (ops/live.py)
                 "about": target.main.board.view.get("about", ""),  # what the whole project is
                 "overlays": overlay_state(target, current, actor()),  # overlay definitions, view and results
+                "presence": presence.snapshot(),  # outside agents online now (presence.py)
                 "seq": bus.seq,
             }
         return {"ok": True, "data": data, "error": None}
@@ -693,6 +752,15 @@ def create_app(workspace: Workspace, chat: AgentChat | None = None, *, person_to
     def events_recent():
         after = request.args.get("after", default=0, type=int)
         return send({"ok": True, "data": {"seq": bus.seq, "events": bus.since(after)}, "error": None})
+
+    # Input: none
+    # Output: tuple
+    # Processing: Which outside agents are online, busy and what they last did, for the bubbles.
+    # Changed by: Claude Code
+    # Date: 2026-11-27
+    @app.get("/api/v1/whiteboard/agents/presence")
+    def agents_presence():
+        return send({"ok": True, "data": {"presence": presence.snapshot(), "active_seconds": ACTIVE_SECONDS}, "error": None})
 
     # Input: name (str)
     # Output: tuple

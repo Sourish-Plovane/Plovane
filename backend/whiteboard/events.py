@@ -29,25 +29,28 @@ class EventBus:
 
     # Input: none
     # Output: None
-    # Processing: Start with no events and sequence number zero.
+    # Processing: Start with no events, sequence number zero and no listeners.
     # Changed by: Claude Code
-    # Date: 2026-11-09
+    # Date: 2026-11-27
     def __init__(self) -> None:
         self._events: deque[dict[str, Any]] = deque(maxlen=KEEP)
         self._seq = 0
         self._cond = threading.Condition()
+        self.listeners: list[Any] = []  # called with each stored event, outside the lock
 
     # Input: event (dict[str, Any])
     # Output: dict[str, Any]
-    # Processing: Number an event, keep it and wake every stream.
+    # Processing: Number an event, keep it, wake every stream and tell the listeners.
     # Changed by: Claude Code
-    # Date: 2026-11-09
+    # Date: 2026-11-27
     def publish(self, event: dict[str, Any]) -> dict[str, Any]:
         with self._cond:
             self._seq += 1
             stored = {"seq": self._seq, **event}
             self._events.append(stored)
             self._cond.notify_all()
+        for listener in list(self.listeners):
+            listener(stored)
         return stored
 
     # Input: after (int)

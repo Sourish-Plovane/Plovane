@@ -125,6 +125,9 @@
 }
 .ab-dot { position:absolute; right:-1px; bottom:-1px; width:11px; height:11px; border-radius:50%; background:#c4c8d1; border:2px solid #fff; }
 .ab-dot.on { background:#2fb57a; }
+.ab-dot.seen { background:#e0b54a; }
+.ab-dot.live { animation:ab-live 1.6s ease-out infinite; }
+@keyframes ab-live { 0% { box-shadow:0 0 0 0 #2fb57a88; } 100% { box-shadow:0 0 0 7px #2fb57a00; } }
 .ab-label { display:flex; flex-direction:column; line-height:1.25; }
 .ab-label b { font-size:13px; color:#20242c; }
 .ab-label small { font-size:11px; color:#8a919d; white-space:nowrap; }

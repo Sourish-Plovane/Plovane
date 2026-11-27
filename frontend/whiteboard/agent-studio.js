@@ -25,6 +25,35 @@
   const hueOf = name => HUES[[...name].reduce((n, c) => n + c.charCodeAt(0), 0) % HUES.length]
   const initials = name => name.replace(/[-_]+/g, ' ').trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase() || '✦'
 
+  // -- Presence: an agent working through its token is online even with no saved connection --
+  // The server notes every request an agent makes (backend/whiteboard/presence.py); we poll it.
+  let presence = { list: {}, at: Date.now(), active: 90 }
+  const ago = s => s < 60 ? 'just now' : s < 3600 ? `${Math.round(s / 60)} min ago` : s < 86400 ? `${Math.round(s / 3600)} h ago` : 'over a day ago'
+  function liveOf(name) {
+    const p = (presence.list || {})[name] || (wb.board?.presence || {})[name]
+    if (!p) return null
+    const since = p.ago + (Date.now() - presence.at) / 1000
+    return { ...p, since, online: p.busy || since < presence.active }
+  }
+  // What the bubble says about how an agent is connected, and whether its dot is lit.
+  function connectionOf(a, long = false) {
+    const p = liveOf(a.name)
+    const saved = a.connection === 'mcp' ? (long ? 'Connected over MCP' : 'MCP') : a.connection === 'api' ? (long ? `Runs with ${providerLabel(a.provider)}` : providerLabel(a.provider) || 'API key') : ''
+    if (p?.online) return { text: p.busy ? 'Working now' : 'Online', dot: 'on live', tip: p.doing || '' }
+    if (saved) return { text: saved, dot: 'on', tip: p ? `Last active ${ago(p.since)}` : '' }
+    if (p) return { text: `Seen ${ago(p.since)}`, dot: 'seen', tip: p.doing ? `Last: ${p.doing}` : '' }
+    return { text: long ? 'Not connected yet' : 'Not connected', dot: '', tip: '' }
+  }
+  async function pollPresence() {
+    if (!document.hidden && wb.request) {
+      try {
+        const d = await wb.request('agents/presence')
+        presence = { list: d.presence || {}, at: Date.now(), active: d.active_seconds || 90 }
+      } catch (_) { /* offline or demo board: keep the last answer */ }
+    }
+    setTimeout(pollPresence, 4000)
+  }
+
   // -- Where a path is reachable for an agent: the most specific grant wins ------------------
   function accessOf(agent, path) {
     let best = null
@@ -142,16 +171,16 @@
 
   function renderBubbles() {
     const list = agents()
-    const key = JSON.stringify(list.map(a => [a.name, a.place, a.connection, a.provider, a.grants, a.instructions && 1])) + selected
+    const key = JSON.stringify(list.map(a => [a.name, a.place, a.connection, a.provider, a.grants, a.instructions && 1, connectionOf(a)])) + selected
     if (key === lastKey) return
     lastKey = key
     layer.innerHTML = list.map((a, i) => {
       const place = a.place && a.place.x != null ? a.place : { x: .9, y: .1 + i * .13 }
-      const via = a.connection === 'mcp' ? 'MCP' : a.connection === 'api' ? providerLabel(a.provider) || 'API key' : 'Not connected'
+      const conn = connectionOf(a), via = conn.text
       const reach = (a.grants || []).length
       return `<div class="agent-bubble${selected === a.name ? ' selected' : ''}" data-agent="${esc(a.name)}" style="left:${(place.x * 100).toFixed(2)}%;top:${(place.y * 100).toFixed(2)}%;--hue:${hueOf(a.name)}">
-        <button class="ab-avatar" data-ab="select" aria-label="${esc(a.name)}: ${esc(via)}, ${esc(grantsSummary(a))}">${esc(initials(a.name))}<i class="ab-dot ${a.connection ? 'on' : ''}"></i></button>
-        <div class="ab-label"><b>${esc(a.name)}</b><small>${esc(via)} · ${reach ? `${reach} ${reach === 1 ? 'place' : 'places'}` : 'no access'}</small></div>
+        <button class="ab-avatar" data-ab="select" aria-label="${esc(a.name)}: ${esc(via)}, ${esc(grantsSummary(a))}">${esc(initials(a.name))}<i class="ab-dot ${conn.dot}"></i></button>
+        <div class="ab-label"${conn.tip ? ` title="${esc(conn.tip)}"` : ''}><b>${esc(a.name)}</b><small>${esc(via)} · ${reach ? `${reach} ${reach === 1 ? 'place' : 'places'}` : 'no access'}</small></div>
         <button class="ab-plus" data-ab="permissions" title="Permissions, instructions and access" aria-label="Edit ${esc(a.name)}'s permissions">+</button>
         <button class="ab-arrow" data-ab="arrow" title="Drag onto a folder or file to give access" aria-label="Drag to give ${esc(a.name)} access">↗</button>
       </div>`
@@ -401,7 +430,7 @@
     }
     const options = await folderOptions()
     sheet.hidden = false
-    const via = a.connection === 'mcp' ? 'Connected over MCP' : a.connection === 'api' ? `Runs with ${providerLabel(a.provider)}` : 'Not connected yet'
+    const via = connectionOf(a, true).text
     const draw = (focusSel) => {
       const matches = options.filter(o => !draft.query || o.path.toLowerCase().includes(draft.query.toLowerCase())).slice(0, 40)
       sheet.innerHTML = `<form class="ss-card ss-perm" aria-label="${esc(name)} permissions">
@@ -479,5 +508,6 @@
   // ======================================================================== Wiring =====
   const tick = () => { renderBubbles(); requestAnimationFrame(() => setTimeout(tick, 400)) }
   tick()
+  pollPresence()
   window.PlovaneStudio = { newAgent, permissions, connect: connectStep, refresh: () => { lastKey = ''; renderBubbles() } }
 })()
