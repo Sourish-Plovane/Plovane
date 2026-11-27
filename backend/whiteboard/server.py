@@ -193,6 +193,21 @@ def create_app(workspace: Workspace, chat: AgentChat | None = None, *, person_to
             announce_online(name, "", presence.seen(name))
 
     bus.listeners.append(note_event)
+
+    # Input: none
+    # Output: dict[str, dict[str, Any]]
+    # Processing: Presence of outside agents, plus the whiteboard AI itself while jobs are in its line.
+    # Changed by: Claude Code
+    # Date: 2026-11-27
+    def presence_now() -> dict[str, dict[str, Any]]:
+        from backend.whiteboard.ai_queue import queue_for
+
+        seen = presence.snapshot()
+        line = queue_for(workspace.root).waiting()
+        if line:
+            more = f", {len(line) - 1} waiting" if len(line) > 1 else ""
+            seen[BOARD_AI] = {"online": True, "busy": True, "ago": 0.0, "doing": f"working for {line[0]}{more}"}
+        return seen
     boards: dict[str, Workspace] = {MAIN_BOARD: workspace}
     """Every open whiteboard (.plo file), by name; each tab in the page shows one."""
     app.config["plovane_boards"] = boards
@@ -427,7 +442,7 @@ def create_app(workspace: Workspace, chat: AgentChat | None = None, *, person_to
                 "live": live.snapshot(target),  # agents working, API pass/fail, attacks (ops/live.py)
                 "about": target.main.board.view.get("about", ""),  # what the whole project is
                 "overlays": overlay_state(target, current, actor()),  # overlay definitions, view and results
-                "presence": presence.snapshot(),  # outside agents online now (presence.py)
+                "presence": presence_now(),  # agents online now (presence.py) and the whiteboard AI's line
                 "seq": bus.seq,
             }
         return {"ok": True, "data": data, "error": None}
@@ -760,7 +775,7 @@ def create_app(workspace: Workspace, chat: AgentChat | None = None, *, person_to
     # Date: 2026-11-27
     @app.get("/api/v1/whiteboard/agents/presence")
     def agents_presence():
-        return send({"ok": True, "data": {"presence": presence.snapshot(), "active_seconds": ACTIVE_SECONDS}, "error": None})
+        return send({"ok": True, "data": {"presence": presence_now(), "active_seconds": ACTIVE_SECONDS}, "error": None})
 
     # Input: name (str)
     # Output: tuple

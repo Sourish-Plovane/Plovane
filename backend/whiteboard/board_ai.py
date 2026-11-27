@@ -42,6 +42,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from backend.whiteboard import codegen, llm_agent
+from backend.whiteboard.ai_queue import Busy, queue_for, waiting_text
 from backend.whiteboard.engine import BOARD_AI, USER
 from backend.whiteboard.store import SKIP_DIRS
 
@@ -204,14 +205,14 @@ def commands_reply() -> dict[str, Any]:
          "people_only": not OPERATIONS[c.op].agents} for c in COMMANDS]}}
 
 
-# Input: ws (Workspace), message (str), requester (str), lock (threading.RLock | None), provider (str | None), model (str | None), on_step (Callable | None), max_steps (int), stop (threading.Event | None)
+# Input: ws (Workspace), message (str), requester (str), lock (threading.RLock | None), provider (str | None), model (str | None), on_step (Callable | None), max_steps (int), stop (threading.Event | None), label (str | None)
 # Output: dict[str, Any]
-# Processing: Have the whiteboard AI carry out one request on the board and return its summary and the commands it ran.
+# Processing: Have the whiteboard AI carry out one request on the board and return its summary and the commands it ran; jobs take turns (ai_queue.py) and each shows on the temporary display while it waits and works.
 # Changed by: Claude Code
-# Date: 2026-11-25
+# Date: 2026-11-27
 def ask(ws: Any, message: str, *, requester: str = USER, lock: Any = None, provider: str | None = None,
         model: str | None = None, on_step: Callable[[dict[str, Any]], None] | None = None,
-        max_steps: int = MAX_ASK_STEPS, stop: threading.Event | None = None) -> dict[str, Any]:
+        max_steps: int = MAX_ASK_STEPS, stop: threading.Event | None = None, label: str | None = None) -> dict[str, Any]:
     text = (message or "").strip()
     if not text:
         raise llm_agent.AgentError("ask the whiteboard AI something, e.g. 'show the payment flow'")
@@ -222,9 +223,48 @@ def ask(ws: Any, message: str, *, requester: str = USER, lock: Any = None, provi
     client = llm_agent.LocalClient(ws, lock, BOARD_AI, lambda: board_reply(ws), commands_reply)
     who = {USER: "the person", WATCHER: "the project watcher (files changed outside the whiteboard)",
            BOARD_AI: "Plovane"}.get(requester, f"the AI agent {requester!r}")
-    result = llm_agent.run(f"Request from {who}:\n{text}", provider=name, client=client, model=chosen_model,
-                           max_steps=max_steps, on_step=on_step, stop=stop, system=SYSTEM)
-    return {**result, "requester": requester}
+
+    # Input: none
+    # Output: dict[str, Any]
+    # Processing: The whiteboard AI's loop for this request.
+    # Changed by: Claude Code
+    # Date: 2026-11-27
+    def work() -> dict[str, Any]:
+        return llm_agent.run(f"Request from {who}:\n{text}", provider=name, client=client, model=chosen_model,
+                             max_steps=max_steps, on_step=on_step, stop=stop, system=SYSTEM)
+
+    queue = queue_for(ws.root)
+    if queue.mine():  # nested inside a job that already holds the turn (a build checking its drawing)
+        return {**work(), "requester": requester}
+    from backend.whiteboard.tasks import TaskBoard
+
+    display = TaskBoard(ws.root)
+    title = label or job_label(text)
+    task = display.start(title, by=requester, kind="board-ai", at=None, message="queued")
+    try:
+        with queue.turn(requester, on_wait=lambda ahead: display.update(task["id"], by=requester, waiting=True,
+                                                                          message=waiting_text(ahead))):
+            display.update(task["id"], by=requester, message="working", waiting=False)
+            result = work()
+    except Busy as exc:
+        display.finish(task["id"], by=requester, failed=True, message=str(exc))
+        raise llm_agent.AgentError(str(exc)) from exc
+    except BaseException as exc:
+        display.finish(task["id"], by=requester, failed=True, message=f"stopped: {exc}"[:160])
+        raise
+    summary = str(result.get("summary") or result.get("status") or "")
+    display.finish(task["id"], by=requester, failed=result.get("status") != "done", message=summary[:160] or None)
+    return {**result, "requester": requester, "task": task["id"]}
+
+
+# Input: text (str)
+# Output: str
+# Processing: A short card title for a whiteboard AI job: its first line, cut to fit.
+# Changed by: Claude Code
+# Date: 2026-11-27
+def job_label(text: str) -> str:
+    first = text.strip().splitlines()[0].strip() if text.strip() else "request"
+    return "Whiteboard AI: " + (first if len(first) <= 60 else first[:57].rstrip() + "...")
 
 
 DRAW_SYSTEM = """You draw a software project's architecture for the Plovane whiteboard.
@@ -330,9 +370,9 @@ def project_docs(root: Path) -> str:
 
 # Input: ws (Workspace), lock (threading.RLock | None), provider (str | None), model (str | None), on_step (Callable | None), organise (bool)
 # Output: dict[str, Any]
-# Processing: Build the board: import the project from the code, draw its main parts in one call, then let the whiteboard AI check and finish it (skipped, with a note, when no AI key is set).
+# Processing: Build the board: import the project from the code, then (in its turn in the whiteboard AI's line) draw its main parts in one call and let the whiteboard AI check and finish it (skipped, with a note, when no AI key is set).
 # Changed by: Claude Code
-# Date: 2026-11-25
+# Date: 2026-11-27
 def build(ws: Any, *, lock: Any = None, provider: str | None = None, model: str | None = None,
           on_step: Callable[[dict[str, Any]], None] | None = None, organise: bool = True) -> dict[str, Any]:
     lock = lock or threading.RLock()
@@ -353,9 +393,16 @@ def build(ws: Any, *, lock: Any = None, provider: str | None = None, model: str 
 
     # Shown on the temporary display; past builds supply the time estimate.
     display = TaskBoard(ws.root)
-    task = display.start("Building the whiteboard", by=BOARD_AI, kind="board-build", message="drawing the architecture")
+    task = display.start("Building the whiteboard", by=BOARD_AI, kind="board-build", message="queued")
     try:
-        return build_steps(ws, out, task["id"], display, lock=lock, provider=provider, model=model, on_step=on_step)
+        # The build takes its turn like any other whiteboard AI job; its own check runs inside that turn.
+        with queue_for(ws.root).turn(BOARD_AI, on_wait=lambda ahead: display.update(task["id"], by=BOARD_AI, waiting=True,
+                                                                                    message=waiting_text(ahead))):
+            display.update(task["id"], by=BOARD_AI, message="drawing the architecture", waiting=False)
+            return build_steps(ws, out, task["id"], display, lock=lock, provider=provider, model=model, on_step=on_step)
+    except Busy as exc:
+        display.finish(task["id"], by=BOARD_AI, failed=True, message=str(exc))
+        raise llm_agent.AgentError(str(exc)) from exc
     except Exception as exc:
         display.finish(task["id"], by=BOARD_AI, failed=True, message=f"stopped: {exc}")
         raise
@@ -554,6 +601,7 @@ class ProjectWatcher:
         message = OVERLAY_TASK.format(kinds="\n".join(f"- {SIGNALS[k]}" for k in fresh), overlays=overlays)
         try:
             result = ask(self.ws, message, requester=WATCHER, lock=self.lock, max_steps=MAX_OVERLAY_STEPS,
+                         label="Whiteboard AI: checking new kinds of information",
                          on_step=lambda e: self.publish({"kind": "agent", "actor": BOARD_AI, "requester": WATCHER, **e}))
         except llm_agent.AgentError as exc:
             return {"new": fresh, "note": f"overlay check failed: {exc}"}

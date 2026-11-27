@@ -33,3 +33,6 @@
 .task-owner { margin:1em 0 .5em; font-size:.9em; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
 .task-owner small { font-weight:700; margin-left:.4em; }
 .task-more { margin:.2em 0 0; font-size:.8em; color:var(--muted); }
+.task-card.waiting { opacity:.8; border-style:dashed; }
+.task-card.waiting .task-state { background:var(--line); color:var(--muted); }
+.task-card.waiting .task-bar { visibility:hidden; }

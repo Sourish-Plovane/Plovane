@@ -52,10 +52,11 @@
    * Output: object
    * Processing: Time left and finish time now, counted down from the ETA the server gave.
    * Changed by: Claude Code
-   * Date: 2026-11-26
+   * Date: 2026-11-27
    */
   function timing(task) {
     if (task.status !== 'running') return { left: task.status, when: '' }
+    if (task.waiting) return { left: 'in line', when: 'starts when the jobs ahead finish' }
     if (task.overdue) return { left: 'taking longer than expected', when: '' }
     if (!task.eta) return { left: 'no estimate yet', when: '' }
     const eta = new Date(task.eta), left = (eta - Date.now()) / 1000
@@ -124,20 +125,20 @@
    * Output: string
    * Processing: One task card: name, time left, progress, latest news and where it is happening.
    * Changed by: Claude Code
-   * Date: 2026-11-26
+   * Date: 2026-11-27
    */
   function card(task) {
     const t = timing(task), pct = task.progress != null ? Math.round(task.progress * 100) : null
     const place = task.at ? (wb()?.blocks()?.[task.at]?.name || task.at) : null
     const news = (task.updates || []).slice(-3).reverse()
       .map(u => `<li><time>${esc(new Date(u.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</time> ${esc(u.message)}</li>`).join('')
-    return `<article class="task-card ${esc(task.status)}${st.highlight === task.id ? ' flash' : ''}" data-task="${esc(task.id)}" title="${place ? `Go to ${esc(place)}` : 'Show this task'}">
-      <header><span class="task-name">${esc(task.name)}</span><span class="task-state">${esc(task.status === 'running' ? (pct != null ? `${pct}%` : 'running') : task.status)}</span></header>
+    return `<article class="task-card ${esc(task.status)}${task.waiting ? ' waiting' : ''}${st.highlight === task.id ? ' flash' : ''}" data-task="${esc(task.id)}" title="${place ? `Go to ${esc(place)}` : 'Show this task'}">
+      <header><span class="task-name">${esc(task.name)}</span><span class="task-state">${esc(task.status === 'running' ? (task.waiting ? 'waiting' : pct != null ? `${pct}%` : 'running') : task.status)}</span></header>
       <div class="task-time" data-time="${esc(task.id)}"><b>${esc(t.left)}</b>${t.when ? ` · ${esc(t.when)}` : ''}</div>
       <div class="task-bar"><i style="width:${pct ?? (task.status === 'running' ? 8 : 100)}%"></i></div>
       ${task.message ? `<p class="task-msg">${esc(task.message)}</p>` : ''}
       <ul class="task-news">${news}</ul>
-      <footer><span>${esc(task.by || '')} · ${esc(task.elapsed_text || '')} so far${task.basis && task.status === 'running' ? ` · estimate from ${esc(task.basis)}` : ''}</span>${place ? `<button data-goto="${esc(task.at)}">Go to ${esc(place)} →</button>` : ''}</footer>
+      <footer><span>${esc(task.by || '')} · ${esc(task.elapsed_text || '')} ${task.waiting ? 'in line' : 'so far'}${task.basis && task.status === 'running' && !task.waiting ? ` · estimate from ${esc(task.basis)}` : ''}</span>${place ? `<button data-goto="${esc(task.at)}">Go to ${esc(place)} →</button>` : ''}</footer>
     </article>`
   }
 
@@ -146,12 +147,12 @@
    * Output: void
    * Processing: Draw the Tasks area beside the board and the corner chip; both hide when nothing is running or recently finished.
    * Changed by: Claude Code
-   * Date: 2026-11-26
+   * Date: 2026-11-27
    */
   function render() {
     const z = zone(), c = chip()
     if (!z || !c) return
-    const tasks = [...st.tasks.values()].sort((a, b) => (a.status !== 'running') - (b.status !== 'running') || b.started - a.started)
+    const tasks = [...st.tasks.values()].sort((a, b) => (a.status !== 'running') - (b.status !== 'running') || !!a.waiting - !!b.waiting || b.started - a.started)
     const running = tasks.filter(t => t.status === 'running')
     z.hidden = c.hidden = !tasks.length
     if (!tasks.length) return

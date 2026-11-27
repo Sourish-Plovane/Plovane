@@ -40,6 +40,7 @@
     const p = liveOf(a.name)
     const saved = a.connection === 'mcp' ? (long ? 'Connected over MCP' : 'MCP') : a.connection === 'api' ? (long ? `Runs with ${providerLabel(a.provider)}` : providerLabel(a.provider) || 'API key') : ''
     if (p?.online) return { text: p.busy ? 'Working now' : 'Online', dot: 'on live', tip: p.doing || '' }
+    if (a.name === 'plovane') return { text: long ? 'Built-in whiteboard AI, idle' : 'Built in · idle', dot: 'on', tip: 'Plovane\'s own whiteboard AI; agents ask it for board changes' }
     if (saved) return { text: saved, dot: 'on', tip: p ? `Last active ${ago(p.since)}` : '' }
     if (p) return { text: `Seen ${ago(p.since)}`, dot: 'seen', tip: p.doing ? `Last: ${p.doing}` : '' }
     return { text: long ? 'Not connected yet' : 'Not connected', dot: '', tip: '' }

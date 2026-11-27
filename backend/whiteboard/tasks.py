@@ -177,9 +177,9 @@ class TaskBoard:
 
     # Input: task (dict[str, Any])
     # Output: dict[str, Any]
-    # Processing: A task as shown: elapsed, time left (from progress, the estimate, or both), ETA and how it was worked out.
+    # Processing: A task as shown: elapsed, time left (from progress, the estimate, or both, none while in line), ETA and how it was worked out.
     # Changed by: Claude Code
-    # Date: 2026-11-26
+    # Date: 2026-11-27
     def view(self, task: dict[str, Any]) -> dict[str, Any]:
         now = self.clock()
         end = task.get("finished") or now
@@ -188,6 +188,8 @@ class TaskBoard:
         left, basis = None, None
         if task["status"] != "running":
             left, basis = 0.0, "finished"
+        elif task.get("waiting"):
+            left, basis = None, "in line"
         else:
             from_progress = elapsed * (1 - progress) / progress if progress and progress >= 0.05 else None
             from_estimate = max(estimate - elapsed, 0.0) if estimate is not None else None
@@ -203,7 +205,8 @@ class TaskBoard:
         shown.update({
             "elapsed": round(elapsed), "elapsed_text": human(elapsed),
             "left": None if left is None or overdue else round(left),
-            "left_text": "overdue" if overdue else (task["status"] if task["status"] != "running" else human(left)),
+            "left_text": "overdue" if overdue else (task["status"] if task["status"] != "running"
+                                                    else "in line" if task.get("waiting") else human(left)),
             "eta": iso(now + left) if left is not None and task["status"] == "running" and not overdue else None,
             "basis": basis, "overdue": overdue, "updates": task.get("updates", [])[-5:],
         })
@@ -249,13 +252,13 @@ class TaskBoard:
         self.emit("started", task, by, at)
         return self.view(task)
 
-    # Input: ref (str), by (str), progress (Any), message (str | None), at (str | None), estimate (Any)
+    # Input: ref (str), by (str), progress (Any), message (str | None), at (str | None), estimate (Any), waiting (bool | None)
     # Output: dict[str, Any]
-    # Processing: Record progress, a message, a new estimate or the block the task is now about.
+    # Processing: Record progress, a message, a new estimate or the block the task is now about; waiting=True marks it as in line, and waiting=False starts its clock afresh so time in line never counts toward estimates.
     # Changed by: Claude Code
-    # Date: 2026-11-26
+    # Date: 2026-11-27
     def update(self, ref: str, *, by: str, progress: Any = None, message: str | None = None,
-               at: str | None = None, estimate: Any = None) -> dict[str, Any]:
+               at: str | None = None, estimate: Any = None, waiting: bool | None = None) -> dict[str, Any]:
         share, given = fraction(progress), seconds(estimate)
         with self.lock:
             data = self.load()
@@ -270,6 +273,10 @@ class TaskBoard:
                 task["at"] = at
             if message:
                 task["message"] = message
+            if waiting:
+                task["waiting"] = True
+            elif waiting is False and task.pop("waiting", False):
+                task["queued"], task["started"] = task["started"], self.clock()
             task["updates"] = (task.get("updates", []) + [{"t": iso(self.clock()), "message": message or (
                 f"{round(share * 100)}%" if share is not None else "updated"), "at": at}])[-KEEP_UPDATES:]
             self.save(data)

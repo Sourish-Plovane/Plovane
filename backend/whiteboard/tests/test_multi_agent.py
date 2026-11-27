@@ -21,9 +21,9 @@ PERSON = "person-token-for-test"
 
 # Input: tmp_path (Path), monkeypatch (pytest.MonkeyPatch)
 # Output: None
-# Processing: Six agents ask the whiteboard AI, report tasks, read the board and try direct changes in parallel; every ask lands and is credited to its agent, every direct change is refused, every task ends with its owner, and events stay in order.
+# Processing: Six agents ask the whiteboard AI, report tasks, read the board and try direct changes in parallel; every ask lands and is credited to its agent, AI jobs never overlap and each shows as a task, every direct change is refused, every task ends with its owner, and events stay in order.
 # Changed by: Claude Code
-# Date: 2026-11-26
+# Date: 2026-11-27
 def test_many_agents_at_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     pytest.importorskip("flask")
     from werkzeug.serving import make_server
@@ -36,9 +36,20 @@ def test_many_agents_at_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     # Changed by: Claude Code
     # Date: 2026-11-26
     def fake_run(task, *, client, **kwargs):
-        time.sleep(random.uniform(0.01, 0.1))
-        reply = client.run_command(f"/block add service {task.split('ADD:')[-1].strip()}")
+        with running_lock:
+            running.append(1)
+            most[0] = max(most[0], len(running))
+        try:
+            time.sleep(random.uniform(0.01, 0.1))
+            reply = client.run_command(f"/block add service {task.split('ADD:')[-1].strip()}")
+        finally:
+            with running_lock:
+                running.pop()
         return {"status": "done" if reply["ok"] else "error", "summary": "", "commands": [{"ok": reply["ok"]}]}
+
+    running: list[int] = []
+    most = [0]
+    running_lock = threading.Lock()
 
     monkeypatch.setattr(llm_agent, "run", fake_run)
     monkeypatch.setattr(llm_agent, "api_key", lambda *a, **k: "fake")
@@ -106,7 +117,12 @@ def test_many_agents_at_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     names_on_board = {b.name for b in ws.board.blocks.values()}
     assert {f"svc-{n}-{r}" for n in names for r in range(ROUNDS)} <= names_on_board
     assert not any(b.startswith("direct-") for b in names_on_board)
+    assert most[0] == 1  # whiteboard AI jobs took turns
     listing = tasks.TaskBoard(ws.root).listing()
-    assert len(listing) == AGENTS * ROUNDS and all(t["status"] == "done" and t["name"].startswith(t["by"] + " ") for t in listing)
+    own = [t for t in listing if t.get("kind") != "board-ai"]
+    jobs = [t for t in listing if t.get("kind") == "board-ai"]
+    assert len(own) == AGENTS * ROUNDS and all(t["status"] == "done" and t["name"].startswith(t["by"] + " ") for t in own)
+    assert len(jobs) == AGENTS * ROUNDS and all(t["status"] == "done" and t["by"] in names for t in jobs)
     seqs = [e["seq"] for e in events]
-    assert seqs == sorted(set(seqs)) and sum(e["kind"] == "task" for e in events) == AGENTS * ROUNDS * 3
+    assert seqs == sorted(set(seqs))
+    assert sum(e["kind"] == "task" and e.get("task", {}).get("kind") != "board-ai" for e in events) == AGENTS * ROUNDS * 3
