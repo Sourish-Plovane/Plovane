@@ -116,6 +116,7 @@ def add(ctx: Context, kind: str, rest: str) -> list[str]:
         ctx.require(None)
         block = ctx.new_block(kind, name, layer=LAYER)
         block.meta["sketch"] = True
+        block.meta["by"] = ctx.actor  # so a rebuild can replace the whiteboard AI's own drawing, never a person's
         if summary:
             block.meta["summary"] = summary
         done.append(f"added {kind} {block.id}")

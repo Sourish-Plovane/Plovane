@@ -96,6 +96,103 @@ def imports_of(ctx: Context, path: str, modules: dict[str, str] | None = None) -
     return sorted(set(found))
 
 
+JS_IMPORT_NAMES = re.compile(r"""import\s+(?P<i>[^;'"]*?)\s+from\s+['"](?P<is>[^'"]+)['"]"""
+                             r"""|(?:const|let|var)\s+(?P<r>[^=;]+?)\s*=\s*(?:await\s+)?require\(\s*['"](?P<rs>[^'"]+)['"]\s*\)"""
+                             r"""|(?:require\(|import\s*)\s*['"](?P<bare>[^'"]+)['"]""", re.S)
+"""Named JavaScript imports: ``import X, { a, b as c } from "./m"``, ``const { a } = require("./m")``, ``require("./m")``."""
+MAX_USES = 6
+
+
+# Input: names (str)
+# Output: list[str]
+# Processing: The local names a JavaScript import or require binds: "X, { a, b as c }" gives X, a, b; "* as m" gives m.
+# Changed by: Claude Code
+# Date: 2026-11-27
+def js_bound_names(names: str) -> list[str]:
+    out = []
+    for part in re.split(r"[,{}\n]", names):
+        part = re.sub(r"^\s*type\s+", "", part.strip())
+        part = re.sub(r"^\*\s+as\s+", "", part)
+        word = re.match(r"(\w+)", part.split(":")[0].split(" as ")[0].strip())
+        if word and word.group(1) not in ("default", "type"):
+            out.append(word.group(1))
+    return out
+
+
+# Input: ctx (Context), source (str), target (str)
+# Output: dict[str, Any] | None
+# Processing: What one file takes from another it imports: the names it uses and the line of the import; None when no import of target is found.
+# Changed by: Claude Code
+# Date: 2026-11-27
+def import_detail(ctx: Context, source: str, target: str) -> dict[str, Any] | None:
+    try:
+        text = ctx.fs.read(source)
+    except OpError:
+        return None
+    language = codegen.language_of(source)
+    hits: list[tuple[int, list[str]]] = []
+    if language == "python":
+        modules = python_modules(ctx)
+        try:
+            tree = ast.parse(text)
+        except SyntaxError:
+            return None
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                names = [a.asname or a.name for a in node.names if python_target(a.name, source, modules) == target]
+                if names:
+                    hits.append((node.lineno, names))
+            elif isinstance(node, ast.ImportFrom):
+                module = resolve_from(source, node)
+                if not module:
+                    continue
+                if python_target(module, source, modules) == target:
+                    hits.append((node.lineno, [a.asname or a.name for a in node.names]))
+                else:
+                    names = [a.name for a in node.names if python_target(f"{module}.{a.name}", source, modules) == target]
+                    if names:
+                        hits.append((node.lineno, names))
+    elif language in ("javascript", "typescript"):
+        for match in JS_IMPORT_NAMES.finditer(text):
+            spec = match.group("is") or match.group("rs") or match.group("bare") or ""
+            if spec.startswith("."):
+                raw = os.path.join(os.path.dirname(source), spec)
+            elif spec[:2] in ("@/", "~/", "#/"):
+                root = alias_root(ctx, source, spec[0])
+                if root is None:
+                    continue
+                raw = os.path.join(root, spec[2:])
+            else:
+                continue
+            base = os.path.normpath(raw).replace(os.sep, "/")
+            if not any(base + ext == target for ext in JS_EXTENSIONS):
+                continue
+            names = js_bound_names(match.group("i") or match.group("r") or "")
+            hits.append((text.count("\n", 0, match.start()) + 1, names))
+    if not hits:
+        return None
+    uses: list[str] = []
+    for _, names in hits:
+        for name in names:
+            # A whole-module import (const user = require("./user")) is used through its members: name those.
+            members = re.findall(rf"(?<![\w.]){re.escape(name)}\.(\w+)", text)
+            uses.extend(members if len(names) == 1 and members else [name])
+    return {"line": hits[0][0], "uses": list(dict.fromkeys(uses))}
+
+
+# Input: detail (dict[str, Any])
+# Output: str
+# Processing: One plain line for an import arrow: "uses a, b and 3 more", or "loads it" when nothing is named.
+# Changed by: Claude Code
+# Date: 2026-11-27
+def uses_text(detail: dict[str, Any]) -> str:
+    uses = detail.get("uses") or []
+    if not uses:
+        return "loads it"
+    more = len(uses) - MAX_USES
+    return "uses " + ", ".join(uses[:MAX_USES]) + (f" and {more} more" if more > 0 else "")
+
+
 JS_ALIAS = re.compile(r"""(?:from\s+|require\(\s*|import\s+|import\(\s*)['"]([@~#])/([^'"]+)['"]""")
 """Path aliases: "@/x", "~/x" or "#/x" mean a source folder set in tsconfig.json (usually src/)."""
 
@@ -440,10 +537,16 @@ def import_project(ctx: Context, path: str = "", arrows: Any = True) -> dict[str
             source = ctx.board.block_for_path(file)
             for target_path in imports_of(ctx, file, modules):
                 target = ctx.board.block_for_path(target_path)
-                if source and target and not any(
-                        a.source == source.id and a.target == target.id and a.type == "import"
-                        for a in ctx.board.arrows.values()):
-                    added_arrows.append(new_arrow(ctx, source, target, "import").id)
+                if not source or not target:
+                    continue
+                arrow = next((a for a in ctx.board.arrows.values()
+                              if a.source == source.id and a.target == target.id and a.type == "import"), None)
+                if arrow is None:
+                    arrow = new_arrow(ctx, source, target, "import")
+                    added_arrows.append(arrow.id)
+                detail = import_detail(ctx, file, target_path)
+                if detail:  # zoomed in, the arrow says what is used, not just that a file is imported
+                    arrow.meta |= {"uses": detail["uses"], "line": detail["line"], "detail": [uses_text(detail)]}
     extras: dict[str, Any] = {}
     if added_blocks:
         pack_tree(ctx, added_blocks)

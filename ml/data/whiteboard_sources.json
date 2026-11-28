@@ -3,6 +3,20 @@
  "version": 1,
  "repositories": [
   {
+   "repo": "0WhiteDev/Java-Process-Inspector",
+   "commit": "bb64bf3e96efa8d655d9375d2aaf2a6ab8cc36b7",
+   "license": "mit",
+   "language": "Java",
+   "stars": 37
+  },
+  {
+   "repo": "100-hours-a-week/KTB4-11th-AI",
+   "commit": "18507f64ff56e678812cb520ace9d6d5f1986548",
+   "license": "mit",
+   "language": "Python",
+   "stars": 1
+  },
+  {
    "repo": "3xploit666/mindvault",
    "commit": "0986e7a3878905d6aa01cce17a5f814cb392759f",
    "license": "mit",
@@ -10,11 +24,32 @@
    "stars": 2
   },
   {
+   "repo": "4q4r/assay",
+   "commit": "c9ba6e77759994d0fc692c0f2df628544dcbfdd7",
+   "license": "mit",
+   "language": "Go",
+   "stars": 0
+  },
+  {
    "repo": "6Mikao9/elastic-kv-vmm",
    "commit": "c33c56860e1949c4d675a3086204e498bfc8af7c",
    "license": "apache-2.0",
    "language": "Python",
    "stars": 0
+  },
+  {
+   "repo": "7ttp/DeWatt",
+   "commit": "a6816a48e0155e03d2f261ac34333724d337a508",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 15
+  },
+  {
+   "repo": "A12N4V/sema",
+   "commit": "bef8beef2128fb3501e86e5021fab05225043fbb",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 3
   },
   {
    "repo": "AAH20/apex-treecompute",
@@ -31,6 +66,13 @@
    "stars": 4
   },
   {
+   "repo": "AAH20/precision-health-os",
+   "commit": "88b895b06e6571fba31f6e85515a4a251083fb71",
+   "license": "mit",
+   "language": "Python",
+   "stars": 1
+  },
+  {
    "repo": "AAH20/smart-grid-fusion-vpp-kernel",
    "commit": "22cc091115a9c092381022baed0cd7088a3fea4f",
    "license": "apache-2.0",
@@ -45,11 +87,53 @@
    "stars": 0
   },
   {
+   "repo": "AakashMutum/paypal-hackathon",
+   "commit": "ee5d90d6a3a29e0baae22bfc204a5a0596e3fc70",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 10
+  },
+  {
+   "repo": "AalimBaba/GlassWall-AI",
+   "commit": "1cf080d11acff280c91fa4d48e4910c1b09d41e5",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 1
+  },
+  {
+   "repo": "AatirNadim/plan-parse",
+   "commit": "77eba38e9614c86fbf37814f9e1a38677da6b378",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 0
+  },
+  {
+   "repo": "ABCrimson/NextCalc",
+   "commit": "d2df16ce242b6d7987b577aa492467fc152f460a",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "abdul05kh/DealFlow360",
+   "commit": "fde8dd092dd91d801dc78965a83e621f90eacd65",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 3
+  },
+  {
    "repo": "abeermeer/switchboard",
    "commit": "ce25db63992ee598c805be193be546dd00e0bcb7",
    "license": "mit",
    "language": "TypeScript",
    "stars": 2
+  },
+  {
+   "repo": "ABHIJEET-MUNESHWAR/RegGate",
+   "commit": "55fcc42956f195eaec0e53f017cdaa2594945b91",
+   "license": "mit",
+   "language": "Go",
+   "stars": 1
   },
   {
    "repo": "abhishekjasani/AgentAnyStack",
@@ -59,10 +143,129 @@
    "stars": 4
   },
   {
+   "repo": "abi-0611/optipilot",
+   "commit": "fe5505f6ab102d20f977efb38fa5e0f1b2c91f9f",
+   "license": "apache-2.0",
+   "language": "Go",
+   "stars": 0
+  },
+  {
+   "repo": "AboubacarSow/kcodd",
+   "commit": "2f06397f7d55f0c92218556d90d68cf6a8cdab24",
+   "license": "mit",
+   "language": "C#",
+   "stars": 3
+  },
+  {
+   "repo": "abubakar228/docflare-ai",
+   "commit": "923fb5fd286faf87ddbee01d9ae09c8cc4b44a6f",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "achrafS133/SECOND_BRAIN",
+   "commit": "14b67f6656134b488772caf2e9d71b63d15b54ec",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "acnologiaslayer/arccode",
+   "commit": "ec021b7f2b1244d2e9d578df4e33f7ab7030d95f",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "Adam-Blf/genius",
+   "commit": "b36ce91e16da21691881c281275f5eb3701f359d",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "Adam-Blf/Projet-IA-Generative-Doctis-AI-mo",
+   "commit": "2f0191e2922d9f723b1b52ad216593f44a3d08be",
+   "license": "mit",
+   "language": "Python",
+   "stars": 1
+  },
+  {
+   "repo": "Adarsh-Me/Agent-Audit",
+   "commit": "0406cbe3e079e63f12330f6a772d04a568caa8d6",
+   "license": "apache-2.0",
+   "language": "TypeScript",
+   "stars": 1
+  },
+  {
+   "repo": "Adescentralized/Adescentralized-SDK",
+   "commit": "a260dbc9e22949bb4b59564e12ada2a933a32576",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 0
+  },
+  {
+   "repo": "adiprmx/atlys",
+   "commit": "f068ac39949289f4331a94efe5f0df948e824422",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 5
+  },
+  {
+   "repo": "Aeripsen/shelf",
+   "commit": "d02780ba5d197db793641422adc4344ad06447dd",
+   "license": "mit",
+   "language": "C#",
+   "stars": 0
+  },
+  {
+   "repo": "afonsoft/gamehub",
+   "commit": "7195c2ca548e43e00578cd27c774a7c0e6365563",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 1
+  },
+  {
+   "repo": "afonsoft/KnowledgeRAG",
+   "commit": "6c788dd98f06c55723ccda1df9f330a1e16fe135",
+   "license": "mit",
+   "language": "C#",
+   "stars": 4
+  },
+  {
+   "repo": "agentform-org/agentform",
+   "commit": "f9540ec0cde700dcf6e97d184460f4ab07347e94",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 8
+  },
+  {
    "repo": "agents-demo/rootcause",
    "commit": "2416cbf21f59e200da121566b597749f42099e56",
    "license": "mit",
    "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "agiledon/sparrow",
+   "commit": "925aa82f79fecb791f4d8e18155232b0657cfa23",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 44
+  },
+  {
+   "repo": "agustinustheo/licensable-runtime",
+   "commit": "8d286abaf2198286dfbcd56194cb83df86707d82",
+   "license": "mit",
+   "language": "Rust",
+   "stars": 0
+  },
+  {
+   "repo": "ahmedoshelmy/study-forge",
+   "commit": "009e467e1314a003e42d7494fc15e5004a423e6a",
+   "license": "mit",
+   "language": "Java",
    "stars": 0
   },
   {
@@ -73,10 +276,24 @@
    "stars": 580
   },
   {
+   "repo": "akazad13/shopizy-api",
+   "commit": "cfb2cdc1b093919ae90fc001249c4243b056b283",
+   "license": "mit",
+   "language": "C#",
+   "stars": 0
+  },
+  {
    "repo": "Akio333/stickerdex",
    "commit": "eb69c2796c8fa030aa89760d98617d18a5700b8e",
    "license": "mit",
    "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "alanbulan/prism-delivery-console",
+   "commit": "e833a08d12b84a503ad0499a39b79814acc5a791",
+   "license": "mit",
+   "language": "Rust",
    "stars": 0
   },
   {
@@ -87,10 +304,73 @@
    "stars": 17
   },
   {
+   "repo": "alexandreeberhardt/TheoLDR",
+   "commit": "4244fb709309bb83dbfadac04f34469068e344c4",
+   "license": "mit",
+   "language": "Python",
+   "stars": 12
+  },
+  {
+   "repo": "ALIBCJH/LLL-Code-Evaluator",
+   "commit": "1f90e38d00ec0b7a745e627ae0ffd48c733f62e5",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
    "repo": "AliBnh/IndustrialSentinel",
    "commit": "c6350108e15f6d06767f054f84ec484c1ac0a35e",
    "license": "mit",
    "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "alirezajafarlou/health-api",
+   "commit": "162b7fdbfb7db23c6dd38f01d7e2c05544d126cd",
+   "license": "isc",
+   "language": "JavaScript",
+   "stars": 5
+  },
+  {
+   "repo": "AllenDang/memvid-rs",
+   "commit": "413e30768afd8a70da601786ba3c99dc36b963e7",
+   "license": "mit",
+   "language": "Rust",
+   "stars": 65
+  },
+  {
+   "repo": "allthingsclowd/craicgpt.ie",
+   "commit": "6460087d33ed45d4a8c779d18aa455eb0b363367",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "amineelkouhen/mcp-cockroachdb",
+   "commit": "c4d6235c87374d41a650cc3f9c61e82438251fce",
+   "license": "mit",
+   "language": "Python",
+   "stars": 12
+  },
+  {
+   "repo": "Amirosagan/ATC_01116338319",
+   "commit": "4d03388765b87d8db5f9358a8694ccc9b25be782",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "AmosBunde/retention-lab",
+   "commit": "b7d3774cfd603cb964a84854617b2824780bd837",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "amritessh/ezMedSafe",
+   "commit": "8eac3dfd1064c4bc5806630503f68122d4766f64",
+   "license": "mit",
+   "language": "JavaScript",
    "stars": 0
   },
   {
@@ -101,11 +381,25 @@
    "stars": 4
   },
   {
+   "repo": "AnandBinuArjun/career-intelligence-platform",
+   "commit": "0806796b787e7faa56a6d74fb3df3772bd339327",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
    "repo": "anbergem/agent-native-clever-cloud-starter",
    "commit": "84d102cbf1ce30be77536feb1939728313a52272",
    "license": "mit",
    "language": "TypeScript",
    "stars": 0
+  },
+  {
+   "repo": "andrewhopper/hivemind",
+   "commit": "c4d41f1b958c0915c353c8fedc58439adfaf0fd3",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 41
   },
   {
    "repo": "andysenclave/mimir",
@@ -115,8 +409,22 @@
    "stars": 1
   },
   {
+   "repo": "ANIKET150104/AI-fitness-tracker",
+   "commit": "b3054be0cc55fa74b3c3cc21fcd7767c39560834",
+   "license": "mit",
+   "language": "Java",
+   "stars": 0
+  },
+  {
    "repo": "anima-regem/trace2test",
    "commit": "7d8fd3c43302a12e29f04992ea5f7a94809725f7",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "AnmollCodes/eve-healthcare-booking-api",
+   "commit": "760c9368bff8bae183cef22ccfeee6b46677098a",
    "license": "mit",
    "language": "Python",
    "stars": 0
@@ -127,6 +435,48 @@
    "license": "mit",
    "language": "Python",
    "stars": 5
+  },
+  {
+   "repo": "AnshulBari/CerebrOps",
+   "commit": "d86e9682069ed9b8e9e6c81e5286f4c9d6bdbc99",
+   "license": "mit",
+   "language": "Python",
+   "stars": 1
+  },
+  {
+   "repo": "antoniojefferson/chronos-ruby",
+   "commit": "ea45c28889185cf8e49e0699b70df4162b1deed5",
+   "license": "mit",
+   "language": "Ruby",
+   "stars": 0
+  },
+  {
+   "repo": "anurag12sharma/codeMentor-ai",
+   "commit": "a6a7c41519644c8dbfe8cd8a783682eb42740dd3",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 1
+  },
+  {
+   "repo": "ar-agents/ar-agents",
+   "commit": "38b95ef6e34d6a3f3a9000c369dbe529929c294a",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 3
+  },
+  {
+   "repo": "arfaouiahmed1/huntflow",
+   "commit": "7daa4d9a3aa5d86b36471bf7f316d44b7ca9375d",
+   "license": "apache-2.0",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "arityzerolabs/mcvt",
+   "commit": "504c1bf538ff58043f0f27ecbe1f710a06716d44",
+   "license": "apache-2.0",
+   "language": "Rust",
+   "stars": 4
   },
   {
    "repo": "Armangb1/roboomni",
@@ -150,10 +500,52 @@
    "stars": 183
   },
   {
+   "repo": "AstraDLCs/TaskCraft",
+   "commit": "5dd90fb8a900249e06955d424c8a61e23871320d",
+   "license": "apache-2.0",
+   "language": "Rust",
+   "stars": 3
+  },
+  {
+   "repo": "ataraxiagoddess/BudgetBrewer",
+   "commit": "34d22ed81f5d4ec125c13e6fd0eb6ecafade09ce",
+   "license": "mit",
+   "language": "Kotlin",
+   "stars": 0
+  },
+  {
+   "repo": "atas/autotunnel",
+   "commit": "2156acf06b43df89459d75edc67302fbf1c3e33b",
+   "license": "mit",
+   "language": "Go",
+   "stars": 30
+  },
+  {
+   "repo": "aupv9/portcullis-rust",
+   "commit": "2c136f137a1480018b89f347148f1ec2ff717494",
+   "license": "apache-2.0",
+   "language": "Rust",
+   "stars": 1
+  },
+  {
+   "repo": "autumn-foundation/autumn-graphql-plugin",
+   "commit": "4f02b5f5e62df46edb559ffb590d407ba5058b2a",
+   "license": "apache-2.0",
+   "language": "Rust",
+   "stars": 0
+  },
+  {
    "repo": "aymenfurter/voicelive-agent-patterns",
    "commit": "1fb553a3c2d019de04f2cb1bece3951fb74f8a28",
    "license": "mit",
    "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "aymuos/parcel-guard",
+   "commit": "c98a0c66c61ec34926d5f083bbbaca740aeb30ce",
+   "license": "apache-2.0",
+   "language": "TypeScript",
    "stars": 0
   },
   {
@@ -171,11 +563,46 @@
    "stars": 0
   },
   {
+   "repo": "Beezte/Suggestions-portal",
+   "commit": "a4865c412e9ccaf7077deac6561c51b1026a7754",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 0
+  },
+  {
+   "repo": "behramkendra/korugan",
+   "commit": "0ce2a57f12d1f06d5c6347f3110ca0d13c53edb1",
+   "license": "apache-2.0",
+   "language": "Go",
+   "stars": 7
+  },
+  {
+   "repo": "Bestbbb/velobase-ai-research-collector",
+   "commit": "301bcb4119191d41f33a977f76f574cdc2201bc7",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
    "repo": "betarixm/composables",
    "commit": "07cfcedab3778eaf1c20b2bf64bf5614406d1098",
    "license": "mit",
    "language": "Python",
    "stars": 3
+  },
+  {
+   "repo": "bharqav/SLM",
+   "commit": "53916076b0f74dc63278cee51b878e99a3276b6a",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "BigDella/parcel-protocol",
+   "commit": "8553c2f49835e0c2ce5ab58d0d6af26f7ca3e120",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 0
   },
   {
    "repo": "bigfish-emily/commerce-support-agent",
@@ -185,6 +612,20 @@
    "stars": 0
   },
   {
+   "repo": "billionzeros/computer",
+   "commit": "558e38ea13f4f7a525d725394d5331dd08a08410",
+   "license": "apache-2.0",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "BinanIbrahim/redis-client-ts",
+   "commit": "27d5d49ce571aeb6376274bc3b0c65407e4f2245",
+   "license": "apache-2.0",
+   "language": "TypeScript",
+   "stars": 1
+  },
+  {
    "repo": "biszdevelopers/general-moderation",
    "commit": "802a79d3702e30b8f6bd2d1d8e779672266ddb84",
    "license": "mit",
@@ -192,11 +633,81 @@
    "stars": 2
   },
   {
+   "repo": "bl0rch1d/barad_dur",
+   "commit": "20259423ed26e94757d41eecc20a59aae8df9b5f",
+   "license": "mit",
+   "language": "Ruby",
+   "stars": 0
+  },
+  {
+   "repo": "blackwell-systems/vaultmux",
+   "commit": "46ec9a7c67b34188671b4762794e242538ccbd36",
+   "license": "apache-2.0",
+   "language": "Go",
+   "stars": 2
+  },
+  {
+   "repo": "bluelikeness/roundtable-agent",
+   "commit": "84ad3b91f317dd6ba3b5e2e1fb774b46e6a81f94",
+   "license": "mit",
+   "language": "Python",
+   "stars": 1
+  },
+  {
+   "repo": "bobberdolle1/PersonaForge",
+   "commit": "7062e05f827bf6c449fa05558ce9e0593348d692",
+   "license": "mit",
+   "language": "Rust",
+   "stars": 3
+  },
+  {
+   "repo": "brendaevilly/crowdfunding-platform",
+   "commit": "4749068481cc0f62af13014e18370c82633b9f83",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "brianohe21-pixel/integracionessh",
+   "commit": "f6cddce02e1f40f81b58e0035be2ce9b37fe1acc",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
    "repo": "budityw23/maternity-hl7-to-fhir-pipeline",
    "commit": "d8e6431285be92a798b4b7dbbe85a10a8c33235a",
    "license": "mit",
    "language": "Python",
    "stars": 1
+  },
+  {
+   "repo": "BugHunterX2101/watchfloor",
+   "commit": "2ccb31e27e084b248c1d7fd67579a552e2aa8c29",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "Caesarlo/sdlc-harness",
+   "commit": "278450e70b14ff808b30c4659d2e55fb55ce65d8",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 2
+  },
+  {
+   "repo": "causely-oss/jira-teams-workflow",
+   "commit": "6ac378880967e1e406b4ee7a74d716b4ae2fed38",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "cdrrazan/Roost",
+   "commit": "48eaef88be30c3e01f7acc6305ca110a2f6247d1",
+   "license": "mit",
+   "language": "Go",
+   "stars": 2
   },
   {
    "repo": "cerebral-work/lnr",
@@ -213,11 +724,130 @@
    "stars": 1
   },
   {
+   "repo": "ChangXiang-SCU/empirehacks-2026",
+   "commit": "22131f63d0e8a9786c96e178b890d47b7aa02675",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 2
+  },
+  {
+   "repo": "chinixdev/financial-transaction-platform",
+   "commit": "4384899c2a7fe1219f9755b46ee3199745e4efb5",
+   "license": "mit",
+   "language": "Java",
+   "stars": 0
+  },
+  {
+   "repo": "chrom/quarkus-ms-gold-template",
+   "commit": "3d4cb0ef0befc94df811b85c7e7484fc6a08d53c",
+   "license": "mit",
+   "language": "Java",
+   "stars": 0
+  },
+  {
+   "repo": "chronosnehal/assistants-to-agents",
+   "commit": "7991376c579fc5043f9138b3ee11985c8a6bb087",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "chyp3r/KACHOW-Teknofest-2026",
+   "commit": "816ca4554d2dd32a37961487d8efca5f45374fc6",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 47
+  },
+  {
+   "repo": "Ciao1019/Petrichor",
+   "commit": "05c4c0dd9bceb08730b70556642044c7614c6bec",
+   "license": "apache-2.0",
+   "language": "TypeScript",
+   "stars": 159
+  },
+  {
+   "repo": "clemlesne/private-gpt",
+   "commit": "a230923c622f8612ebd05651c5bde1b12ddd9a98",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 61
+  },
+  {
+   "repo": "CLOUDVGR2/Relay-monorepo",
+   "commit": "bda371eadc8135107d533798e5b988fb7607f91d",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 0
+  },
+  {
    "repo": "code-423n4/2022-03-lifinance",
    "commit": "12e6ee3371aa7054ef93beb674c50ffced631664",
    "license": "mit",
    "language": "TypeScript",
    "stars": 6
+  },
+  {
+   "repo": "Codezy93/Credit-Risk-and-Failure-Modeling-Platform",
+   "commit": "e91cfe794f97dca4b5da7c0c43125c859bcf17c0",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "CollectorCtrl/CollectorCtrl-K8s-Operator",
+   "commit": "9c62152513a3cc21b4757923588aa8234d93e74c",
+   "license": "apache-2.0",
+   "language": "Go",
+   "stars": 0
+  },
+  {
+   "repo": "companieshouse/chs-notification-kafka-consumer",
+   "commit": "b1cfe980603f2d0315a7721badc43ceb477304de",
+   "license": "mit",
+   "language": "Java",
+   "stars": 1
+  },
+  {
+   "repo": "ConceptCodes/poly-script",
+   "commit": "ce828622975c6945a2ceb0b218b395193fdb3fc8",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "CondigenceProject/CondigenceLLP-Agents",
+   "commit": "e63ae262ca4c1ceedd48851e8c1d3ff08285fc47",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "connectwithub/gharbench",
+   "commit": "ba53c989c55d721978b07c98bbe4692badfef14c",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 2
+  },
+  {
+   "repo": "coolvanish/Rudeus",
+   "commit": "4f58c288aae90ccff0e734b38f419af4fef1be62",
+   "license": "mit",
+   "language": "Kotlin",
+   "stars": 0
+  },
+  {
+   "repo": "cro2003/BharatBhraman",
+   "commit": "5f9ab69ea75ff410d82785a96d3a95e2d143543c",
+   "license": "mit",
+   "language": "Python",
+   "stars": 5
+  },
+  {
+   "repo": "cryptoleo79/tsunagi-funding",
+   "commit": "8d5468164800711dab5d0ef2541dd8535e252e98",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
   },
   {
    "repo": "CTRLD3FEAT/Co-Boost",
@@ -227,9 +857,30 @@
    "stars": 2
   },
   {
+   "repo": "cyuss/marginalia",
+   "commit": "9b20749ca853d78fbf62c6fd9793862ee405f44f",
+   "license": "mit",
+   "language": "Rust",
+   "stars": 0
+  },
+  {
+   "repo": "DABIN-HUB/data-collection-service",
+   "commit": "7e367868668f9507eb465ecbd45dc76b73d4478c",
+   "license": "mit",
+   "language": "Java",
+   "stars": 14
+  },
+  {
    "repo": "daddi1987/DynamicAxisControl",
    "commit": "ebe578d5c9cab09add61e297f0af84a43cf126bb",
    "license": "unlicense",
+   "language": "Python",
+   "stars": 1
+  },
+  {
+   "repo": "dan-petty/vibes",
+   "commit": "1f66cad74cdd87dff7c515abfab5c5521e89ac7c",
+   "license": "apache-2.0",
    "language": "Python",
    "stars": 1
   },
@@ -239,6 +890,27 @@
    "license": "mit",
    "language": "Python",
    "stars": 3
+  },
+  {
+   "repo": "dani-rodr/HomeAutomation",
+   "commit": "13514d9bb1731f92c8f910592bf73dfccebd66eb",
+   "license": "mit",
+   "language": "C#",
+   "stars": 0
+  },
+  {
+   "repo": "danielhansenjones/fraud_ml_platform",
+   "commit": "9d02e309f2fc1f63e1d90e0c7fe17b456d52d4e5",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "daniilguchua/axiom-engine",
+   "commit": "8774d27590e5f921708fd0e537b5679d681e24fc",
+   "license": "mit",
+   "language": "Python",
+   "stars": 1
   },
   {
    "repo": "datascientest-fastAPI-project-group-25/fastAPI-project-app",
@@ -255,6 +927,13 @@
    "stars": 68
   },
   {
+   "repo": "ddamme05/FileSystem",
+   "commit": "8dbb3d5a6ea901845cf2cc9a815f59204785188e",
+   "license": "mit",
+   "language": "Java",
+   "stars": 2
+  },
+  {
    "repo": "dennidalpos/studio-social",
    "commit": "e2068be9141694ebfe68c57fc0efbaee80925f8c",
    "license": "mit",
@@ -262,8 +941,85 @@
    "stars": 0
   },
   {
+   "repo": "Denyme24/Adaptive-Threat-Modeler",
+   "commit": "72bd839cf00218f7df3bda2e8088c8b19d95d428",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
    "repo": "devarmiche/pii-aware-llm-router",
    "commit": "1f66325462d345b24074c58606599f5649f710f0",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "DevNico/cerbos-kt",
+   "commit": "dea6019fe290e9c5523920057d9c5f8753828c35",
+   "license": "apache-2.0",
+   "language": "Kotlin",
+   "stars": 0
+  },
+  {
+   "repo": "devxjitin/CampusGrade",
+   "commit": "67f7ff820482faa56d388f0731d469f9141e6407",
+   "license": "unlicense",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "dext7r/jetbrains",
+   "commit": "aa33ac9857bab3808e581a0cfd4f049ebfb06fcf",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "DEzhakieel/tree-of-life",
+   "commit": "774dd2b0e7bc65cff123d33a3c86d34cdbb4a0be",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "DiegoYegros/aratiri",
+   "commit": "c5ab74aee2a2e56120afdc187e467d5d803f56d1",
+   "license": "mit",
+   "language": "Java",
+   "stars": 3
+  },
+  {
+   "repo": "digiogithub/git-in-track",
+   "commit": "ecb028fb46bb7f41cf6e283628afe539e5113717",
+   "license": "mit",
+   "language": "Go",
+   "stars": 1
+  },
+  {
+   "repo": "Dineshkumar2006471/DealForge",
+   "commit": "74eb66d050fa477ec199f520edcb067db5251acf",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 3
+  },
+  {
+   "repo": "dineshrajdhanapathyDD/AI-Adaptive-Serverless-SaaS-Platform-with-Strands-Agents-MCP-on-AWS",
+   "commit": "c47fdc135dcbb1a480c43563d484c45d30bfcc9e",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "dineshrajdhanapathyDD/TurfArena",
+   "commit": "65c7bf5f2f65b177bc13428c7297f0d2dbb9feb5",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "dineshravichandiran/aws-self-healing-restarter",
+   "commit": "4157e1362a8b8f430fbc23e265e35f69d0ff690d",
    "license": "mit",
    "language": "Python",
    "stars": 0
@@ -276,8 +1032,64 @@
    "stars": 0
   },
   {
+   "repo": "DirektorBani/DataSafeS3",
+   "commit": "c8807a9612e5f732549cb8d7caa3470ca1ca2e37",
+   "license": "apache-2.0",
+   "language": "Go",
+   "stars": 18
+  },
+  {
+   "repo": "dmzoneill/ollama-proxy",
+   "commit": "07e199021e13ae027841bca50b845632c89e383f",
+   "license": "apache-2.0",
+   "language": "Go",
+   "stars": 1
+  },
+  {
+   "repo": "dnzilkay/local-cv-builder",
+   "commit": "b7a7c9d61d131212b54fcec85fccc87719b2cf4e",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 2
+  },
+  {
    "repo": "doanane/imaginehewal3-26-main",
    "commit": "875cfb5f3855ec670c655e25ca04fe5cb4232381",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "dreamware-nz/loveliness",
+   "commit": "f8414a9892ef2284d4b7fc28bc7e0613b930b5aa",
+   "license": "mit",
+   "language": "Go",
+   "stars": 10
+  },
+  {
+   "repo": "DrisH31/GetShipKit",
+   "commit": "c226f820530421f452de00aae612c1b29260f418",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 6
+  },
+  {
+   "repo": "DrWrytaker/aegis_med",
+   "commit": "e870ccb1ec66b9f4224396f53ca62ad05d70a53b",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "dugerdev/TravelBooking",
+   "commit": "759dbd3ea374d19beb04ec757d988fe85eb08aed",
+   "license": "mit",
+   "language": "C#",
+   "stars": 1
+  },
+  {
+   "repo": "duhman/volterra-web",
+   "commit": "4aa9b1d6d8ed815de115c604eb65b2f9e5f22ba8",
    "license": "mit",
    "language": "TypeScript",
    "stars": 0
@@ -290,8 +1102,43 @@
    "stars": 0
   },
   {
+   "repo": "Dzarlax-AI/health_dashboard",
+   "commit": "dfbc366e93d372b468218a68041340f8046d7ae9",
+   "license": "mit",
+   "language": "Go",
+   "stars": 1
+  },
+  {
+   "repo": "dzaykk/documenya",
+   "commit": "061842e71433aa63a84109d4bd12ff73f2d5f0a0",
+   "license": "mit",
+   "language": "Python",
+   "stars": 3
+  },
+  {
+   "repo": "dzhng/duet-agent",
+   "commit": "839f6bb1646ad1a50dd458803d9e13c9fa58699f",
+   "license": "apache-2.0",
+   "language": "TypeScript",
+   "stars": 53
+  },
+  {
    "repo": "Ebrahim2029/NoteMind",
    "commit": "f9b1753423a989061b82510579c4e5cabe0c3a1f",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "eclipse-xfsc/oid4-vci-vp-well-known-service",
+   "commit": "9d595cd5ceb25a48aee544efa1301a426a4caa32",
+   "license": "apache-2.0",
+   "language": "Go",
+   "stars": 0
+  },
+  {
+   "repo": "EdgeAgent/EDGE-AGENCY-AI-Governance",
+   "commit": "100c2f255ac8cfcedffbd055123e46f0a3056d26",
    "license": "mit",
    "language": "Python",
    "stars": 0
@@ -304,8 +1151,29 @@
    "stars": 2
   },
   {
+   "repo": "eft-library/eft-library-airflow",
+   "commit": "a5224b91d8b53874f2b3c55c475054589f812552",
+   "license": "mit",
+   "language": "Python",
+   "stars": 3
+  },
+  {
+   "repo": "egoughnour/curate-ipsum",
+   "commit": "6c0f4a368be96056566b4eed0b53e45ceb39c749",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
    "repo": "elenaescribano-pixel/studyfold",
    "commit": "22c2c3c4bd838b5f8fb68549e120594898c6900d",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "Elliot-Sones/AgentGate",
+   "commit": "50d7db3e997aa7c57a47c12f567330eedb438ba1",
    "license": "mit",
    "language": "Python",
    "stars": 0
@@ -318,6 +1186,13 @@
    "stars": 111
   },
   {
+   "repo": "EndUser123/snapshot",
+   "commit": "785f6b9a052d51fc970f8fbddf5ecb44a8564a3e",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
    "repo": "eran-broder/jev-skills",
    "commit": "d1a7b9000408ca628881051bc442eb6e8b689151",
    "license": "mit",
@@ -325,10 +1200,73 @@
    "stars": 7
   },
   {
+   "repo": "Erenen1/Proven_Ops",
+   "commit": "f02d52249e2b5424fab41f1687f347fb73bc4c01",
+   "license": "mit",
+   "language": "Go",
+   "stars": 0
+  },
+  {
+   "repo": "ErenKarakus1/Food-Delivery-System",
+   "commit": "98f4dd2ec8f50d18c36ffb0ced6ba2b88a55019e",
+   "license": "mit",
+   "language": "Go",
+   "stars": 1
+  },
+  {
+   "repo": "erinnodarse23/backend-biblioteca-santa-lucia",
+   "commit": "ee079d69cd120679625a44c1d5e137d3d7259bc2",
+   "license": "mit",
+   "language": "Java",
+   "stars": 0
+  },
+  {
+   "repo": "esd2014-byte/lift",
+   "commit": "2dfc63aac3c6bd2a79e0c32c506507ace7f95517",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "eshu-hq/eshu-workflow",
+   "commit": "1e07e9214e1c6536e82066c9b0095ddd2660c1f7",
+   "license": "mit",
+   "language": "Go",
+   "stars": 0
+  },
+  {
    "repo": "Evilstein-debug/eth-starter",
    "commit": "44bec351845e408e8dc2efd8b414f18c2df6e767",
    "license": "mit",
    "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "EZE404/submodx",
+   "commit": "f2cfba39653f5539d2dc1a1ba29bb7ed23a25ce4",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 4
+  },
+  {
+   "repo": "Faadil1/nimcarry",
+   "commit": "b723389afb250d807ca107aa3c7749d3aaacded9",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "famousleads/safecadence-network-risk",
+   "commit": "67a7aa97be53c41f5b626ddb9764555f16b829be",
+   "license": "mit",
+   "language": "Python",
+   "stars": 1
+  },
+  {
+   "repo": "felipedferreira/Cinedex",
+   "commit": "500fe9b37b4ac7c7229161052cf4716b6be177e4",
+   "license": "mit",
+   "language": "C#",
    "stars": 0
   },
   {
@@ -344,6 +1282,27 @@
    "license": "mit",
    "language": "TypeScript",
    "stars": 5
+  },
+  {
+   "repo": "fengxinyuan/academic-core",
+   "commit": "8424137d5c2cce2331b5a1c05af052505a146b09",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "fgarofalo56/Supercharge_Microsoft_Fabric",
+   "commit": "06afc87dfed6261f5cd112560f1b09505a331c9d",
+   "license": "mit",
+   "language": "Python",
+   "stars": 6
+  },
+  {
+   "repo": "Fivex-Labs/fivfold",
+   "commit": "2e18d4d059c1867ce0d918311e7e7190411bc033",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 9
   },
   {
    "repo": "flexaihq/flexbench",
@@ -367,11 +1326,74 @@
    "stars": 16
   },
   {
+   "repo": "fozagtx/repromo",
+   "commit": "6efa19e015248829d371ae35f80cb7250c0cee39",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 1
+  },
+  {
+   "repo": "frekele/order-service-demo",
+   "commit": "4ca8dc5d4157ad555a7225cc741f42481d9b25ab",
+   "license": "mit",
+   "language": "Java",
+   "stars": 3
+  },
+  {
+   "repo": "Fruit-Guardians/PureAutoCodeql",
+   "commit": "34981ca9854b576ed7f15d818cacaf292de0328d",
+   "license": "mit",
+   "language": "Python",
+   "stars": 10
+  },
+  {
+   "repo": "Ft2801/Data-Playground",
+   "commit": "0e7a7abbc12ec2656462d392ba86383ab279d848",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "FullFran/Agent-skills-POC",
+   "commit": "ad2026310485396c21101eadbb3fc57a4c65afc1",
+   "license": "mit",
+   "language": "Python",
+   "stars": 1
+  },
+  {
+   "repo": "fupcode/imageflow",
+   "commit": "7063533136ef0804baa4dc1be334e10dc6c12fbb",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "Gaalbu/Supply-chain-API",
+   "commit": "7ed5615815ec68bdf03b18d75b7a02e4a9cc0efe",
+   "license": "mit",
+   "language": "Java",
+   "stars": 0
+  },
+  {
    "repo": "gabrielfc7/time-series-forecasting-basics",
    "commit": "9cc585f62837229dd1a26ed1a5124b267a036f3d",
    "license": "mit",
    "language": "Python",
    "stars": 0
+  },
+  {
+   "repo": "Galactica-corp/aztec-x402",
+   "commit": "739843989c72ef1d539e69f4aaeff620dbac7298",
+   "license": "apache-2.0",
+   "language": "TypeScript",
+   "stars": 2
+  },
+  {
+   "repo": "galaxy-sea/heifer",
+   "commit": "850d0c871f38f9a9f7a0cf87a97ad4365e07f3f6",
+   "license": "apache-2.0",
+   "language": "Java",
+   "stars": 15
   },
   {
    "repo": "GautamVhavle/SavePoint",
@@ -381,11 +1403,67 @@
    "stars": 0
   },
   {
+   "repo": "gayathra45/SNFC-App",
+   "commit": "336bd5cf6b0c90d9c2098fc4aea8bcb8ab5a1add",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 1
+  },
+  {
+   "repo": "geggo98/marble-lantern",
+   "commit": "1a55138efacce625072405cb816bcfbf8ede8ed5",
+   "license": "apache-2.0",
+   "language": "Java",
+   "stars": 0
+  },
+  {
+   "repo": "GenX0Gravity/Echoes-The-Offline-Memory-Keeper",
+   "commit": "4550e8f33b376d824344f58a553677abb948297b",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 0
+  },
+  {
+   "repo": "ggrell/RxReactor",
+   "commit": "b442b2d8b39a82284726677c75b28a1e6d4e0922",
+   "license": "bsd-3-clause",
+   "language": "Kotlin",
+   "stars": 18
+  },
+  {
+   "repo": "Git-Kapish/Hack-NullVoid",
+   "commit": "5bbb24e8aabae4f0e251b7c1e3d0a71153540231",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 0
+  },
+  {
+   "repo": "glaucia86/weather-mcp-server",
+   "commit": "25d68abac2b1433090b8d28e40e25a5bb8ab234a",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 99
+  },
+  {
    "repo": "glaucopater/freeprompt",
    "commit": "3fc74dc04b1b871f4026594622dc5083cb705a06",
    "license": "mit",
    "language": "TypeScript",
    "stars": 3
+  },
+  {
+   "repo": "gokhanertogan/ModulerMonolith",
+   "commit": "a9c6085d0c1370d3f070e51a5a83d8733fa73194",
+   "license": "mit",
+   "language": "C#",
+   "stars": 0
+  },
+  {
+   "repo": "golang-app/ecommerce",
+   "commit": "f4eb2b22288de800a075875e42f87781c3b5c5bd",
+   "license": "mit",
+   "language": "Go",
+   "stars": 148
   },
   {
    "repo": "GoldenOwlAsia/agent-lens",
@@ -395,11 +1473,53 @@
    "stars": 1
   },
   {
+   "repo": "goodfellow-cms/goodfellow-cms",
+   "commit": "6a5b2a74124439f30cb11b90ba882a347514ec9f",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 2
+  },
+  {
+   "repo": "goorm-gongbang/102-goormgb-backend",
+   "commit": "e28cdf2ffa2408d82a9579dec33866ce87ca7af9",
+   "license": "mit",
+   "language": "Java",
+   "stars": 1
+  },
+  {
+   "repo": "GoSimplicity/AI-CloudOps-aiops",
+   "commit": "2bed5f6ed7eb6ff182afd13b76613b97f974d8f7",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 42
+  },
+  {
    "repo": "GreatDataLabs/great-generator",
    "commit": "1d4ef6f381751cd927117da56ac9a85f50fa3e25",
    "license": "mit",
    "language": "Python",
    "stars": 66
+  },
+  {
+   "repo": "Gryczka/cloudflare-live-blog",
+   "commit": "aae035d5c262dff66f6e086c638cc6a2a86185d2",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "haidinhtuan/shadow",
+   "commit": "46370cf87106a98957dfcbca9da7a224b11dcc92",
+   "license": "apache-2.0",
+   "language": "Go",
+   "stars": 3
+  },
+  {
+   "repo": "Hamzabakh1/courtline-padel-community",
+   "commit": "44fd8d216144a325992713ba5662ebd0a89f07b9",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
   },
   {
    "repo": "HarleyCoops/RailroadHarness",
@@ -416,10 +1536,38 @@
    "stars": 2
   },
   {
+   "repo": "HarshJ23/Deeper-Seeker",
+   "commit": "70948611999030ef289d52fb842fef446b2ade28",
+   "license": "mit",
+   "language": "Python",
+   "stars": 420
+  },
+  {
+   "repo": "Harshs515/SIHhack",
+   "commit": "b301faf22af49c89817a3ba59b7174b839e6db8f",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 0
+  },
+  {
+   "repo": "Hashiravc/climapipe",
+   "commit": "0a0bdafe5e2e0d3d86d3c62f25508e44ba584aa4",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
    "repo": "hasibshahriyar/CacheRoute",
    "commit": "fdaddc4286058918c698015a5ed57dd246806545",
    "license": "mit",
    "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "hasithamanage/smartcity-insights",
+   "commit": "949600620c3e47a39b01654aa5dbbefee49b32dc",
+   "license": "mit",
+   "language": "C#",
    "stars": 0
   },
   {
@@ -444,11 +1592,39 @@
    "stars": 0
   },
   {
+   "repo": "HenryVarro666/anota",
+   "commit": "1317b3a07bb94fd9fcbee485d9dcab1ab0231c3e",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "hirefrank/briefings",
+   "commit": "3f023e3a33dbf276c46a49fef764bbc37dbfa3cd",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 7
+  },
+  {
+   "repo": "hnegi01/fes-assistant",
+   "commit": "b4f433eed88f2e2fa10df8377a3032465e1d222c",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
    "repo": "hoangsonww/AI-RAG-Assistant-Chatbot",
    "commit": "e909fa4726bb92f328d3f22a0f189df21bde6521",
    "license": "mit",
    "language": "TypeScript",
    "stars": 55
+  },
+  {
+   "repo": "hoangsonww/Budget-Management-Backend-API",
+   "commit": "09fed8a873b50a094da5e93ffe185e80fa866f3e",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 71
   },
   {
    "repo": "hoangsonww/EstateWise-Chapel-Hill-Chatbot",
@@ -465,11 +1641,25 @@
    "stars": 21
   },
   {
+   "repo": "however-yir/tianji-ai-agent",
+   "commit": "416383fa28713a2d31b5a541c80dea376afac5ff",
+   "license": "mit",
+   "language": "Java",
+   "stars": 47
+  },
+  {
    "repo": "hsummerhays/enterprise-express",
    "commit": "80af3d3db03b19c052726025f912a8e6768db6dc",
    "license": "mit",
    "language": "TypeScript",
    "stars": 4
+  },
+  {
+   "repo": "Hub-Ventures/watahub",
+   "commit": "e895606967fc5d3f06b358ce02a000857a68a8a2",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 5
   },
   {
    "repo": "humanity4ai/project_human",
@@ -493,11 +1683,32 @@
    "stars": 0
   },
   {
+   "repo": "hustronix35-prog/hustronix-content-ops",
+   "commit": "b2d0c8bd4b775bb322e518fad23c41e8770654f5",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "hyojii00/afds-nest-starter",
+   "commit": "7edf8be6761dfc4a6c079a4aaf8ee566b31c22a4",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
    "repo": "iamsammy-ak/ai-architecture-teardown",
    "commit": "bd76ab6bee59744c65ad031cb2100861c9da4b47",
    "license": "mit",
    "language": "Python",
    "stars": 0
+  },
+  {
+   "repo": "iamvinbas/raft-chaos",
+   "commit": "6079f4448e28a38cae241cca5524804e9f14526c",
+   "license": "mit",
+   "language": "Python",
+   "stars": 5
   },
   {
    "repo": "ianuriegas/cinnamon",
@@ -514,6 +1725,69 @@
    "stars": 3
   },
   {
+   "repo": "IceColdMartini/ManipulatorAI",
+   "commit": "71b177b74b0ce54fb301d89635c0044ba515a065",
+   "license": "mit",
+   "language": "Python",
+   "stars": 1
+  },
+  {
+   "repo": "Igorrochalord/FurHub",
+   "commit": "ea20ba32f3252fcf6e7bed309b0ebcd126575331",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 1
+  },
+  {
+   "repo": "il1a/bafoeg-bot",
+   "commit": "180be01f79fae4efb3cac40fd829d5631ed89b6f",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "ilramdhan/start-from-here",
+   "commit": "1edf1bf5224a6e98870a60ed9e472c5c51ef60a9",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 8
+  },
+  {
+   "repo": "iml1111/agent-vision",
+   "commit": "2c8f943484e8c02bbb2de842071a2d4957016ad9",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "INCF/knowledge-space-agent",
+   "commit": "744727b8db8cfa7b5855f824c7b9acea7ab05bf7",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 25
+  },
+  {
+   "repo": "IndarKarhana/RGTTA-Regime-Guided-Test-Time-Adaptation",
+   "commit": "596d7cb7b11104d2f06e6f3983d33449fe0081bf",
+   "license": "mit",
+   "language": "Python",
+   "stars": 10
+  },
+  {
+   "repo": "INdrajit88/knowlwdgekol",
+   "commit": "fb686157a61189555f50586fd1f6a8aa57a4b77b",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "int04/ChatCmd",
+   "commit": "e604ac8cb53322082887f97efdcdd647193de768",
+   "license": "mit",
+   "language": "Rust",
+   "stars": 50
+  },
+  {
    "repo": "iportilla/AI-Team",
    "commit": "3b72d769655b544961d20051bc7c4a5558fea77a",
    "license": "mit",
@@ -521,11 +1795,53 @@
    "stars": 0
   },
   {
+   "repo": "isinghabhishek/change-data-capture-pipeline",
+   "commit": "1a77d6a7e8761f5aa6a1a18aaf9938f321e39ae3",
+   "license": "apache-2.0",
+   "language": "Java",
+   "stars": 2
+  },
+  {
+   "repo": "ITalik-gr/money-track",
+   "commit": "e1c4e2225cfe32898cd8b472ee3275c3b1470fd1",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 1
+  },
+  {
+   "repo": "ItzEmolOrbit/FLN-MathEngine",
+   "commit": "14d929726b1aacbf0f4b8d88cf90865137526de5",
+   "license": "mit",
+   "language": "Python",
+   "stars": 2
+  },
+  {
+   "repo": "iworkforces/CCProxy",
+   "commit": "e39a53a31111e847b7dcdee58ddb2d397348f50c",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 8
+  },
+  {
    "repo": "Jahataa/jaha-eye",
    "commit": "3a405d686451dfbb199c889b3a34ab37e2fe4416",
    "license": "mit",
    "language": "JavaScript",
    "stars": 1
+  },
+  {
+   "repo": "jake1164/presto-ai-dash",
+   "commit": "bbcc0af4053e4a8def0d95d6d84fe5c2c84ae6bf",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "jamaliki/koochak",
+   "commit": "2ed8f38157ec6c99219ac16bc58fc70dbabbd880",
+   "license": "mit",
+   "language": "Python",
+   "stars": 4
   },
   {
    "repo": "Jane-o-O-o-O/Agent-CAD",
@@ -537,6 +1853,41 @@
   {
    "repo": "jannikco/abc-sales-ai-mcp",
    "commit": "4ae60b91d3650d4ae220b06dd3ef94e9c46a6544",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 0
+  },
+  {
+   "repo": "JaspreetG/Gold-commodity-exchange",
+   "commit": "30fdd018ffcd6f49dc820489c0b949954fc84ff9",
+   "license": "mit",
+   "language": "Java",
+   "stars": 0
+  },
+  {
+   "repo": "jaysongiroux/hook_way",
+   "commit": "6077d6229ee37eb13296a3c02cc4ddae959b2278",
+   "license": "mit",
+   "language": "Go",
+   "stars": 1
+  },
+  {
+   "repo": "jbkunama1/hAI.BackupServer",
+   "commit": "b265444443110f6de88fa45cc2c0c29d6b7a8a19",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "jchu96/frame-of-mind",
+   "commit": "f5d542bc140e91424c48e143cf5d4734639691d1",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 4
+  },
+  {
+   "repo": "JiaysTM17/Fullstack-Ecommerce",
+   "commit": "a094f57fea169baaa8f60bf1c812babd1b0beb55",
    "license": "mit",
    "language": "JavaScript",
    "stars": 0
@@ -556,11 +1907,116 @@
    "stars": 0
   },
   {
+   "repo": "Jiusheng01/campus-ai-gateway",
+   "commit": "8044e51bb716717d12a8056ab96538ebb3404ec2",
+   "license": "mit",
+   "language": "Go",
+   "stars": 0
+  },
+  {
+   "repo": "jmmana/Agent-Viewer",
+   "commit": "b9513a29618db68b0387c6b8d7e73d214b4a97d0",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 6
+  },
+  {
+   "repo": "joanse10/zotai",
+   "commit": "8fb27b8d7599c89258255988280fcb6a75514543",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "joevtap/techlab25",
+   "commit": "087d1124132512b158812ab0f8d8203cb8974ad7",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 7
+  },
+  {
+   "repo": "JohNan/homeassistant-floorplan_3d",
+   "commit": "402fc521e63a5aceddfa71a4a486feceba42a313",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "joseyx/remote-pc",
+   "commit": "7c761f35c33c16ff12742766e09f61b9991215b8",
+   "license": "mit",
+   "language": "Go",
+   "stars": 0
+  },
+  {
+   "repo": "joshdaws/layer-lab",
+   "commit": "91bb2a61be0f84c2901ea1383ca8dbd316a8b148",
+   "license": "mit",
+   "language": "Python",
+   "stars": 1
+  },
+  {
+   "repo": "jp7107/StockFlow-go-pos",
+   "commit": "22b0c3eee827cdeb60f0444b7731bd6493fcca3e",
+   "license": "mit",
+   "language": "Go",
+   "stars": 0
+  },
+  {
+   "repo": "jrobhoward/rustbridge",
+   "commit": "2257456ad89b3f717d13b72b8036a2a1bf5487c6",
+   "license": "apache-2.0",
+   "language": "Rust",
+   "stars": 34
+  },
+  {
+   "repo": "jsonmunoz-dev/dashboard-ventas-sql",
+   "commit": "b8d3096811b952c881c60a7209a5300345dcf7b6",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 0
+  },
+  {
+   "repo": "juan3861/omni-executor",
+   "commit": "138436da0cc011f37fe5cbbe60eed6eff1ae6653",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "JunchenMeteor/MeteorVoice",
+   "commit": "f8da4f85af549f0200efbf69d39f1d05ed0f86f6",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 3
+  },
+  {
    "repo": "jylhakos/Data-Analysis-and-Visualizations",
    "commit": "6f2d52656616bde436053755e76556e8783470a0",
    "license": "mit",
    "language": "Python",
    "stars": 0
+  },
+  {
+   "repo": "kaiehrhardt/pp",
+   "commit": "5057ec58019e367a00364811f02bc31c0f3ca9a7",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 3
+  },
+  {
+   "repo": "Karston004/alarm-system",
+   "commit": "e62a9965764b13840e9bfe2705dba28891d3b48a",
+   "license": "mit",
+   "language": "Java",
+   "stars": 0
+  },
+  {
+   "repo": "Kayamii/UniDisk",
+   "commit": "0484628ebd4698e3ae1df81222de133e811af6c8",
+   "license": "mit",
+   "language": "Go",
+   "stars": 9
   },
   {
    "repo": "kdtix-open/sdlca-for-spawn",
@@ -570,10 +2026,73 @@
    "stars": 0
   },
   {
+   "repo": "kennetpostigo/omapomodoro",
+   "commit": "fb43378cecea25b54afebbbd6b1cad8722177137",
+   "license": "mit",
+   "language": "Rust",
+   "stars": 1
+  },
+  {
+   "repo": "kenydebo/marketplace-traffic-defence-lab",
+   "commit": "a9ffcba228bdd92a8eb072b5c6632f7acf0c45a5",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "khaosans/basic-chat",
+   "commit": "62f04087c6c810c017e708dd43ad525d62300cf0",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "KHolodilin/spring-boot-idempotency-starter",
+   "commit": "ced8fd0734caa5333692bea92522c859fb1e89bc",
+   "license": "apache-2.0",
+   "language": "Java",
+   "stars": 21
+  },
+  {
    "repo": "khuongngoduc0310/SummarizerApp",
    "commit": "67e57ea8e6db6919ab265a44c5ec1b8fe106f18a",
    "license": "mit",
    "language": "JavaScript",
+   "stars": 1
+  },
+  {
+   "repo": "KirtiJha/porthaven",
+   "commit": "e24dcd8aa6cfa69af2aaaca837e5d05a9580b46c",
+   "license": "mit",
+   "language": "Python",
+   "stars": 2
+  },
+  {
+   "repo": "kjaylee/microstable",
+   "commit": "c51a54b76be45ab4b9b0259cd394e9664944a39a",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "kkocel/jira-time-logger",
+   "commit": "130adf4f20b051c990fca20f793b6ffbc0672a4a",
+   "license": "apache-2.0",
+   "language": "Kotlin",
+   "stars": 5
+  },
+  {
+   "repo": "kOlapsis/maintenant",
+   "commit": "02f071f91a370eb72f5f4a6150b437eb22fbf387",
+   "license": "apache-2.0",
+   "language": "Go",
+   "stars": 555
+  },
+  {
+   "repo": "Koushik-Zzz/Zapdrop",
+   "commit": "d74bbc963341f3221f223e7c322a92e86883dad7",
+   "license": "mit",
+   "language": "TypeScript",
    "stars": 1
   },
   {
@@ -584,11 +2103,39 @@
    "stars": 0
   },
   {
+   "repo": "KPI-Rover/ros_sw",
+   "commit": "3a90d1a913c8b039c6cf576621034d4da357a2c2",
+   "license": "mit",
+   "language": "Python",
+   "stars": 2
+  },
+  {
    "repo": "Krishan111/Continuum-Agentic_Documentary_Studio",
    "commit": "e373c75083dd638b5a16ec30886cd9f865407a3f",
    "license": "mit",
    "language": "Python",
    "stars": 0
+  },
+  {
+   "repo": "krisnadwiki/mysql-ha-lab",
+   "commit": "a0fea5c822c2948d865f75712b22a9d03eb108bd",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "kucharzky/car-driving-sims",
+   "commit": "f76912c52843df25927691465a45f5f4e64cec8f",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "kunalsinghdadhwal/superbit",
+   "commit": "c9f55cb5e1e0f9a13bd9c41912170376044ea039",
+   "license": "apache-2.0",
+   "language": "Rust",
+   "stars": 2
   },
   {
    "repo": "Kunnatam/V1R4",
@@ -598,11 +2145,116 @@
    "stars": 30
   },
   {
+   "repo": "kurtvalcorza/agentic-vault",
+   "commit": "4e4e6996296c93e0d51d960208456ed293cf1de2",
+   "license": "mit",
+   "language": "Python",
+   "stars": 4
+  },
+  {
+   "repo": "kyr0/defuss-backplane",
+   "commit": "b3109bbfecc07a2fc4472c6d4099bd575853a445",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
    "repo": "kzndotsh/fish-audio-suite",
    "commit": "daff3314c1a0a2f131748a078247258d513002cb",
    "license": "mit",
    "language": "Python",
    "stars": 3
+  },
+  {
+   "repo": "laithse1/DICOM-toolkit-with-a-viewer",
+   "commit": "c742836e9d49ba78ff4d544b198d151dd7ecece7",
+   "license": "mit",
+   "language": "Python",
+   "stars": 2
+  },
+  {
+   "repo": "lamenting-hawthorn/SkillLoop",
+   "commit": "2af24b9a6ffce63b4430c1b8b70afca05d1e2418",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 9
+  },
+  {
+   "repo": "ld-singh/ai-sdlc-architecture-review-agent",
+   "commit": "df591a26d02e889a1d4c1bea6738272e389321ab",
+   "license": "mit",
+   "language": "Python",
+   "stars": 1
+  },
+  {
+   "repo": "leandro-jm/mcp-gateway",
+   "commit": "c210cebafef78083e5acf2b48847623db8866028",
+   "license": "apache-2.0",
+   "language": "TypeScript",
+   "stars": 5
+  },
+  {
+   "repo": "leestott/fibey-toolbox-demo",
+   "commit": "722d3aca6b96e6fb44d42ed712099ea04187f4a1",
+   "license": "mit",
+   "language": "Python",
+   "stars": 10
+  },
+  {
+   "repo": "lenoben/mailauth-check",
+   "commit": "85713f4dd7aeba607ff8ff03acde6d5a37086cb2",
+   "license": "mit",
+   "language": "Go",
+   "stars": 0
+  },
+  {
+   "repo": "leonardobarrosx/motor-transferencias",
+   "commit": "55d3e6460726d63abb2998a597542240f5e1853f",
+   "license": "mit",
+   "language": "Java",
+   "stars": 0
+  },
+  {
+   "repo": "LeonardoHenriqueTubero/apotheca",
+   "commit": "81991317cb4550684b42d45bbffb4512ae4c9ee5",
+   "license": "mit",
+   "language": "Java",
+   "stars": 0
+  },
+  {
+   "repo": "leonardoMartins-Dev/Portifolio-Pessoal",
+   "commit": "5ccbb65455702b0a975e76964ad296869927baaa",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 0
+  },
+  {
+   "repo": "LeonRust/StarryE1000Driver",
+   "commit": "106bcee4e50fd06fc771266cdd79865fbcb66dc8",
+   "license": "apache-2.0",
+   "language": "Rust",
+   "stars": 0
+  },
+  {
+   "repo": "levimackay/focus-frog",
+   "commit": "03988c7896ae49298761d63be1ecf167fd6a4df5",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 1
+  },
+  {
+   "repo": "Lincyaw/workbuddy",
+   "commit": "b9778c800f442939b879c9a556dfb8d6f4a40971",
+   "license": "apache-2.0",
+   "language": "Go",
+   "stars": 2
+  },
+  {
+   "repo": "linkFISH-Consulting/slite-io",
+   "commit": "f5bdb992b27c476d28e8a66c1f2dc210c9e74fb6",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
   },
   {
    "repo": "lkk688/AIsensing",
@@ -612,6 +2264,27 @@
    "stars": 17
   },
   {
+   "repo": "LLMSystems/file2md",
+   "commit": "70bf73a0384c0f1d7a4816cb90ba7ac90430a7b5",
+   "license": "mit",
+   "language": "Python",
+   "stars": 5
+  },
+  {
+   "repo": "LokeshSiddi/Smart-Fit-AI",
+   "commit": "ed8b0d53dc8cb06641fe79416bd0b79f751422c3",
+   "license": "mit",
+   "language": "Java",
+   "stars": 0
+  },
+  {
+   "repo": "longhoag/slm-ft-serving",
+   "commit": "d401dea284aa902e01ee0b1063f8fa7a22e40c34",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
    "repo": "lsg1103275794/oh-memos",
    "commit": "985f1c43f2e09497d8f20f3759b2166d64904112",
    "license": "apache-2.0",
@@ -619,10 +2292,31 @@
    "stars": 7
   },
   {
+   "repo": "Lucas-blip-png/mesa-pronta",
+   "commit": "31d2d486906a6060be86111cb4221f00dd5fe4ce",
+   "license": "mit",
+   "language": "Java",
+   "stars": 3
+  },
+  {
+   "repo": "Luke-official/lite-toon",
+   "commit": "2df2f4b51f09c31c8dac231c6876b89523e9c21f",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 7
+  },
+  {
    "repo": "lukuch/VoiceBot",
    "commit": "f031d1a08e0d0b0a9b617c636cd20b7cee9f895b",
    "license": "mit",
    "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "lulu-codes/DEV1004-A3-ci-cd-pipeline",
+   "commit": "5efc2aec14f58d11981acb21cf9a251cb989dec6",
+   "license": "mit",
+   "language": "JavaScript",
    "stars": 0
   },
   {
@@ -640,10 +2334,24 @@
    "stars": 0
   },
   {
+   "repo": "M1n9yu23/Mitjul",
+   "commit": "02fce0f13d4032606559d920546ad5a1e612b6b2",
+   "license": "apache-2.0",
+   "language": "Kotlin",
+   "stars": 0
+  },
+  {
    "repo": "MAA39/nativeexpress-next",
    "commit": "1e51def1980ee5da7ec4ec616f24d429d11b24e2",
    "license": "mit",
    "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "Machada1/TCC-DevSecOps",
+   "commit": "f03d6cb196a882219054cfd87327fce63cc81523",
+   "license": "mit",
+   "language": "PHP",
    "stars": 0
   },
   {
@@ -654,11 +2362,67 @@
    "stars": 1
   },
   {
+   "repo": "MadGAA-Lab/OSCE-Project",
+   "commit": "99032e18e4184b1f7ea53a2793b666897992d985",
+   "license": "mit",
+   "language": "Python",
+   "stars": 3
+  },
+  {
    "repo": "madhavzanwar/Hero-Housing",
    "commit": "fb7c63ce53f369734bfb7a976d3aa41260a075cf",
    "license": "mit",
    "language": "Python",
    "stars": 0
+  },
+  {
+   "repo": "Maheshsiddu29/Mandate",
+   "commit": "83e81d12536d9b3dc97217c1d8a26fffa4f7116d",
+   "license": "apache-2.0",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "mahmoud-almalah/employee-manager-api",
+   "commit": "2253ffe112f0fb988782dbb33401d03159bf383f",
+   "license": "mit",
+   "language": "PHP",
+   "stars": 1
+  },
+  {
+   "repo": "malthafkiram/WhaleWatch-AI-Public",
+   "commit": "da0a53c11b021e560a83a7ee6f2bf962f6b75423",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 0
+  },
+  {
+   "repo": "Manaiakalani/arrakis-command-nexus",
+   "commit": "6eb9c2e48dbc4f9da1f8d08f87a474ee7767bfba",
+   "license": "mit",
+   "language": "Python",
+   "stars": 6
+  },
+  {
+   "repo": "Manas51240/datascrape-studio",
+   "commit": "8135203021ff4f1d6a34855c802760900dc53cf0",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "Mariussgal/12th_man_app",
+   "commit": "a0dbe37d817381d6dfd499033e343d3011793840",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "markisrt4/OpenRoadCode",
+   "commit": "ad31a5614f04af2cc1316dbd9aefcc2a532fe69c",
+   "license": "mit",
+   "language": "Python",
+   "stars": 3
   },
   {
    "repo": "Marwane-Haddane/RoboControl-mobileApp",
@@ -668,11 +2432,46 @@
    "stars": 0
   },
   {
+   "repo": "mathew29042004/YatraX",
+   "commit": "6007a1af627ccff5017bc9eb55939f392c5ba92f",
+   "license": "mit",
+   "language": "Go",
+   "stars": 0
+  },
+  {
+   "repo": "matt-bentley/LLM-RAG-Architecture",
+   "commit": "a2e2c6b38f2abcad16f3e5b2756e1913eaf59fad",
+   "license": "mit",
+   "language": "C#",
+   "stars": 82
+  },
+  {
    "repo": "mattmre/AGENT33-PUBLIC",
    "commit": "a57814e39facd12df667aaecf1ff18d7fa6716a6",
    "license": "apache-2.0",
    "language": "Python",
    "stars": 3
+  },
+  {
+   "repo": "maumercado/gateway-api",
+   "commit": "308dccfb981b21880a7b6b1d19a1010c3ac03ee5",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "Mayank-kumar04/SpectrumRAG-PrivateDocs-Knowledge-Retrieval",
+   "commit": "e79260e787fd763d2e113a0ccc7f1a1f27a828a6",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "maydali28/memcp",
+   "commit": "81c7177d4374cd7aecca8f6a8da43e229cadefee",
+   "license": "mit",
+   "language": "Python",
+   "stars": 18
   },
   {
    "repo": "mayukh4/jansky",
@@ -682,11 +2481,32 @@
    "stars": 10
   },
   {
+   "repo": "mbarretot/weather-dashboard",
+   "commit": "509a854afa08ad3c0096cda1a38ce6e335f18a24",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 1
+  },
+  {
    "repo": "mdmurphy822/Ed4All",
    "commit": "8399a3721b572bf2ce95e06ab19cdcf24e00fcdc",
    "license": "apache-2.0",
    "language": "Python",
    "stars": 3
+  },
+  {
+   "repo": "mehdihadeli/food-delivery-modular-monolith",
+   "commit": "cb7c30c803a293d2257e063f978c80afa62fd8f1",
+   "license": "mit",
+   "language": "C#",
+   "stars": 425
+  },
+  {
+   "repo": "melbinkm/CallShield",
+   "commit": "3135372ac718ab720db61947ea6efb1e3f446a55",
+   "license": "mit",
+   "language": "Python",
+   "stars": 2
   },
   {
    "repo": "menloresearch/cyclotron",
@@ -703,6 +2523,90 @@
    "stars": 2
   },
   {
+   "repo": "MGriot/flexiorder",
+   "commit": "c48a31eabbbc043827fdfe934b93984356b2f630",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "MhmdRayanm7/schedlane",
+   "commit": "d46f8beb76c20ce307be1b175028465b9a8a5ce8",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "miadey/wasp-dotnet",
+   "commit": "ba3d40df648ad1c50211a954c4794c4ad4904d98",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 0
+  },
+  {
+   "repo": "MichaelGift/Evently",
+   "commit": "7c44f49029a394ef5513313df4e37615c07f34cf",
+   "license": "mit",
+   "language": "Kotlin",
+   "stars": 4
+  },
+  {
+   "repo": "michaelmoschitto/hypexbt",
+   "commit": "87470d6e29f259b8cdfe403128e59b5c5c676e8f",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "michal-kraus/ai-product-description-microservice",
+   "commit": "799988762d4abba28cdadd05ac99ee7fd75ab55b",
+   "license": "mit",
+   "language": "PHP",
+   "stars": 0
+  },
+  {
+   "repo": "Microck/mullgate",
+   "commit": "0455eac668d599e0d2cec75b1179a9d20bb22532",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 23
+  },
+  {
+   "repo": "midcityhandyman/fastapi-ops-starter",
+   "commit": "0e99a44b4fecd20aa8171eedad5b59eb84ce23ee",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "migelizaga-rgb/coding-agent-playbook",
+   "commit": "113ba232c637c6ef22402f7e18652514d06b9825",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 0
+  },
+  {
+   "repo": "mikefrawth/operations-hub",
+   "commit": "4f399dbb6b47c385871635210ed09282e864063f",
+   "license": "mit",
+   "language": "C#",
+   "stars": 0
+  },
+  {
+   "repo": "mikulgohil/eve-sage",
+   "commit": "694847ee62995a7e3722709f492ba92e3718c6a0",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 1
+  },
+  {
+   "repo": "mile-chang/logHive",
+   "commit": "14f0df9e283d4af74b996cb3097d677d8c7a689d",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
    "repo": "mirmisbahali/deakin_rover",
    "commit": "5ffd82c994b9c42d7a7a5e84c8ad1a0a9ad11366",
    "license": "apache-2.0",
@@ -714,6 +2618,20 @@
    "commit": "414e28899ff4b92e7b7f2d29ca43898704567fc6",
    "license": "mit",
    "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "mniehe/hermes-conversation",
+   "commit": "d85a037f7eb3f63b10898e8dc4696802b530c681",
+   "license": "mit",
+   "language": "Python",
+   "stars": 2
+  },
+  {
+   "repo": "mojaffri/PathFinder",
+   "commit": "1e17d51e72b7870eaf1402922ff13828c0359c4f",
+   "license": "mit",
+   "language": "TypeScript",
    "stars": 0
   },
   {
@@ -731,6 +2649,27 @@
    "stars": 3
   },
   {
+   "repo": "MontrealAI/AGI-Alpha-Agent-v0-core",
+   "commit": "52fb818e6ce960d815aa1be862aa9b56adde9d6d",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "moss-mike-SI/Dynasty-Maker",
+   "commit": "608630a26e0ed04265640c86db752a50564703bf",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "MSEndpointMgr/CloudImaging",
+   "commit": "1dd13b5c7a04d18c71ca8c85b1a9a3a3dd5c354b",
+   "license": "mit",
+   "language": "C#",
+   "stars": 7
+  },
+  {
    "repo": "msitarzewski/openstudio",
    "commit": "dce7d09395ff99bf851b9c3dceda9f6c83d67ba8",
    "license": "mit",
@@ -745,11 +2684,46 @@
    "stars": 1
   },
   {
+   "repo": "muhammadhabibullah59924-hub/loker",
+   "commit": "7543b56c6ad00f33d50ecba5abcaefea2c9f0e2d",
+   "license": "mit",
+   "language": "PHP",
+   "stars": 0
+  },
+  {
+   "repo": "Mukund934/BookMyEvent",
+   "commit": "e57c53df48aa1be1e050a67a8277e0b7583f182d",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
    "repo": "munawarali345/resolvix-ai-autopilo",
    "commit": "d404f92d99fb030acea2c58280c518fed62f9881",
    "license": "mit",
    "language": "TypeScript",
    "stars": 1
+  },
+  {
+   "repo": "muralikrishnat290/cuisine-qloo",
+   "commit": "e2b419709ca061f1dd62404082a87c20c2696419",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "Muthu-Raja-M/organization-member-management-platform",
+   "commit": "3ee3866b6115239e178543b737ab8e70ed09e6f5",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 0
+  },
+  {
+   "repo": "MwaiBanda/Momentum-Server",
+   "commit": "e33dc77d66d129cc5ee66cfe6418e95034e17d5c",
+   "license": "mit",
+   "language": "Go",
+   "stars": 6
   },
   {
    "repo": "MYSELF-SAYAN/sectionflow",
@@ -759,9 +2733,51 @@
    "stars": 5
   },
   {
+   "repo": "MystenLabs/coffee-club",
+   "commit": "2a20d271e660dc263a985e2fba6f3cda24b2898b",
+   "license": "apache-2.0",
+   "language": "TypeScript",
+   "stars": 6
+  },
+  {
+   "repo": "N-45div/zecscope",
+   "commit": "1d74be301dc8a3ce11be628ad4f36b8b1e2b5ab6",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 1
+  },
+  {
    "repo": "N1ghthill/merlin-ia",
    "commit": "77d5a534eea106423a7dcf32dde0d555b2c2e814",
    "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "Nabhag8848/orchex",
+   "commit": "7e9c5c754d0d488a964e7a4d3e24a35383738f13",
+   "license": "mit",
+   "language": "Go",
+   "stars": 4
+  },
+  {
+   "repo": "NabuxAi/nabu-reach",
+   "commit": "f93172337379ee7203658c4bd04d80432079adba",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "Nandan-D14/TheChatBot",
+   "commit": "085f4955412887f0ec6c7ed57a6ea96f844303d4",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 2
+  },
+  {
+   "repo": "nasim-raj-laskar/InfraMind",
+   "commit": "3ab1e0b1b3ca8acd99cfa34a3714789d5ec0cc0d",
+   "license": "apache-2.0",
    "language": "Python",
    "stars": 0
   },
@@ -773,6 +2789,41 @@
    "stars": 3
   },
   {
+   "repo": "nemanjaninkovic-1/rust-tracker",
+   "commit": "f9add67f58485e4b10e5e5bb3d35027ce11a27c2",
+   "license": "mit",
+   "language": "Rust",
+   "stars": 2
+  },
+  {
+   "repo": "nestchao/Hotspot-Bypass-VPN-Unlimited-Hotspot",
+   "commit": "93c23354d7be3e122e0a6564d167bfd881bc4338",
+   "license": "mit",
+   "language": "Kotlin",
+   "stars": 56
+  },
+  {
+   "repo": "neuronection/career-assistant",
+   "commit": "22a97f1398ca8365765310aa040d6e826a59d084",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "NewHeap/NewHeap-Platform",
+   "commit": "cb978409136073ac6ac382438cad28081e281daa",
+   "license": "apache-2.0",
+   "language": "C#",
+   "stars": 2
+  },
+  {
+   "repo": "nexurba/vertex-nova",
+   "commit": "487314ec26933723528e85e11c7eade5053cc44e",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 2
+  },
+  {
    "repo": "ngera/systemScanner",
    "commit": "f485c5daa16a19cd5eb228705dcd3afb36372f4c",
    "license": "mit",
@@ -780,11 +2831,46 @@
    "stars": 0
   },
   {
+   "repo": "NguyenMinh03/Inventory",
+   "commit": "870991eed038e90343dae564f7fa1e2877712e40",
+   "license": "mit",
+   "language": "C#",
+   "stars": 0
+  },
+  {
+   "repo": "nickemma/tessera",
+   "commit": "d1ccfa67e949e0130dcafe06209cb7a989774703",
+   "license": "apache-2.0",
+   "language": "Go",
+   "stars": 0
+  },
+  {
+   "repo": "nickzren/opentargets-mcp",
+   "commit": "e0641af5e55dbecfefc6a626b0561056f92f0e6a",
+   "license": "mit",
+   "language": "Python",
+   "stars": 19
+  },
+  {
    "repo": "Niharrakholiya/DUhacks-4.0",
    "commit": "745cee6d61ae0788b349da7780ec6e1d92680b9e",
    "license": "mit",
    "language": "Python",
    "stars": 2
+  },
+  {
+   "repo": "Nikpar005/clipscribe-local",
+   "commit": "966c3c1fc92113e7c153c669cda6d7fa0c6756c0",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "ninja33/ODH",
+   "commit": "8ed596c4fcc6c7cdc93c7b222b92ea6227223a5e",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 1617
   },
   {
    "repo": "Nishant333-stack/GIT-TIME-TRAVELLER",
@@ -801,8 +2887,22 @@
    "stars": 7
   },
   {
+   "repo": "njdaniel/daemon",
+   "commit": "4f2d7146c3c5935ddd5ea64fd49f6f4e7a7e7bb6",
+   "license": "mit",
+   "language": "Rust",
+   "stars": 0
+  },
+  {
    "repo": "NoteLegend/bhttp-binary-http",
    "commit": "149a3f89e43e5b9d6b1c4009225aeca0235bcbb7",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "novora-voice/novora-backend",
+   "commit": "ad2b29e04108cf5cc5a2fa81747cbce3869ef4cf",
    "license": "mit",
    "language": "Python",
    "stars": 0
@@ -815,11 +2915,81 @@
    "stars": 1
   },
   {
+   "repo": "nttcom/moq-wasm",
+   "commit": "44987895097bdc8630245c1c72da6163854aac90",
+   "license": "mit",
+   "language": "Rust",
+   "stars": 58
+  },
+  {
+   "repo": "NVIDIA/nvrc",
+   "commit": "b777c7f67bd2257e2f5d3481b30f1fcb41bb1f5c",
+   "license": "apache-2.0",
+   "language": "Rust",
+   "stars": 48
+  },
+  {
+   "repo": "oadultradeepfield/jemmie-backend",
+   "commit": "58c1728cc9ccb93d427b4d697bf2e87716f55490",
+   "license": "mit",
+   "language": "Python",
+   "stars": 1
+  },
+  {
+   "repo": "obris-dev/remote-dev-agent",
+   "commit": "e26cca1cf83adc70e623ba02c5d4bac88b80d83e",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 0
+  },
+  {
    "repo": "obsfx/promptscout",
    "commit": "035ac1347a9e841a98e06e9bb42fe37a03ee8ece",
    "license": "mit",
    "language": "TypeScript",
    "stars": 36
+  },
+  {
+   "repo": "okwareddevnest/Autoreview-Pro",
+   "commit": "c4f54c92954c50b2f5f45dfc4571ffac36e82f96",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "ollama4j/ollama4j",
+   "commit": "00a3c28430aeacf57b6c45f93be83a2c043428b1",
+   "license": "mit",
+   "language": "Java",
+   "stars": 508
+  },
+  {
+   "repo": "omaaarsh/nestjs-payment-patterns-lab",
+   "commit": "25a8c98663e3b5bffba654866586bbb7bca39294",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "omar-haris/smart-coding-mcp",
+   "commit": "ef8e842fdd5002247a436056b7650f60fd99279b",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 200
+  },
+  {
+   "repo": "OmegaProjct/Omega-Wave-Editor",
+   "commit": "387d0a54d01030b709b9ca737bb4840e5c885a16",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 1
+  },
+  {
+   "repo": "OmGuptaIND/computer",
+   "commit": "90a91c1f05298bb50c4eff5a9bee128712066ca6",
+   "license": "apache-2.0",
+   "language": "TypeScript",
+   "stars": 0
   },
   {
    "repo": "omkhandare55/CareerDNA-AI",
@@ -829,10 +2999,178 @@
    "stars": 0
   },
   {
+   "repo": "OpenConext/OpenConext-myconext",
+   "commit": "6edc03d51c73d648cad68cde0ab81fc514faf26d",
+   "license": "apache-2.0",
+   "language": "Java",
+   "stars": 5
+  },
+  {
+   "repo": "OpenZeppelin/relayer-channels-infra",
+   "commit": "404b6230121dfd24af4d8d714f6bb2818e7da31d",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "Operon-Operation-Platform/frontend",
+   "commit": "647c9857cb456e438dae512e6b965c8a6f0230cb",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 1
+  },
+  {
+   "repo": "ottodevs/zkpoker",
+   "commit": "785a38303e89eccc29208fa273b3a4f065a51391",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 3
+  },
+  {
+   "repo": "p10node/docflare-ai",
+   "commit": "57ab9267b291d577b5b703d1d5cb236499224506",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 43
+  },
+  {
+   "repo": "pa-y-kunimoto/MySQL-Vector-DB",
+   "commit": "3d5547935a256b6f11a6f93629324db58479f79a",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "panosru/CleanDDDArchitecture",
+   "commit": "f1b357aa5de2729ea84d144acb4a50ea20cf3b3d",
+   "license": "mit",
+   "language": "C#",
+   "stars": 8
+  },
+  {
+   "repo": "paradiselabs-ai/MCO-Protocol",
+   "commit": "2e81931d8ee736611756bf5ae0e4175e18f07eca",
+   "license": "mit",
+   "language": "Python",
+   "stars": 2
+  },
+  {
+   "repo": "pardnchiu/QuickUI",
+   "commit": "18eb15cd256f5ebca30df0202f9a68b412ee75a2",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 6
+  },
+  {
+   "repo": "Parth308/jevguard",
+   "commit": "ac297824d559f8711cc2d002dc683c96fd76e0eb",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 6
+  },
+  {
+   "repo": "patabuga/evote-blockchain-dapps",
+   "commit": "bfb4e1bf435d8ce5baab91c72c943bab585a6fa5",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 1
+  },
+  {
+   "repo": "Paurakh977/turbo-template",
+   "commit": "b4a017d7824d4945e2056b1051fce87522f2900b",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 7
+  },
+  {
+   "repo": "pavangemmanjunath-cell/PostQuantumSafe_IoT_Cybersecurity",
+   "commit": "9deb85842712aaafbe1e9ca39692c3c6c9646edc",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "pazare/safe-market-universes",
+   "commit": "9f574630a5dbe5c31a2e5a3d887f2dca5bf9eb7b",
+   "license": "mit",
+   "language": "Python",
+   "stars": 1
+  },
+  {
+   "repo": "pburt-dev/dotnet-financial-api",
+   "commit": "c26a9c656018174ea39a6a2cd6f4c38230180ea9",
+   "license": "mit",
+   "language": "C#",
+   "stars": 0
+  },
+  {
+   "repo": "peppe-ruv/Loyalty_Sys",
+   "commit": "f07fa1cc5af9538180692c3a03d8497e7a2b7ebe",
+   "license": "apache-2.0",
+   "language": "Java",
+   "stars": 0
+  },
+  {
+   "repo": "pepperonas/flipper-the-ripper",
+   "commit": "7708695cafe0aa64a336c14015370a6b4615d1c0",
+   "license": "mit",
+   "language": "Kotlin",
+   "stars": 7
+  },
+  {
+   "repo": "perplexityai/codescythe",
+   "commit": "84bd62520fb61fb62358739e2c598dfa7e0dabeb",
+   "license": "apache-2.0",
+   "language": "Rust",
+   "stars": 34
+  },
+  {
+   "repo": "PeshoVurtoleta/lite-arena",
+   "commit": "4c7777dfcaf44bcf3055dcf40c8f027cb926c2e6",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 0
+  },
+  {
+   "repo": "petarnenov/claude-telemetry",
+   "commit": "c6f4671a5c58d9ad2bd912631fbc351f87d706c9",
+   "license": "mit",
+   "language": "Java",
+   "stars": 2
+  },
+  {
+   "repo": "Peter-McCann-Strain/Personal_Execution_OS",
+   "commit": "00b8cef4d06b876062d8fdd9843bec50910072a1",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 1
+  },
+  {
    "repo": "pgokul695/odoo_Hackathon_2026",
    "commit": "3d775b13757b0b521a1b1aa0d8dd01bdcbd22fe7",
    "license": "mit",
    "language": "JavaScript",
+   "stars": 0
+  },
+  {
+   "repo": "philiplpaterson/molecular-agent",
+   "commit": "13d8c852935da8b488deb9af8d7afbe0455bf908",
+   "license": "mit",
+   "language": "Python",
+   "stars": 1
+  },
+  {
+   "repo": "phuhao00/greatestworks",
+   "commit": "2a7ee66a88122f06438497848bfefcffefb8966a",
+   "license": "mit",
+   "language": "Go",
+   "stars": 298
+  },
+  {
+   "repo": "PieroJF/Fred-Factory-xArm-robot-assembly-line",
+   "commit": "b0f64588540fa509bdc6f50c77ddaffceae3f8af",
+   "license": "mit",
+   "language": "Python",
    "stars": 0
   },
   {
@@ -843,11 +3181,32 @@
    "stars": 0
   },
   {
+   "repo": "Piyushambhore/prompthon",
+   "commit": "add747bdf44104ee3717d216aa520e44505cce42",
+   "license": "mit",
+   "language": "Kotlin",
+   "stars": 0
+  },
+  {
    "repo": "pj002321/Safe-farm",
    "commit": "e8cfbe484f9b20a9c1bb03df5304845169f0d7da",
    "license": "mit",
    "language": "TypeScript",
    "stars": 2
+  },
+  {
+   "repo": "pku-liang/Cement",
+   "commit": "63980e83cc7598335a18c922f721f538da48f946",
+   "license": "mit",
+   "language": "Rust",
+   "stars": 41
+  },
+  {
+   "repo": "pleri/pylon-cli",
+   "commit": "3ec585f30f765321f8cc6308acfca27c7543f7cc",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
   },
   {
    "repo": "Pluviobyte/dot2api",
@@ -862,6 +3221,41 @@
    "license": "mit",
    "language": "TypeScript",
    "stars": 0
+  },
+  {
+   "repo": "pong42-dev/ft_transcendence",
+   "commit": "f62269ab86f50b413bbed95760bf1f830d41119c",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 1
+  },
+  {
+   "repo": "powoftech/ai-inference-gateway",
+   "commit": "8945b3dddb5dd1f14b14b0f4b8ecea5e105d690a",
+   "license": "mit",
+   "language": "Go",
+   "stars": 0
+  },
+  {
+   "repo": "pozeydon-code/microservices-generator-csharp",
+   "commit": "a98b1a069115becc56ff34b4d21ba756daad4ffe",
+   "license": "mit",
+   "language": "Go",
+   "stars": 0
+  },
+  {
+   "repo": "pqtch/registration-agent",
+   "commit": "de498ea5ee98b9e1ec3c86328c48d42a3fd990f3",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 1
+  },
+  {
+   "repo": "praetorian-inc/trajan",
+   "commit": "df32c3ddf74e621d41c28d25eef84e946c98bb63",
+   "license": "apache-2.0",
+   "language": "Go",
+   "stars": 203
   },
   {
    "repo": "Praharsh-Projects/compute-test-harness",
@@ -885,6 +3279,13 @@
    "stars": 5
   },
   {
+   "repo": "Prarth314/Cognihood",
+   "commit": "fab1b30af94952dc6e2819628b97692a9ee793d6",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 1
+  },
+  {
    "repo": "pravashsingh775/AI-Research-Paper-Assistant",
    "commit": "99156ecf910ce228fc04c95d0a668aaf8466d7ea",
    "license": "mit",
@@ -897,6 +3298,90 @@
    "license": "apache-2.0",
    "language": "Python",
    "stars": 4
+  },
+  {
+   "repo": "prodrom3/triton",
+   "commit": "f67522a1f1b04a8565f6b697879e574aa91612c6",
+   "license": "mit",
+   "language": "Go",
+   "stars": 2
+  },
+  {
+   "repo": "programmermark/vue3-electron-tpl",
+   "commit": "aec138e1e5428d6fc65c811ba49460fcb07c7bde",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "project-oxi/oximemo",
+   "commit": "3509c92810a5c2a2064e9eeb51f81224fabab5db",
+   "license": "mit",
+   "language": "Rust",
+   "stars": 3
+  },
+  {
+   "repo": "ProjectZeroDays/ultimate_installer",
+   "commit": "32603ad6632351cf27d9299de816552102ea3621",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 3
+  },
+  {
+   "repo": "purvanshjoshi/hackquest-ai",
+   "commit": "827e097435d9d75996bf08c20826d0e5146168ff",
+   "license": "mit",
+   "language": "Python",
+   "stars": 8
+  },
+  {
+   "repo": "Pushkar236/signal",
+   "commit": "7bb303fe32310d0375e58fb42ec6bfa1c7741e71",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "pxnkit/barriernow",
+   "commit": "124ace8da18557a146bc286b6728d3cb0a7e6c29",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "q3learners/tutorq-grader",
+   "commit": "5ceb3e9b0f753446f51b865567684527c20bd7f6",
+   "license": "mit",
+   "language": "Python",
+   "stars": 2
+  },
+  {
+   "repo": "QizarBilal/FlowBit-AI",
+   "commit": "1b68a1eb2ff86f88d7cf91cf9b2973cb1dc8b473",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 1
+  },
+  {
+   "repo": "qtungnui07/api-sentinel",
+   "commit": "db83f29c4855e88bb1ee88f8f1c1bd69f20efb18",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "QuantSingularity/BlockGuardian",
+   "commit": "d0a38db659e42d5faa3fe76abb02c41b32293a70",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 0
+  },
+  {
+   "repo": "quantumsys-dev/dynamic-secret-operator",
+   "commit": "b0ebacd06957f89b0b1fba9f8e7ae2e4cdc1af3d",
+   "license": "apache-2.0",
+   "language": "Go",
+   "stars": 27
   },
   {
    "repo": "rafa-rrayes/trucoGPT",
@@ -927,6 +3412,13 @@
    "stars": 4
   },
   {
+   "repo": "rahnas/filament-inspector",
+   "commit": "0f64d749f7b6b02867f7369687fd76818f818c1c",
+   "license": "mit",
+   "language": "PHP",
+   "stars": 3
+  },
+  {
    "repo": "ramandeepsinghchhabra/Gestro",
    "commit": "2073844697469545129f16b6785e847f1835cebd",
    "license": "mit",
@@ -941,6 +3433,20 @@
    "stars": 0
   },
   {
+   "repo": "ramdas-5/astrivo",
+   "commit": "fd63ce252429717338be417f4a57fb75281f493b",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "RC063/basic-agent-boot",
+   "commit": "fcf840932be44717b031ccebfba131b462295a7f",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
    "repo": "ResDream/MindPilot",
    "commit": "8de8c5153a5374fc12218f1317f00de7885c0ae8",
    "license": "apache-2.0",
@@ -948,11 +3454,39 @@
    "stars": 8
   },
   {
+   "repo": "ricardoleal20/ChopFlow",
+   "commit": "d4b7803f88141cd6156b83b363ade9cfe6af0180",
+   "license": "apache-2.0",
+   "language": "Rust",
+   "stars": 5
+  },
+  {
+   "repo": "RICH0423/banking-app",
+   "commit": "e5838f3843d47b348fef546b2bc57f4aea3492be",
+   "license": "apache-2.0",
+   "language": "Java",
+   "stars": 0
+  },
+  {
+   "repo": "Rishabhkanhaiya/faultforge",
+   "commit": "8be347cb68701f3adf5dda44e36868b2903b5b59",
+   "license": "mit",
+   "language": "Python",
+   "stars": 1
+  },
+  {
    "repo": "Rishisharma029/lien-guard",
    "commit": "6b88fbc859ecb977dee0fe6deec0ef4330d8b74d",
    "license": "mit",
    "language": "TypeScript",
    "stars": 0
+  },
+  {
+   "repo": "RiteshKumar2e/customer-complaint-agent_new",
+   "commit": "a1f76ceecc663d2cf71e787589959f44580736df",
+   "license": "mit",
+   "language": "Python",
+   "stars": 5
   },
   {
    "repo": "rithika-IO/codeguardian-ai",
@@ -969,6 +3503,13 @@
    "stars": 0
   },
   {
+   "repo": "RizalloN/project-abah",
+   "commit": "71d813fd3bb36528c0f21ad355c9cb7b88fa8161",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 0
+  },
+  {
    "repo": "rk0neki/OpenKatana",
    "commit": "b9282bf0740a7df5b5a8862b5e289ef4cd642641",
    "license": "apache-2.0",
@@ -976,8 +3517,36 @@
    "stars": 89
   },
   {
+   "repo": "rkrx/image-server.go",
+   "commit": "6d7bed6703392c8748d1d8afe66d768d8998ab34",
+   "license": "mit",
+   "language": "Go",
+   "stars": 0
+  },
+  {
    "repo": "RMBarros-Dev/Hydra-Digital-Shop",
    "commit": "20a9a40f073da4bcaf81179bb616fac91d8529b8",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "robsevo/serge-engine",
+   "commit": "5b7111eccb4e55f25b5bcb08ee74e1f6120b7632",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 0
+  },
+  {
+   "repo": "rodrigocaldato/Using-Claude-AgentFlow",
+   "commit": "53b763624f538fbd9b02864322453d2c83e910ad",
+   "license": "mit",
+   "language": "Ruby",
+   "stars": 0
+  },
+  {
+   "repo": "rogerjeasy/kin",
+   "commit": "ec5136f5102cc8971bf3d66013646f99c0c3bcda",
    "license": "mit",
    "language": "TypeScript",
    "stars": 0
@@ -990,6 +3559,48 @@
    "stars": 0
   },
   {
+   "repo": "rufae/BuenaTierra",
+   "commit": "717d2f44273b21d17e82f747381ed8b1714ea946",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "RunTimeAdmin/sbomix",
+   "commit": "fa395c26ab04f78b90426a223b2ac0ab4ef77eea",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 1
+  },
+  {
+   "repo": "ryancswallace/Jobman-Control",
+   "commit": "315766146f82ff7d1c0585e0655911e84ce058b2",
+   "license": "mit",
+   "language": "Go",
+   "stars": 4
+  },
+  {
+   "repo": "RycnCDL/SentinelWatcher",
+   "commit": "ea09d71bd03f569a79f6c179a4967b420d70b973",
+   "license": "mit",
+   "language": "C#",
+   "stars": 0
+  },
+  {
+   "repo": "ryfranklin/Homebase",
+   "commit": "7a765383f6784f94c940ee45df2517bcbc690616",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 2
+  },
+  {
+   "repo": "Sa4pphire/15min-LivingCircle",
+   "commit": "9d3f11eb77a0562855ae2a64b8a25a12c94c6cf7",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
    "repo": "sahilkamalny/portfolio",
    "commit": "6ba039e57670857d632809f235da3d219fced228",
    "license": "mit",
@@ -997,9 +3608,30 @@
    "stars": 0
   },
   {
+   "repo": "salcxjo/bookshelf",
+   "commit": "804edc7d5438c891120c2bf441b494fe4d35212f",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "sammcj/mermaid-check",
+   "commit": "3d4dd33ec49097650d764bd21b995276d7a3d137",
+   "license": "apache-2.0",
+   "language": "Go",
+   "stars": 8
+  },
+  {
    "repo": "sanjayy0612/ThinkMesh.spac3",
    "commit": "d58fafea5472db20ac662a1b77982975bc9b1207",
    "license": "apache-2.0",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "sanketmuchhala/kemlang-py",
+   "commit": "5ea6ae917e61fc83c363b9a282e0225cf676534e",
+   "license": "mit",
    "language": "TypeScript",
    "stars": 0
   },
@@ -1011,11 +3643,46 @@
    "stars": 0
   },
   {
+   "repo": "Saraid10/TrustGate-Merchant-Copilot",
+   "commit": "cc6314c26a6f6317aef289df9bde475542f361db",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "saranmahadev/Axon",
+   "commit": "a54ee241cf8655e480735341bb5712fb233ba0d8",
+   "license": "mit",
+   "language": "Python",
+   "stars": 1
+  },
+  {
+   "repo": "saschagrunert/webapp.rs",
+   "commit": "9ec5d17892b8ac2dc62723c59d973858e18629e4",
+   "license": "apache-2.0",
+   "language": "Rust",
+   "stars": 2254
+  },
+  {
    "repo": "ScienceOne-AI/DeepLiterature",
    "commit": "904c4cb2bc8078e3834db58bea84fd29fac309fa",
    "license": "apache-2.0",
    "language": "Python",
    "stars": 113
+  },
+  {
+   "repo": "SebastianOrtiz2194/kuraflow",
+   "commit": "9e3deed23592c1d820bae82b1cfb97dfe8c62e8b",
+   "license": "mit",
+   "language": "Java",
+   "stars": 0
+  },
+  {
+   "repo": "sethbang/adaptive-rate-limiter",
+   "commit": "cc4546d928b13130d4b87ee697660385d957e604",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 1
   },
   {
    "repo": "seyedpouriaseyedi/azure-pdm-cmapss-alert-pipeline",
@@ -1025,9 +3692,30 @@
    "stars": 0
   },
   {
+   "repo": "sfc-gh-jkang/bdc-demo",
+   "commit": "1c22ed6eb606da06b0939d8961c40eb67a68572c",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "sfr-development/WonderSuite-Ai-Bug-Bounty",
+   "commit": "f13c039a1312cb5d5fd87f618dda917bbda298a7",
+   "license": "mit",
+   "language": "Rust",
+   "stars": 53
+  },
+  {
    "repo": "shadowliying/agenticrl-literature",
    "commit": "0b7cfde6896b2d61fbec9108019c702dee1610c6",
    "license": "apache-2.0",
+   "language": "Python",
+   "stars": 1
+  },
+  {
+   "repo": "shanhe321/MingJian",
+   "commit": "eabbcc08416ec47d21aa83234d54e9aae3db837d",
+   "license": "mit",
    "language": "Python",
    "stars": 1
   },
@@ -1039,10 +3727,24 @@
    "stars": 3
   },
   {
+   "repo": "Shantam-Gupta/Cap_one",
+   "commit": "394168d87e278da7d969865e26b5f018469879f8",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
    "repo": "Sharlnu-IU/Aircrash_Vizualization",
    "commit": "918344d36b3475687ceba566d20161467e115eed",
    "license": "mit",
    "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "shashank35i/FarmLedger",
+   "commit": "8afb8db250884556ecbe623f2c8d63c418c060d2",
+   "license": "mit",
+   "language": "Kotlin",
    "stars": 0
   },
   {
@@ -1051,6 +3753,48 @@
    "license": "mit",
    "language": "Python",
    "stars": 1
+  },
+  {
+   "repo": "shivansh-kumar-adi/little-lemon",
+   "commit": "3f6a948bf43b1d3a9a7f0cfe387b36ea63101194",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "shmulikdav/adlc-skills",
+   "commit": "896996836ba2e0ecd5a30fbdacbff9335d63bbe5",
+   "license": "mit",
+   "language": "Python",
+   "stars": 1
+  },
+  {
+   "repo": "shriansh1625/groweasy-csv-importer",
+   "commit": "d4c4986644b1fcaa55490b9c2dc1970a4d2e8c71",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "Shubham00-3/Pathnovo",
+   "commit": "7bdd58ae3409867bca544ef2f90ac88f7ef5c955",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "shubhG-9401/pmt-gtw-online",
+   "commit": "831ccd907af7b18ff52288d0f149949901f5455f",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 0
+  },
+  {
+   "repo": "siavash-smf/arkan-ai-course",
+   "commit": "d85dfb2c03e2bda0ceb84e2f33063ae54b4a3b93",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 23
   },
   {
    "repo": "Siddhantdamre/AppleO",
@@ -1067,6 +3811,27 @@
    "stars": 0
   },
   {
+   "repo": "SidneyJunior26/svclens",
+   "commit": "4e1e238ed86c5a163dd9a7bbc908019ecf21e5f5",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 1
+  },
+  {
+   "repo": "simoderyouch/Mizan",
+   "commit": "26d21633f8a8381bfcda1ac62d8243e3073212df",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 1
+  },
+  {
+   "repo": "simplaix/simplaix-gateway",
+   "commit": "5403f276367364acb5a2c7c4f8f43ed1b8ac0869",
+   "license": "apache-2.0",
+   "language": "TypeScript",
+   "stars": 15
+  },
+  {
    "repo": "SiNopaal/Binance-Agentic-Wallet",
    "commit": "19b59c1477cd0edc70001ddec2457bcef0a80966",
    "license": "mit",
@@ -1081,11 +3846,25 @@
    "stars": 0
   },
   {
+   "repo": "slazyverse/deadlockd",
+   "commit": "e1a30c308dc775f001096cfe0b7e6a4a51c37d51",
+   "license": "mit",
+   "language": "Go",
+   "stars": 2
+  },
+  {
    "repo": "SlugLoop/SlugLoop",
    "commit": "27d6b764b40361f40c3cba6a15c4d6242bd21140",
    "license": "apache-2.0",
    "language": "JavaScript",
    "stars": 9
+  },
+  {
+   "repo": "smith-chem-wisc/dataRepo",
+   "commit": "b90b680cf5f988a4e2754ebedafe79799a2142c5",
+   "license": "mit",
+   "language": "C#",
+   "stars": 0
   },
   {
    "repo": "SN1223221-HR/gas-news-digest-agent",
@@ -1102,9 +3881,72 @@
    "stars": 0
   },
   {
+   "repo": "sooryaforsure/graphRag",
+   "commit": "38ccc12fa31c995b807b7016cc5a14bb428bc964",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "Sourabhvk/VLA-Lite-Vision-Language-Guided-Robot-Manipulation-in-Simulation",
+   "commit": "402051bd507fd82e5c479d2844fc6a2587cc8b5d",
+   "license": "mit",
+   "language": "Python",
+   "stars": 2
+  },
+  {
+   "repo": "Spandan228/ai-code-intelligence-engine",
+   "commit": "2e398c212dc338c6f84de5e81c1dbbb204832d27",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "spareware-co-op/spareware",
+   "commit": "83bf52288b6bd7d04b4501178db04e65316562a5",
+   "license": "apache-2.0",
+   "language": "Rust",
+   "stars": 18
+  },
+  {
+   "repo": "SpecterOps/ConfigManBearPig",
+   "commit": "231575ae0c3ddab485f8aeae3d907c9e6af173be",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 159
+  },
+  {
+   "repo": "sriaishwarya1709/foundry-voice-live",
+   "commit": "57973b6266fa4527a237c36e9c8a993fb619ee78",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 0
+  },
+  {
+   "repo": "ssdeanx/ssd-ai",
+   "commit": "1ce86fb6f9a6bd432e7760315f06c5c57577b4f6",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 4
+  },
+  {
+   "repo": "Ssebv/flagforge",
+   "commit": "74ac01c273bcd9793189f6a56e0292aa77f0ab1d",
+   "license": "mit",
+   "language": "Rust",
+   "stars": 0
+  },
+  {
    "repo": "Steeif/prime_ticket",
    "commit": "057ebdfaed3745551c71777f51f2b1069d4a1183",
    "license": "mit",
+   "language": "Python",
+   "stars": 4
+  },
+  {
+   "repo": "Stratiform-Networking/cartographer",
+   "commit": "c21a47489c2679c3513833f1b2ac0a3bd2c366d9",
+   "license": "apache-2.0",
    "language": "Python",
    "stars": 4
   },
@@ -1123,6 +3965,76 @@
    "stars": 0
   },
   {
+   "repo": "Suerzong/course-factory",
+   "commit": "a569488cea30abf7959c4612dc096986dce8c263",
+   "license": "mit",
+   "language": "Python",
+   "stars": 1
+  },
+  {
+   "repo": "Suhaib3100/openparental",
+   "commit": "03e9181aa672c844dcdbbd38cc6c6ba50e6a8381",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 8
+  },
+  {
+   "repo": "suifei/go-GenericAgent",
+   "commit": "819d76f050fb4ceb6c0d1bdae8bc533540e7110a",
+   "license": "mit",
+   "language": "Go",
+   "stars": 0
+  },
+  {
+   "repo": "suleymanbaran/ai-fitness-coach",
+   "commit": "f698a0ac9da669ca00221160b2ed00fcda23c3ca",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "SumanthChary/portify-original",
+   "commit": "015ac4e8281c40ee2742ec25c65446232e4c45ee",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "SuperdeMan/cockpit-agent",
+   "commit": "6f2b72f67525861283d3967ee1e4c3fa37e7ca7c",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 30
+  },
+  {
+   "repo": "SyM97/sleep-project",
+   "commit": "73c2cc0810243aec37dda6b57a3a9e3c2203a4c0",
+   "license": "mit",
+   "language": "Python",
+   "stars": 1
+  },
+  {
+   "repo": "SynapseInnovate/Terminator",
+   "commit": "50376cb01e93dee7dafbde281226d6f8dcbc44ce",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "systems-engineering-projects/rag-document-analysis-backend",
+   "commit": "873a7d9f948bad592fe184d5406dc1fc078e9485",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "t0mer/Find-my-kids",
+   "commit": "7cf58a66605ea3c1c19a68f0caedd8f203561706",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 66
+  },
+  {
    "repo": "takzen/timesfm-energy-radar",
    "commit": "0f96457480b042fba5be21429bb2e940aa0d3bc1",
    "license": "mit",
@@ -1130,10 +4042,73 @@
    "stars": 7
   },
   {
+   "repo": "tanalam565/standalone-chatbot",
+   "commit": "3d32b7cdad7b391f322a98dea53de0e1305af629",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "tang-vu/actionproof-0g",
+   "commit": "cca1e90dfa7740b69284e627ad4ac8eb6f9622a4",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "Tanmoy095/Logiflow-platform",
+   "commit": "7082450b429dbb126267be87b126070c133fe4cc",
+   "license": "apache-2.0",
+   "language": "Go",
+   "stars": 3
+  },
+  {
+   "repo": "Taseen007/MethodSplit",
+   "commit": "228e79cb38d3ef15af8402b5486d4d1e9c1a3a31",
+   "license": "mit",
+   "language": "Go",
+   "stars": 0
+  },
+  {
+   "repo": "TBLgGamin/pokeum",
+   "commit": "33e7b9462c2f85b4e6607b6e6dcf502115a9eb87",
+   "license": "mit",
+   "language": "Python",
+   "stars": 4
+  },
+  {
+   "repo": "tbrill2037/PortfolioApi",
+   "commit": "14c75759df91fdfb2ccf462063ee82395ae2fb0f",
+   "license": "mit",
+   "language": "C#",
+   "stars": 0
+  },
+  {
+   "repo": "tdog54646/RuiWen",
+   "commit": "8e82b8ef3fb91c588aa8b003dd04263279482558",
+   "license": "mit",
+   "language": "Java",
+   "stars": 19
+  },
+  {
    "repo": "team-ieum/ieum-agent",
    "commit": "7bf32c97de892aabae6eb44516ce4c2d7841549d",
    "license": "mit",
    "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "TeekayVuyisile/Field-Route-Optimization-Site-Verification-System",
+   "commit": "7e902b11ad8a131eebbf8b0e588a4e25b474ad98",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 0
+  },
+  {
+   "repo": "tejuiceB/KnowSphere",
+   "commit": "ccd1ed95a483a78740d25ee1e9509b779b843498",
+   "license": "mit",
+   "language": "TypeScript",
    "stars": 0
   },
   {
@@ -1144,11 +4119,53 @@
    "stars": 0
   },
   {
+   "repo": "TheCryptoDonkey/satgate",
+   "commit": "50c37263b0c28e41503d3780b563edbe5511644f",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "TheLearningHubOrg/learn-dot-net",
+   "commit": "289f233584f1bf85f16631931d6175853f285909",
+   "license": "mit",
+   "language": "C#",
+   "stars": 2
+  },
+  {
+   "repo": "TheLearningHubOrg/learn-graphql",
+   "commit": "a4973549994882467722152d4bc53bd48b678163",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
    "repo": "TheRealSaiTama/bananas-bot",
    "commit": "022f9c2acf92f81ddeec210517021bad1d46fe34",
    "license": "mit",
    "language": "TypeScript",
    "stars": 1
+  },
+  {
+   "repo": "TheWinterShadow/Thoth",
+   "commit": "32754a438fb1903163fcaa4196bfae8849afa2c9",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "ThitsaX/pivotal",
+   "commit": "2de955b217266374f126bd42f357e6aabf0191b9",
+   "license": "apache-2.0",
+   "language": "TypeScript",
+   "stars": 1
+  },
+  {
+   "repo": "thomasmaerz/olk15-export",
+   "commit": "6778f922a2291f2bac82d2203472eec9c48e6690",
+   "license": "mit",
+   "language": "Python",
+   "stars": 3
   },
   {
    "repo": "Tian-ye1214/RedLotus",
@@ -1158,11 +4175,25 @@
    "stars": 42
   },
   {
+   "repo": "TikHub/Spinneret",
+   "commit": "f0ffe6905744875fa3a09905d751718e3473cab2",
+   "license": "apache-2.0",
+   "language": "Go",
+   "stars": 10
+  },
+  {
    "repo": "Timidan/rinne",
    "commit": "5c3370f9a736f633a062d619910b60ac33c8de2a",
    "license": "mit",
    "language": "TypeScript",
    "stars": 1
+  },
+  {
+   "repo": "Timidan/stipend",
+   "commit": "3a0b804d513093fdc49c9f0c0bc923d60ab57b0f",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 0
   },
   {
    "repo": "timothystewart6/techno-boto-chat",
@@ -1193,11 +4224,32 @@
    "stars": 0
   },
   {
+   "repo": "tradestreamhq/tradestream",
+   "commit": "76af3e4a1b53f340501405902f9ff0afa176997e",
+   "license": "mit",
+   "language": "Python",
+   "stars": 9
+  },
+  {
    "repo": "travisjneuman/.claude",
    "commit": "5ed98f2833450eebd6b0d251b4467be0543688e2",
    "license": "mit",
    "language": "TypeScript",
    "stars": 115
+  },
+  {
+   "repo": "tritonminingco/sealink-dev-hub",
+   "commit": "19d9c0accb2b60f78acc5b11ac3ae72478727a91",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "truebest/agent-box",
+   "commit": "2304ce83fdd2c1bd531c8d7335fde13389640c14",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 0
   },
   {
    "repo": "TruftedBug89/lite-benchmarks",
@@ -1207,11 +4259,88 @@
    "stars": 1
   },
   {
+   "repo": "TU-Wien-dataLAB/aqueduct",
+   "commit": "b09430d54efbf6e345baed991fa85afa48964a88",
+   "license": "bsd-3-clause",
+   "language": "Python",
+   "stars": 32
+  },
+  {
+   "repo": "TUD-CERT/docleaner",
+   "commit": "a36617b271d6180b2d64cdb764c78cec23b6f149",
+   "license": "bsd-3-clause",
+   "language": "Python",
+   "stars": 50
+  },
+  {
+   "repo": "tuliosouza99/CartolaPy",
+   "commit": "11ed655599ce03f0b7b2f40477bb27a04f2aab6d",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "TuralSuleymani/Rovio.Matchmaking",
+   "commit": "c723bd925c13f3474329cf0960e9543e7f3f7fdb",
+   "license": "mit",
+   "language": "C#",
+   "stars": 44
+  },
+  {
+   "repo": "tylermercer/durable-objects-webgame-starter",
+   "commit": "74eeffed5bd99a1abca5ec617a680baf6adc72f1",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "uKnight-Co/uKnight",
+   "commit": "18467d0365aa596def82fbb403aead268f50fb65",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 1
+  },
+  {
+   "repo": "umair1293/voting_management_java",
+   "commit": "38a9f1d1ca96366d2271a633c30e1d6a0cf7cf59",
+   "license": "mit",
+   "language": "Java",
+   "stars": 0
+  },
+  {
+   "repo": "unifi2netbox/netbox-unifi-sync",
+   "commit": "a604b3e7f226978cfb0a9042f1aa8fa71c46d9ed",
+   "license": "mit",
+   "language": "Python",
+   "stars": 16
+  },
+  {
    "repo": "upgradedev/archon-treasury-aws",
    "commit": "4fc8d73a5e3eef28e657333ee1927b7ca6e23db0",
    "license": "mit",
    "language": "Python",
    "stars": 0
+  },
+  {
+   "repo": "usemanusai/JAEGIS-AI-Web-OS",
+   "commit": "33d89dc7427e39128cac8b498d4c0afa4f949866",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 4
+  },
+  {
+   "repo": "usenaive/naive-starter-template",
+   "commit": "8f6699127a7178f25774e09240114b30a02c1c2a",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 23
+  },
+  {
+   "repo": "usounds/Skyblur",
+   "commit": "7a3fc6aa12fee49c74442ba32d3e7a10dcf07627",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 19
   },
   {
    "repo": "Utkarsh-X/TRACE-AML",
@@ -1221,6 +4350,13 @@
    "stars": 2
   },
   {
+   "repo": "uv-xiao/cmt2",
+   "commit": "385b67a9a981da0ab83877b4534113d366e7f50a",
+   "license": "mit",
+   "language": "Rust",
+   "stars": 3
+  },
+  {
    "repo": "vansh070605/PlacementOS",
    "commit": "25f125fa4a929bc54ca91a9882cd17ee58c6fad7",
    "license": "mit",
@@ -1228,10 +4364,45 @@
    "stars": 19
   },
   {
+   "repo": "vaporif/ferrex",
+   "commit": "4591b86cfd3aba329cccc71f2c6d2abdad812b34",
+   "license": "mit",
+   "language": "Rust",
+   "stars": 3
+  },
+  {
    "repo": "vedant-0789/Veritas-AI",
    "commit": "c2cd8b269cac2fc48ce7e96c7ee41027ae8e50bd",
    "license": "mit",
    "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "VelkaressiaBlutkrone/spring-cinema-app-ex",
+   "commit": "7582ed0256eab58ac5b8fc6d8b703a44f73f6dbb",
+   "license": "mit",
+   "language": "Java",
+   "stars": 0
+  },
+  {
+   "repo": "VenTheZone/notarb-cli",
+   "commit": "35161662195e1145f7be4942033f530e4eaca3cb",
+   "license": "mit",
+   "language": "Python",
+   "stars": 3
+  },
+  {
+   "repo": "Verridian-ai/APS-Performance-Assistant",
+   "commit": "3daf95ba3c3e04a978b10f8ac6de0e9ed8c76ce0",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 1
+  },
+  {
+   "repo": "vicharanashala/vi-sakha",
+   "commit": "991cfe9385774e333e6e5277b8a3b84453f01d98",
+   "license": "mit",
+   "language": "TypeScript",
    "stars": 0
   },
   {
@@ -1242,10 +4413,80 @@
    "stars": 0
   },
   {
+   "repo": "VietHieuNguyen/LumiKids",
+   "commit": "cdb1a98a20c1d17b76ff30078829c6a5c04048e1",
+   "license": "apache-2.0",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
    "repo": "Vinay7766/moatradar",
    "commit": "45db07a15fc3b332baf3e4f2258cdb3366f801b0",
    "license": "apache-2.0",
    "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "Vishnu-K-Menon/agentgate",
+   "commit": "b4422063407bf091b4d282059867371da2b10ca4",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "vladimiracunadev-create/computational-mathematics-program",
+   "commit": "ea775f50d5c304844f45534470c5f6f0f5d33c8d",
+   "license": "mit",
+   "language": "Python",
+   "stars": 1
+  },
+  {
+   "repo": "vlantonov/GoGrpcKafkaMicroservice",
+   "commit": "db9199c0ae0878db0d46fdd784446325c25bc107",
+   "license": "mit",
+   "language": "Go",
+   "stars": 0
+  },
+  {
+   "repo": "votrongdao/FlowX",
+   "commit": "e46b2327097e7891c1afdbbe39263d8c4170a01b",
+   "license": "apache-2.0",
+   "language": "C#",
+   "stars": 130
+  },
+  {
+   "repo": "vpinnaka/voice-agents-cookbook",
+   "commit": "c7796dc2b78cfcc120b4cc197429b23306e52074",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "vtu-qiskit-fall-fest-2026/vtu-hc-lastbench-legends",
+   "commit": "fe0606e15e2d1fa87dadb0c31b373f6e820d9d36",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "wangoutlook/splayer-lyrics",
+   "commit": "8538bf7bcef5c02caffd47b4ed88dbdc693d97f7",
+   "license": "mit",
+   "language": "Rust",
+   "stars": 1
+  },
+  {
+   "repo": "WaveSpeedAI/waverless",
+   "commit": "78288071e6229c2d09dc3711c46250b07bdb03c8",
+   "license": "apache-2.0",
+   "language": "Go",
+   "stars": 635
+  },
+  {
+   "repo": "wedsamuel1230/feeding-llm-pdf-test",
+   "commit": "f6cd07bc063172326a3c3330bd20c0a3c2609f9b",
+   "license": "mit",
+   "language": "Python",
    "stars": 0
   },
   {
@@ -1263,6 +4504,97 @@
    "stars": 34
   },
   {
+   "repo": "william-eth/web_tech_feeder",
+   "commit": "eb5a71f005657aacd4eb6a795bca7945289f6166",
+   "license": "mit",
+   "language": "Ruby",
+   "stars": 0
+  },
+  {
+   "repo": "WomB0ComB0/provenance-research",
+   "commit": "3f60470480306d38f68fbc44d7dde615c933c21e",
+   "license": "mit",
+   "language": "Python",
+   "stars": 2
+  },
+  {
+   "repo": "wshm-dev/wshm",
+   "commit": "3c8a7ad36473b3ec9ef98d21567cefd122b73327",
+   "license": "apache-2.0",
+   "language": "Rust",
+   "stars": 95
+  },
+  {
+   "repo": "x-TheFox/Systemic",
+   "commit": "9d27a62b5c96f1bbf2253b8afef7457f71752ea1",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "xjoker/DotNetMCP",
+   "commit": "0cf3e98438617b3b62876861852e960914dc99b1",
+   "license": "mit",
+   "language": "C#",
+   "stars": 5
+  },
+  {
+   "repo": "xxraincandyxx/Amadeus",
+   "commit": "0f9297766ccd585d365c0eb46d479b23ca1c63e5",
+   "license": "mit",
+   "language": "Rust",
+   "stars": 176
+  },
+  {
+   "repo": "y9vad9/todo-list-app",
+   "commit": "200cdf904df1795653f7be1560d1c21dca20e1c5",
+   "license": "mit",
+   "language": "Kotlin",
+   "stars": 4
+  },
+  {
+   "repo": "yacinegadouche/easystock",
+   "commit": "2e16d37cf8c5f4f714450051b81c89c52468d4c3",
+   "license": "mit",
+   "language": "C#",
+   "stars": 0
+  },
+  {
+   "repo": "yaleksandr89/filter-ajax",
+   "commit": "bc3d0bf209d535f2eb9cf513e66fe881be750994",
+   "license": "mit",
+   "language": "PHP",
+   "stars": 2
+  },
+  {
+   "repo": "Yang-Zhang1994/ecommerce-microservices-backend",
+   "commit": "f80252dea7e5b0ee868483111884570e1012ef5e",
+   "license": "apache-2.0",
+   "language": "JavaScript",
+   "stars": 0
+  },
+  {
+   "repo": "YanMo5/shuzishaobing",
+   "commit": "91b1070004218c5309664beff52ebf37f00f1ec8",
+   "license": "mit",
+   "language": "Java",
+   "stars": 0
+  },
+  {
+   "repo": "YaruG1022/RWC-Living-Atlas",
+   "commit": "87920f7a69fc4cf5bd06e889c71d6cd3fb5a6d00",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 1
+  },
+  {
+   "repo": "YashPandit09/KrushiMitraAi",
+   "commit": "2a6fa35619d4a64ed1dd1e1834c2ad9180250d67",
+   "license": "mit",
+   "language": "Python",
+   "stars": 1
+  },
+  {
    "repo": "yashrajsharan18/ai-study-companion",
    "commit": "9350c33cb9ec36938127cea6e2974029d2ea7219",
    "license": "mit",
@@ -1277,11 +4609,130 @@
    "stars": 0
   },
   {
+   "repo": "YearsAlso/zoo-framework",
+   "commit": "70f1b49fafd8a25a95fd170125b3a0b2502cc18b",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 1
+  },
+  {
+   "repo": "yfy/BaseKmpArchitecture",
+   "commit": "972b703aed832562452dda2a97053c14837943f4",
+   "license": "mit",
+   "language": "Kotlin",
+   "stars": 2
+  },
+  {
+   "repo": "ymhamdi/SAQROPS_198",
+   "commit": "4258310aa29563c746e3c1af42b5debbbf409601",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 1
+  },
+  {
+   "repo": "yousuf-git/cloak",
+   "commit": "beb5c27f679bf54b23c917fd2b108b6a36fb5edd",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "Yuukadesu/TideTS",
+   "commit": "929a348a2404a94224d1a742bc6b7db31e024d70",
+   "license": "mit",
+   "language": "Go",
+   "stars": 0
+  },
+  {
+   "repo": "yuzushi-dev/Amber",
+   "commit": "0b3ec386452da12c4b7eb8976eee673f784a4753",
+   "license": "mit",
+   "language": "Python",
+   "stars": 1
+  },
+  {
+   "repo": "YXalix/starry_fastdds",
+   "commit": "f0d0350f86e8dd98c2597a0e3084e4d47f4d8f1d",
+   "license": "apache-2.0",
+   "language": "Rust",
+   "stars": 5
+  },
+  {
+   "repo": "zahilkuttathil/foundry-sharepoint-multimodal-chatbot",
+   "commit": "f5ed5e97967744421a8bf84fbe7a7ea07ab3f919",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
    "repo": "zakelfassi/skills-driven-development",
    "commit": "c0574d7b32ff213b55d2390656153887741dfaf4",
    "license": "mit",
    "language": "TypeScript",
    "stars": 18
+  },
+  {
+   "repo": "Zamora-Edgar/PICA",
+   "commit": "fc9aea8aae207b834e68bccceeb37938891648e0",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 0
+  },
+  {
+   "repo": "ZASENJC/dsh-plugins-store",
+   "commit": "5c58211b338e4bbfecd914af5ab78697df5c91ea",
+   "license": "mit",
+   "language": "TypeScript",
+   "stars": 73
+  },
+  {
+   "repo": "zedar/aleph-notifications",
+   "commit": "23d2ba02a3959742c6199edf017f66caf525b48b",
+   "license": "apache-2.0",
+   "language": "Rust",
+   "stars": 3
+  },
+  {
+   "repo": "Zephyrex21/context-engineering-toolkit",
+   "commit": "bf5217e22ba2502f1e89c1930b8f3479d8c7677b",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 4
+  },
+  {
+   "repo": "zhangmask/Smart-Agriculture-Platform",
+   "commit": "2d626d56ad0a8273c9d99b20f4cdadf02be9769e",
+   "license": "mit",
+   "language": "JavaScript",
+   "stars": 0
+  },
+  {
+   "repo": "zhiweio/redshift-spectra",
+   "commit": "59500a314d241a39871b32e5d86c0fc528addbbb",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "zonicisalive/bitmail",
+   "commit": "a3ab0061622cca9ab1a5c6085a7b539f4ee39fd3",
+   "license": "mit",
+   "language": "Python",
+   "stars": 0
+  },
+  {
+   "repo": "zvenoai/coder",
+   "commit": "1e1cc926375fb908656f9cd55b03b752fa8243d1",
+   "license": "apache-2.0",
+   "language": "Python",
+   "stars": 12
+  },
+  {
+   "repo": "zxr19980213/neo-infer",
+   "commit": "42012ad5490dc204dae597181c621639b4067b4c",
+   "license": "mit",
+   "language": "Python",
+   "stars": 2
   }
  ]
 }

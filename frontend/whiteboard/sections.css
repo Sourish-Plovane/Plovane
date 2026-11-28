@@ -37,6 +37,13 @@
 .connections text.wb-halo { fill:#fff; stroke:#fff; stroke-width:4px; stroke-linejoin:round; pointer-events:none; }
 .connections.wb-focus text.wb-halo { opacity:.15; }
 .connections path.wb-quiet { opacity:0; }
+.connections text.wb-detail { font-weight:600; }
+.connections text.wb-label.wb-detail { fill:#5b6170; pointer-events:auto; cursor:pointer; }
+.connections text.wb-label.wb-detail:hover, .connections text.wb-has-detail:hover { fill:var(--accent); text-decoration:underline; }
+.connections text.wb-has-detail { pointer-events:auto; cursor:pointer; }
+ol.wb-steps { list-style:none; padding:0; margin:.6em 0; display:grid; gap:.45em; }
+ol.wb-steps .wb-step { display:flex; flex-direction:column; align-items:flex-start; gap:.15em; width:100%; text-align:left; padding:.6em .8em; }
+ol.wb-steps .wb-step small { color:var(--muted); font-family:ui-monospace, Menlo, monospace; font-size:.8em; }
 .connections.wb-focus [data-source] { opacity:.15; }
 .connections.wb-focus path.wb-quiet { opacity:0; }
 .connections.wb-focus path.wb-quiet.wb-lit { opacity:1; }

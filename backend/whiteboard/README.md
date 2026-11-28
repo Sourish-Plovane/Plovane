@@ -754,6 +754,7 @@ command answers `needs_confirmation` first.
 | `/deps` | `deps` | `plovane_connect` |  | Shows what a block depends on, or what depends on it. | `/deps payments --reverse` |
 | `/arrow style` | `arrow.style` | `plovane_connect` |  | Restyles an existing arrow. | `/arrow style checkout->payments --width 2 --dash 4` |
 | `/arrow route` | `arrow.route` | `plovane_connect` |  | Changes how an arrow bends. | `/arrow route checkout->payments --curve orthogonal` |
+| `/arrow detail` | `arrow.detail` | `plovane_connect` |  | Says where in the code an arrow happens: steps=[{"file": "src/pay.py", "function": "charge", "does": "sends the card to Stripe"}]. Shown when someone zooms into the arrow. | `/arrow detail checkout->payments --steps '[{"file": "src/pay.py", "function": "charge", "does": "sends the card to Stripe"}]'` |
 | `/endpoint add` | `endpoint.add` | `plovane_endpoint` |  | Adds an endpoint block to a service and creates the real route handler. | `/endpoint add payments POST /charge --request ChargeRequest --response Receipt` |
 | `/endpoint link` | `endpoint.link` | `plovane_endpoint` |  | Connects a block to an endpoint with an API arrow and generates the client call code. | `/endpoint link checkout -> payments:POST /charge` |
 | `/endpoint unlink` | `endpoint.unlink` | `plovane_endpoint` | yes | Removes an API connection and its client call code. | `/endpoint unlink checkout -> payments:POST /charge` |

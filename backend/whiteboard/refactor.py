@@ -77,8 +77,15 @@ def symbols(text: str, path: str) -> list[Symbol]:
 
         if language not in BRACE_LANGUAGES:
             return []
-        return [Symbol(u.name, u.name, "function", u.start_line, u.end_line, u.code, u.signature, u.docstring)
-                for u in extract_braced(text, language, library_rules=False)]
+        found = {u.start_line: Symbol(u.name, u.name, "function", u.start_line, u.end_line, u.code, u.signature,
+                                      u.docstring)
+                 for u in extract_braced(text, language, library_rules=False)}
+        if language in ("javascript", "typescript"):
+            for unit in js_assigned_functions(text):
+                found.setdefault(unit.start_line, unit)
+        units = [found[line] for line in sorted(found)]
+        return [u for u in units if not any(o is not u and o.start_line <= u.start_line and u.end_line <= o.end_line
+                                            for o in units)]  # a helper inside a function stays part of it
     try:
         tree = ast.parse(text)
     except SyntaxError:
@@ -105,6 +112,68 @@ def symbols(text: str, path: str) -> list[Symbol]:
             for item in node.body:
                 if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     found.append(make(item, "method", node.name))
+    return found
+
+
+JS_ASSIGNED = re.compile(
+    r"^(?:export\s+(?:default\s+)?)?(?:(?:module\.)?exports\.(?P<e>\w+)\s*=|(?:const|let|var)\s+(?P<v>\w+)\s*(?::[^=\n]+)?=)"
+    r"\s*(?:async\s+)?(?:function\b\s*\*?\s*\w*\s*\((?P<a1>[^)]*)\)|\((?P<a2>[^)]*)\)\s*(?::\s*[^={\n]+?)?\s*=>|(?P<a3>\w+)\s*=>)"
+    r"\s*(?::\s*[^{\n]+?)?\s*\{",
+    re.MULTILINE)
+"""Top-level functions written as assignments: ``exports.getLogin = (req, res) => {``, ``const add = async (a) => {``,
+``module.exports.run = function (x) {``."""
+
+
+# Input: text (str), start (int)
+# Output: int | None
+# Processing: The index of the brace closing the one at start, skipping strings, template text and comments; None when unbalanced.
+# Changed by: Claude Code
+# Date: 2026-11-27
+def closing_brace(text: str, start: int) -> int | None:
+    depth, i, n = 0, start, len(text)
+    while i < n:
+        c = text[i]
+        if c in "\"'`":
+            i += 1
+            while i < n and text[i] != c:
+                i += 2 if text[i] == "\\" else 1
+        elif text.startswith("//", i):
+            i = text.find("\n", i)
+            if i < 0:
+                return None
+        elif text.startswith("/*", i):
+            i = text.find("*/", i)
+            if i < 0:
+                return None
+            i += 1
+        elif c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                return i
+        i += 1
+    return None
+
+
+# Input: text (str)
+# Output: list[Symbol]
+# Processing: Top-level JavaScript/TypeScript functions assigned to a name or an export, with their line range and the comment above.
+# Changed by: Claude Code
+# Date: 2026-11-27
+def js_assigned_functions(text: str) -> list[Symbol]:
+    from ml.ingest.extract import doc_comment_above
+
+    found = []
+    for match in JS_ASSIGNED.finditer(text):
+        end = closing_brace(text, match.end() - 1)
+        if end is None:
+            continue
+        name = match.group("e") or match.group("v")
+        args = next((a for a in (match.group("a1"), match.group("a2"), match.group("a3")) if a is not None), "")
+        start_line, end_line = text.count("\n", 0, match.start()) + 1, text.count("\n", 0, end) + 1
+        found.append(Symbol(name, name, "function", start_line, end_line, text[match.start():end + 1],
+                            f"({args.strip()})", doc_comment_above(text, start_line)))
     return found
 
 

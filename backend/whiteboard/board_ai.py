@@ -340,6 +340,177 @@ def draw(ws: Any, *, lock: Any = None, provider: str | None = None, model: str |
             "usage": usage}
 
 
+MAX_OUTLINE_FILES = 40
+"""Most files one build breaks into parts with the AI; the rest get one block per function from the parser."""
+MIN_OUTLINE_LINES = 25
+"""Shorter files are read whole; they need no parts."""
+OUTLINE_WORKERS = 6
+TEST_PATH = re.compile(r"(^|/)(tests?|__tests__|spec)/|[._-](test|spec)\.[a-z]+$")
+
+
+# Input: ws (Any)
+# Output: list[tuple[str, str]]
+# Processing: The project's code files worth breaking into parts, as (path, text): main code before tests, longest first within each, up to MAX_OUTLINE_FILES and skipping files already outlined or too short or too long for one AI read.
+# Changed by: Claude Code
+# Date: 2026-11-27
+def outline_candidates(ws: Any) -> list[tuple[str, str]]:
+    from backend.whiteboard.ops.outline import MAX_LINES
+
+    found = []
+    for block in ws.board.blocks.values():
+        if block.kind != "file" or not block.path or block.meta.get("outline") or not codegen.language_of(block.path):
+            continue
+        text = read_text(ws.root, block.path)
+        if text is None or not MIN_OUTLINE_LINES <= len(text.splitlines()) <= MAX_LINES:
+            continue
+        found.append((bool(TEST_PATH.search(block.path)), -len(text.splitlines()), block.path, text))
+    return [(path, text) for _, _, path, text in sorted(found)[:MAX_OUTLINE_FILES]]
+
+
+# Input: ws (Any), lock (Any), provider (str | None), model (str | None), progress (Callable[[int, int], None] | None)
+# Output: dict[str, Any]
+# Processing: Break the main code files into named parts (nested where a part is long) so zooming into a file shows small chunks, not one wall of code: the AI reads several files at once, each outline is checked and drawn with /blocks generate.
+# Changed by: Claude Code
+# Date: 2026-11-27
+def outline_files(ws: Any, *, lock: Any, provider: str | None, model: str | None,
+                  progress: Callable[[int, int], None] | None = None) -> dict[str, Any]:
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    from backend.whiteboard.ops.outline import SYSTEM as OUTLINE_SYSTEM, parse_reply, prompt_for
+
+    name, chosen = provider_and_model(provider, model)
+    files = outline_candidates(ws)
+    done, failed, usage = [], [], {"input_tokens": 0, "output_tokens": 0}
+
+    # Input: path (str), text (str)
+    # Output: dict[str, Any]
+    # Processing: One file's outline from the AI.
+    # Changed by: Claude Code
+    # Date: 2026-11-27
+    def ask_one(path: str, text: str) -> dict[str, Any]:
+        reply, used = llm_agent.complete(name, chosen, OUTLINE_SYSTEM, prompt_for(path, text, 3), max_tokens=4000)
+        for key in usage:
+            usage[key] += used.get(key, 0)
+        return parse_reply(reply)
+
+    with ThreadPoolExecutor(max_workers=OUTLINE_WORKERS) as pool:
+        jobs = {pool.submit(ask_one, path, text): path for path, text in files}
+        for job in as_completed(jobs):
+            path = jobs[job]
+            try:
+                found = job.result()
+                with lock:
+                    result = ws.execute("blocks.generate", {"target": path, "blocks": found.get("blocks") or [],
+                                                            "summary": str(found.get("summary") or "")}, actor=BOARD_AI)
+                (done if result["ok"] else failed).append(path if result["ok"] else
+                                                          {"file": path, "error": (result.get("error") or {}).get("message")})
+            except Exception as exc:  # one bad reply never stops the others
+                failed.append({"file": path, "error": str(exc)[:200]})
+            if progress:
+                progress(len(done) + len(failed), len(files))
+    return {"files": len(done), "failed": failed[:10], "usage": usage}
+
+
+# Input: ws (Any), lock (Any), skip (set[str])
+# Output: int
+# Processing: Free fallback for code files the AI did not break up: one block per function from the parser, so they open as parts too.
+# Changed by: Claude Code
+# Date: 2026-11-27
+def split_functions(ws: Any, *, lock: Any) -> int:
+    split = 0
+    for block in list(ws.board.blocks.values()):
+        if block.kind != "file" or not block.path or block.meta.get("outline") or not codegen.language_of(block.path):
+            continue
+        if any(b.parent == block.id for b in ws.board.blocks.values()):
+            continue
+        with lock:
+            result = ws.execute("block.split", {"block": block.id, "by": "function"}, actor=BOARD_AI)
+        split += bool(result["ok"] and result["data"]["result"]["created"])
+    return split
+
+
+ARROW_SYSTEM = "You point to the exact code behind each arrow of a software diagram. You reply with JSON only."
+
+
+# Input: ws (Any)
+# Output: list[str]
+# Processing: One line per main code file, "path: its functions", for the AI to point arrows at real code.
+# Changed by: Claude Code
+# Date: 2026-11-27
+def code_index(ws: Any) -> list[str]:
+    from backend.whiteboard.refactor import symbols
+
+    rows = []
+    for block in sorted(ws.board.blocks.values(), key=lambda b: b.path or ""):
+        if block.kind != "file" or not block.path or not codegen.language_of(block.path) or TEST_PATH.search(block.path):
+            continue
+        text = read_text(ws.root, block.path) or ""
+        names = [s.qualname for s in symbols(text, block.path) if s.kind != "class"]
+        rows.append(f"{block.path}: {', '.join(names[:20]) or '(no functions)'}{' …' if len(names) > 20 else ''}")
+    return rows[:MAX_TREE_LINES]
+
+
+# Input: ws (Any), lock (Any), provider (str | None), model (str | None)
+# Output: dict[str, Any]
+# Processing: Make the architecture arrows specific: for each arrow between services, databases and outside systems, the AI names the files and functions where it happens and what each does; /arrow detail checks every file and function before it is kept.
+# Changed by: Claude Code
+# Date: 2026-11-27
+def detail_arrows(ws: Any, *, lock: Any, provider: str | None, model: str | None) -> dict[str, Any]:
+    blocks = ws.board.blocks
+    code_kinds = ("file", "folder", "function", "class", "step")
+    arrows = [a for a in ws.board.arrows.values() if a.type != "import" and a.source in blocks and a.target in blocks
+              and blocks[a.source].kind not in code_kinds and blocks[a.target].kind not in code_kinds]
+    if not arrows:
+        return {"arrows": 0, "detailed": 0}
+    listing = "\n".join(f'{a.id}: "{blocks[a.source].name}" -> "{blocks[a.target].name}"'
+                         f'{" (" + str(a.style.get("label")) + ")" if a.style.get("label") else ""}' for a in arrows)
+    prompt = (f"The diagram of {ws.root.name} has these arrows (id: from -> to (label)):\n{listing}\n\n"
+              f"The project's code files and their functions:\n" + "\n".join(code_index(ws)) + "\n\n"
+              "For each arrow, say where in the code it really happens: 1 to 3 steps in order, each a file from the "
+              "list, the function there that does it (from that file's list; empty if the work is not in a function), "
+              "and what it does in under 12 plain words (\"checks the password\", \"saves the new user\"). Be "
+              "specific to this code, not generic. If no listed code does it, give no steps.\n"
+              'Reply with exactly: {"arrows": [{"id": "...", "steps": [{"file": "...", "function": "...", "does": "..."}]}]}')
+    name, chosen = provider_and_model(provider, model)
+    reply, usage = llm_agent.complete(name, chosen, ARROW_SYSTEM, prompt, max_tokens=4000)
+    start, end = reply.find("{"), reply.rfind("}")
+    found = (json.loads(reply[start:end + 1]) if 0 <= start < end else {}).get("arrows") or []
+    known = {a.id: a for a in arrows}
+    detailed, failed = 0, []
+    for item in found if isinstance(found, list) else []:
+        arrow = known.get(str((item or {}).get("id")))
+        steps = (item or {}).get("steps") or []
+        if arrow is None or not steps:
+            continue
+        good = [s for s in steps if isinstance(s, dict) and read_text(ws.root, str(s.get("file") or "").strip("/")) is not None]
+        with lock:
+            result = ws.execute("arrow.detail", {"source": arrow.source, "target": arrow.target, "type": arrow.type,
+                                                 "steps": good}, actor=BOARD_AI)
+        if result["ok"] and good:
+            detailed += 1
+        elif not result["ok"]:
+            failed.append({"arrow": arrow.id, "error": (result.get("error") or {}).get("message")})
+    return {"arrows": len(arrows), "detailed": detailed, "failed": failed[:10], "usage": usage}
+
+
+# Input: ws (Any), lock (Any)
+# Output: list[str]
+# Processing: Before a rebuild draws again, remove the architecture boxes the whiteboard AI drew last time (not ones a person drew or pinned), so the new drawing replaces the old one instead of piling on top.
+# Changed by: Claude Code
+# Date: 2026-11-27
+def clear_old_drawing(ws: Any, *, lock: Any) -> list[str]:
+    from backend.whiteboard.model import pinned
+
+    removed = []
+    with lock:
+        old = [b.id for b in ws.board.blocks.values()
+               if b.meta.get("sketch") and b.meta.get("by") == BOARD_AI and not b.parent and not pinned(b)]
+        for block_id in old:
+            if block_id in ws.board.blocks and ws.execute("block.delete", {"block": block_id}, actor=BOARD_AI, confirm=True)["ok"]:
+                removed.append(block_id)
+    return removed
+
+
 DOC_NAMES = ("README", "ARCHITECTURE", "DESIGN", "OVERVIEW")
 MAX_DOC = 4000
 MAX_DOCS = 10_000
@@ -426,6 +597,7 @@ def build(ws: Any, *, lock: Any = None, provider: str | None = None, model: str 
 def build_steps(ws: Any, out: dict[str, Any], task_id: str, display: Any, *, lock: Any, provider: str | None,
                 model: str | None, on_step: Callable[[dict[str, Any]], None] | None) -> dict[str, Any]:
     task = {"id": task_id}
+    out["replaced"] = len(clear_old_drawing(ws, lock=lock))
     try:
         out["draw"] = draw(ws, lock=lock, provider=provider, model=model)
     except llm_agent.AgentError as exc:  # the loop below can still draw
@@ -434,6 +606,8 @@ def build_steps(ws: Any, out: dict[str, Any], task_id: str, display: Any, *, loc
         # Your own model only draws (it was not trained to run the checking loop), so the build ends here.
         out["note"] = out["draw"].get("error") if "error" in out["draw"] else None
         out["checked"] = "no: drawn by your own model; the checking step is off so nothing goes to an outside AI"
+        with lock:
+            out["functions_split"] = split_functions(ws, lock=lock)
         display.finish(task["id"], by=BOARD_AI, failed=bool(out["note"]), message=out["note"] or "drawn by your model")
         if not out["note"]:
             out.pop("note")
@@ -452,6 +626,18 @@ def build_steps(ws: Any, out: dict[str, Any], task_id: str, display: Any, *, loc
 
         with lock:
             ws.execute("project.describe", {"text": plain_markdown(about.group(1))[:200]}, actor=BOARD_AI)
+    display.update(task["id"], by=BOARD_AI, progress=0.6, message="breaking the code into parts")
+    try:
+        out["parts"] = outline_files(ws, lock=lock, provider=provider, model=model, progress=lambda n, total: display.update(
+            task["id"], by=BOARD_AI, progress=0.6 + 0.3 * n / max(total, 1), message=f"breaking the code into parts ({n}/{total} files)"))
+    except llm_agent.AgentError as exc:
+        out["parts"] = {"error": str(exc)}
+    out["functions_split"] = split_functions(ws, lock=lock)
+    display.update(task["id"], by=BOARD_AI, progress=0.92, message="pointing the arrows at the code")
+    try:
+        out["arrow_details"] = detail_arrows(ws, lock=lock, provider=provider, model=model)
+    except (llm_agent.AgentError, ValueError) as exc:
+        out["arrow_details"] = {"error": str(exc)[:300]}
     display.finish(task["id"], by=BOARD_AI, failed="note" in out, message=out.get("note"))
     return out
 

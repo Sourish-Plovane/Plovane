@@ -304,15 +304,48 @@
     spread(routed, Math.min(m * 0.32, frame.w * 0.004))
     routed.forEach(r => { r.pts = simplify(r.pts.map(([x, y]) => [Math.round(x * 100) / 100, Math.round(y * 100) / 100])) })
     const font = frame.w / 118, r = m * 0.55
-    const labels = []
-    return routed.map(({ e, pts }) => {
+    const labels = [], small = font * DETAIL_SIZE
+    // Labels first, so every arrow keeps its name in a clear spot.
+    const placed = routed.map(({ e, pts }) => ({ e, pts, spot: labelSpot(pts, e.label, font, labels, obstacles) }))
+    return placed.map(({ e, pts, spot }) => {
       const d = rounded(pts, r)
-      const spot = labelSpot(pts, e.label, font, labels, obstacles)
       const at = `x="${spot.x}" y="${spot.y}" text-anchor="middle" style="font-size:${font}px"`
+      const detail = quiet(e) ? [] : (e.detail || []).slice(0, 4)
+      const more = detail.length ? ` data-arrows="${escText((e.ids || []).join('|'))}"` : ''
       // A white copy behind the words keeps them readable where they cross another line.
-      const text = e.label ? `<text class="wb-halo" ${at} aria-hidden="true">${escText(e.label)}</text><text ${e.tag} ${at} class="wb-label">${escText(e.label)}</text>` : ''
-      return `<path class="${e.cls} routed${quiet(e) ? ' wb-quiet' : ''}" ${e.tag} d="${d}" marker-end="url(#arrowhead)"/>${text}`
+      const text = e.label ? `<text class="wb-halo" ${at} aria-hidden="true">${escText(e.label)}</text><text ${e.tag}${more} ${at} class="wb-label${detail.length ? ' wb-has-detail' : ''}">${escText(e.label)}</text>` : ''
+      // Where the arrow happens in the code, in small print near the label where there is room: readable once you zoom in.
+      const box = detail.length ? detailSpot(pts, spot, detail, small, font, labels, obstacles) : null
+      const fine = box ? detail.map((line, i) => {
+        const where = `x="${box.x}" y="${box.y + small * 1.35 * i}" text-anchor="middle" style="font-size:${small}px;opacity:clamp(0, calc(var(--z, 1) * ${small} / 2 - 2.5), 1)"`
+        return `<text class="wb-halo wb-detail" ${where} aria-hidden="true">${escText(line)}</text><text ${e.tag}${more} ${where} class="wb-label wb-detail">${escText(line)}</text>`
+      }).join('') : ''
+      return `<path class="${e.cls} routed${quiet(e) ? ' wb-quiet' : ''}" ${e.tag} d="${d}" marker-end="url(#arrowhead)"/>${text}${fine}`
     }).join('')
+  }
+
+  /**
+   * Input: pts (number[][]), spot (object), detail (string[]), small (number), font (number), taken (object[]), obstacles (object[])
+   * Output: object | null
+   * Processing: Where an arrow's small print goes: just under its label, else beside one of its straight runs, at the first spot that covers no card and no other text; null when there is no room (the label still opens the full list when clicked).
+   * Changed by: Claude Code
+   * Date: 2026-11-27
+   */
+  function detailSpot(pts, spot, detail, small, font, taken, obstacles) {
+    const width = Math.max(...detail.map(l => l.length * small * 0.56)), tall = detail.length * small * 1.35
+    const box = (x, y) => ({ x: x - width / 2, y: y - small * 0.85, w: width, h: tall })
+    const hits = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
+    const clear = (x, y) => { const b = box(x, y); return !obstacles.some(o => hits(b, o)) && !taken.some(t => hits(b, t)) }
+    const spots = [[spot.x, spot.y + font * 0.35 + small]]
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i], level = Math.abs(a[1] - b[1]) < 0.5
+      for (const f of [0.5, 0.25, 0.75]) {
+        const x = a[0] + (b[0] - a[0]) * f, y = a[1] + (b[1] - a[1]) * f
+        spots.push(level ? [x, y + small * 1.2] : [x + width / 2 + small, y], level ? [x, y - tall] : [x - width / 2 - small, y])
+      }
+    }
+    for (const [x, y] of spots) if (clear(x, y)) { taken.push(box(x, y)); return { x, y } }
+    return null
   }
 
   /**
@@ -329,6 +362,8 @@
   }
   // Labels drawn before the web font arrived are redrawn once it has.
   document.fonts?.ready?.then(() => window.PlovaneWhiteboard?.render?.())
+
+  const DETAIL_SIZE = 0.66 // the small print under an arrow's label, as a share of the label's size
 
   const escText = v => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
 
@@ -448,6 +483,51 @@
   document.addEventListener('pointerover', e => {
     const card = e.target.closest?.('#blocks .nest-card')
     focusArrows(card ? card.dataset.block : null)
+  })
+  /**
+   * Input: file (string), fn (string | null), line (number | null)
+   * Output: object | undefined
+   * Processing: The block to fly to for a step: the function's own block, else the smallest part of the file holding its line, else the file.
+   * Changed by: Claude Code
+   * Date: 2026-11-27
+   */
+  function stepBlock(file, fn, line) {
+    const all = Object.values(window.PlovaneWhiteboard?.blocks() || {})
+    const own = fn && all.find(b => b.meta?.file === file && (b.symbol === fn || b.name === fn))
+    const span = b => b.meta.lines[1] - b.meta.lines[0]
+    const part = line && all.filter(b => b.meta?.file === file && Array.isArray(b.meta.lines) && b.meta.lines[0] <= line && line <= b.meta.lines[1])
+      .sort((a, b) => span(a) - span(b))[0]
+    return own || part || all.find(b => b.path === file)
+  }
+
+  // An arrow's label opens the full list of where it happens in the code; a line of small print opens its file.
+  document.addEventListener('click', e => {
+    const text = e.target.closest?.('#connections text[data-arrows]')
+    const wb = window.PlovaneWhiteboard
+    if (!text || !wb) return
+    e.stopPropagation()
+    const board = wb.board?.board || wb.board || {}, blocks = board.blocks || {}
+    const arrows = text.dataset.arrows.split('|').map(id => (board.arrows || {})[id]).filter(Boolean)
+    if (text.classList.contains('wb-detail')) {
+      const [file, fn] = text.textContent.split(/: (.*)/s)[0].split(' · ')
+      const step = arrows.flatMap(a => a.meta?.via || []).find(v => v.file === file && (v.function || undefined) === fn)
+      const target = stepBlock(file, fn, step?.line)
+      if (target) wb.flyTo(target.id)
+      return
+    }
+    const first = arrows[0]
+    if (!first) return
+    const rows = arrows.flatMap(a => a.meta?.via || []).map((v, i) => `<li><button class="secondary wb-step" data-wb-file="${escText(v.file)}" data-wb-fn="${escText(v.function || '')}" data-wb-line="${v.line || ''}"><b>${i + 1}. ${escText(v.does || 'here')}</b><small>${escText(v.file)}${v.function ? ` · ${escText(v.function)}()` : ''}${v.line ? ` · line ${v.line}` : ''}</small></button></li>`).join('')
+    const name = id => escText(blocks[id]?.name || id)
+    wb.openModal(`${blocks[first.source]?.name || first.source} → ${blocks[first.target]?.name || first.target}`,
+      `<p>${escText(first.style?.label || first.label || 'This arrow')}: where it happens in the code, in order.</p><ol class="wb-steps">${rows || `<li>${(first.meta?.detail || []).map(escText).join('<br>')}</li>`}</ol><p class="muted">From ${name(first.source)} to ${name(first.target)}. Click a step to open that code.</p>`, 'ARROW IN THE CODE')
+  }, true)
+  document.addEventListener('click', e => {
+    const step = e.target.closest?.('button.wb-step')
+    if (!step) return
+    const target = stepBlock(step.dataset.wbFile, step.dataset.wbFn, Number(step.dataset.wbLine) || null)
+    document.getElementById('modal')?.close()
+    if (target) window.PlovaneWhiteboard?.flyTo(target.id)
   })
   document.addEventListener('click', e => {
     const go = e.target.closest?.('[data-section-go]')

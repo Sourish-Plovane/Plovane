@@ -254,3 +254,54 @@ def arrow_route(ctx: Context, source: str, target: str, curve: Any = None, curva
     if curve is None and curvature is None:
         raise OpError("INVALID_ARGS", "give --curve straight|smooth|orthogonal and/or --curvature 0-1")
     return arrow_style(ctx, source, target, type=type, curve=curve, curvature=curvature)
+
+
+MAX_STEPS = 4
+"""Most code steps one arrow lists."""
+
+
+# Input: ctx (Context), source (str), target (str), steps (Any), type (str | None)
+# Output: dict[str, Any]
+# Processing: Say exactly where in the code an arrow happens: up to four steps, each a real file, optionally one of its functions, and what it does there. Unknown files are refused; an unknown function is dropped with a note; no steps clears them.
+# Changed by: Claude Code
+# Date: 2026-11-27
+@operation("arrow.detail", command="/arrow detail", tool="plovane_arrow_detail", group="plovane_connect")
+def arrow_detail(ctx: Context, source: str, target: str, steps: Any = None, type: str | None = None) -> dict[str, Any]:
+    """Says where in the code an arrow happens: steps=[{"file": "src/pay.py", "function": "charge", "does": "sends the card to Stripe"}]. Shown when someone zooms into the arrow."""
+    import json
+
+    from backend.whiteboard.refactor import symbols
+
+    arrow = find_arrow(ctx, source, target, type)
+    ctx.require(ctx.board.blocks[arrow.source])
+    if isinstance(steps, str):
+        try:
+            steps = json.loads(steps) if steps.strip() else []
+        except json.JSONDecodeError as exc:
+            raise OpError("INVALID_ARGS", f"steps is a JSON list: {exc}") from exc
+    if not isinstance(steps, list):
+        raise OpError("INVALID_ARGS", 'steps is a list like [{"file": "...", "function": "...", "does": "..."}]')
+    via, lines = [], []
+    for step in steps[:MAX_STEPS]:
+        if not isinstance(step, dict):
+            raise OpError("INVALID_ARGS", "each step is an object with file, function and does")
+        file = str(step.get("file") or "").strip().strip("/")
+        if not file or not ctx.fs.exists(file) or ctx.fs.is_dir(file):
+            raise OpError("NOT_FOUND", f"no file {file!r} in the project")
+        does = " ".join(str(step.get("does") or "").split())[:120]
+        function, line = str(step.get("function") or "").strip(), None
+        if function:
+            found = next((s for s in symbols(ctx.fs.read(file), file) if function in (s.name, s.qualname)), None)
+            if found is None:
+                ctx.notes.append(f"{file} has no function {function!r}; kept the file only")
+                function = ""
+            else:
+                line = found.start_line
+        via.append({"file": file, "function": function or None, "line": line, "does": does})
+        lines.append(f"{file}{' · ' + function if function else ''}{': ' + does if does else ''}")
+    if via:
+        arrow.meta |= {"via": via, "detail": lines}
+    else:
+        arrow.meta.pop("via", None)
+        arrow.meta.pop("detail", None)
+    return arrow_record(arrow) | {"via": via}

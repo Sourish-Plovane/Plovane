@@ -158,6 +158,8 @@ COMMANDS: tuple[Command, ...] = (
             example="/arrow style checkout->payments --width 2 --dash 4"),
     Command("arrow route", "arrow.route", arrow=("source", "target"),
             example="/arrow route checkout->payments --curve orthogonal"),
+    Command("arrow detail", "arrow.detail", arrow=("source", "target"),
+            example="""/arrow detail checkout->payments --steps '[{"file": "src/pay.py", "function": "charge", "does": "sends the card to Stripe"}]'"""),
     # API endpoints
     Command("endpoint add", "endpoint.add", ("service", "method", "path"),
             example="/endpoint add payments POST /charge --request ChargeRequest --response Receipt"),
