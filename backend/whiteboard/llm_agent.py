@@ -19,6 +19,7 @@ Providers, all plain HTTPS through urllib so no vendor SDK is needed:
     anthropic   Messages API tool use              ANTHROPIC_API_KEY
     deepseek    chat completions, function calls   DEEPSEEK_API_KEY
     openai      chat completions, function calls   OPENAI_API_KEY
+    plovane     your own trained model (draws only) ~/.config/plovane/model.json
 
 A key comes from the environment, or from ``~/.plovane/keys.json`` which
 ``plovane connect`` writes. ``PLOVANE_<PROVIDER>_BASE_URL`` points a provider
@@ -38,12 +39,18 @@ from pathlib import Path
 from typing import Any, Callable
 
 PROVIDERS = ("anthropic", "deepseek", "openai")
+OWN = "plovane"
+"""The project's own fine-tuned whiteboard model. It is not in PROVIDERS: it draws diagrams in one answer
+and is never picked for the agent loop (it was not trained to call tools)."""
 ALIASES = {"claude": "anthropic", "anthropic": "anthropic", "deepseek": "deepseek", "openai": "openai",
-           "gpt": "openai", "chatgpt": "openai"}
-KEY_NAMES = {"anthropic": "ANTHROPIC_API_KEY", "deepseek": "DEEPSEEK_API_KEY", "openai": "OPENAI_API_KEY"}
-DEFAULT_MODELS = {"anthropic": "claude-sonnet-5-5", "deepseek": "deepseek-chat", "openai": "gpt-5"}
+           "gpt": "openai", "chatgpt": "openai", "plovane": OWN, "own": OWN, "mine": OWN}
+KEY_NAMES = {"anthropic": "ANTHROPIC_API_KEY", "deepseek": "DEEPSEEK_API_KEY", "openai": "OPENAI_API_KEY",
+             OWN: "PLOVANE_MODEL_KEY"}
+DEFAULT_MODELS = {"anthropic": "claude-sonnet-5-5", "deepseek": "deepseek-chat", "openai": "gpt-5", OWN: "plovane-whiteboard"}
 BASE_URLS = {"anthropic": "https://api.anthropic.com", "deepseek": "https://api.deepseek.com",
-             "openai": "https://api.openai.com/v1"}
+             "openai": "https://api.openai.com/v1", OWN: ""}
+MODEL_PATH = Path(os.path.expanduser("~")) / ".config" / "plovane" / "model.json"
+"""Where the running own model is: {"url", "key", "model", "instance"}, written by ``vast_run.py serve``."""
 KEYS_PATH = Path(os.path.expanduser("~")) / ".plovane" / "keys.json"
 RESULT_LIMIT = 6000
 """Characters of a tool result the model sees; the board can be large."""
@@ -93,14 +100,27 @@ class AgentError(RuntimeError):
 
 # Input: provider (str)
 # Output: str
-# Processing: The canonical provider name for an alias like "claude", or AgentError.
+# Processing: The canonical provider name for an alias like "claude" ("plovane" is the project's own model), or AgentError.
 # Changed by: Claude Code
-# Date: 2026-11-09
+# Date: 2026-11-27
 def canonical(provider: str) -> str:
     name = ALIASES.get((provider or "").strip().lower())
     if name is None:
-        raise AgentError(f"provider must be one of claude, deepseek, openai (got {provider!r})")
+        raise AgentError(f"provider must be one of claude, deepseek, openai, plovane (got {provider!r})")
     return name
+
+
+# Input: none
+# Output: dict[str, str]
+# Processing: Where the own model is being served (url, key, model), or {} when it is not running.
+# Changed by: Claude Code
+# Date: 2026-11-27
+def own_model() -> dict[str, str]:
+    try:
+        raw = json.loads(MODEL_PATH.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+    return {k: str(v) for k, v in raw.items() if v} if isinstance(raw, dict) and raw.get("url") else {}
 
 
 # Input: none
@@ -146,11 +166,13 @@ def save_key(provider: str, key: str) -> str:
 
 # Input: provider (str)
 # Output: str | None
-# Processing: The API key for a provider, from the environment or keys.json.
+# Processing: The API key for a provider, from the environment or keys.json; for the own model, from where it is served.
 # Changed by: Claude Code
-# Date: 2026-11-09
+# Date: 2026-11-27
 def api_key(provider: str) -> str | None:
     provider = canonical(provider)
+    if provider == OWN:
+        return os.environ.get(KEY_NAMES[OWN]) or own_model().get("key")
     return os.environ.get(KEY_NAMES[provider]) or saved_keys().get(provider)
 
 
@@ -158,31 +180,44 @@ def api_key(provider: str) -> str | None:
 # Output: list[dict[str, Any]]
 # Processing: Every provider with whether it has a key and the model it would use (never the key).
 # Changed by: Claude Code
-# Date: 2026-11-09
+# Date: 2026-11-27
 def providers() -> list[dict[str, Any]]:
     return [{"provider": p, "label": {"anthropic": "Claude", "deepseek": "DeepSeek", "openai": "OpenAI"}[p],
              "configured": bool(api_key(p)), "model": model_for(p), "base_url": base_url(p)}
             for p in PROVIDERS]
 
 
+# Input: none
+# Output: dict[str, Any]
+# Processing: Whether the project's own model is running, where, and under what name (never its key).
+# Changed by: Claude Code
+# Date: 2026-11-27
+def own_status() -> dict[str, Any]:
+    served = own_model()
+    return {"provider": OWN, "label": "Plovane model (yours)", "running": bool(base_url(OWN) and api_key(OWN)),
+            "model": model_for(OWN), "base_url": base_url(OWN), "instance": served.get("instance"), "draws_only": True}
+
+
 # Input: provider (str), model (str | None)
 # Output: str
-# Processing: The model to call: explicit, then PLOVANE_<P>_MODEL, then the default.
+# Processing: The model to call: explicit, then PLOVANE_<P>_MODEL, then the served own model's name, then the default.
 # Changed by: Claude Code
-# Date: 2026-11-09
+# Date: 2026-11-27
 def model_for(provider: str, model: str | None = None) -> str:
     provider = canonical(provider)
-    return model or os.environ.get(f"PLOVANE_{provider.upper()}_MODEL") or DEFAULT_MODELS[provider]
+    own = own_model().get("model") if provider == OWN else None
+    return model or os.environ.get(f"PLOVANE_{provider.upper()}_MODEL") or own or DEFAULT_MODELS[provider]
 
 
 # Input: provider (str)
 # Output: str
-# Processing: The API base URL: PLOVANE_<P>_BASE_URL, or the provider's own.
+# Processing: The API base URL: PLOVANE_<P>_BASE_URL, the served own model's address, or the provider's own.
 # Changed by: Claude Code
-# Date: 2026-11-09
+# Date: 2026-11-27
 def base_url(provider: str) -> str:
     provider = canonical(provider)
-    return (os.environ.get(f"PLOVANE_{provider.upper()}_BASE_URL") or BASE_URLS[provider]).rstrip("/")
+    own = own_model().get("url") if provider == OWN else None
+    return (os.environ.get(f"PLOVANE_{provider.upper()}_BASE_URL") or own or BASE_URLS[provider]).rstrip("/")
 
 
 # Input: url (str), headers (dict[str, str]), body (dict[str, Any] | None), method (str), timeout (float)
@@ -436,14 +471,17 @@ def _chat_turn(provider: str, model: str, messages: list[dict[str, Any]], key: s
 
 # Input: task (str), provider (str), client (Any), model (str | None), max_steps (int), on_step (Callable | None), stop (threading.Event | None), instructions (str), system (str | None)
 # Output: dict[str, Any]
-# Processing: Let the model call whiteboard tools until it answers in text, reporting each step; system replaces the default prompt.
+# Processing: Let the model call whiteboard tools until it answers in text, reporting each step; system replaces the default prompt; the own model is refused (it only draws).
 # Changed by: Claude Code
-# Date: 2026-11-25
+# Date: 2026-11-27
 def run(task: str, *, provider: str, client: Any, model: str | None = None, max_steps: int = 30,
         on_step: Callable[[dict[str, Any]], None] | None = None,
         stop: threading.Event | None = None, instructions: str = "",
         system: str | None = None) -> dict[str, Any]:
     provider = canonical(provider)
+    if provider == OWN:
+        raise AgentError("your Plovane model draws diagrams; it was not trained to run board commands yet, "
+                         "so pick Claude, DeepSeek or OpenAI for this")
     system = (system or SYSTEM) + instructions
     key = api_key(provider)
     if not key:
@@ -523,9 +561,9 @@ def run(task: str, *, provider: str, client: Any, model: str | None = None, max_
 
 # Input: provider (str), model (str), system (str), prompt (str), max_tokens (int)
 # Output: tuple[str, dict[str, int]]
-# Processing: One plain chat call, no tools: the reply text and token use (any provider, or an OpenAI-compatible local server via PLOVANE_<P>_BASE_URL).
+# Processing: One plain chat call, no tools: the reply text and token use (any provider, an OpenAI-compatible local server via PLOVANE_<P>_BASE_URL, or the own model with greedy decoding and a repetition penalty).
 # Changed by: Claude Code
-# Date: 2026-11-26
+# Date: 2026-11-27
 def complete(provider: str, model: str, system: str, prompt: str, max_tokens: int = 1500) -> tuple[str, dict[str, int]]:
     provider = canonical(provider)
     key = api_key(provider) or "none"
@@ -539,9 +577,13 @@ def complete(provider: str, model: str, system: str, prompt: str, max_tokens: in
         usage = reply.get("usage") or {}
         return text, {"input_tokens": int(usage.get("input_tokens") or 0), "output_tokens": int(usage.get("output_tokens") or 0)}
     limit = "max_completion_tokens" if provider == "openai" else "max_tokens"
-    reply = http_json(f"{base_url(provider)}/chat/completions", {"authorization": f"Bearer {key}"},
-                      {"model": model, limit: max_tokens,
-                       "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}]})
+    body: dict[str, Any] = {"model": model, limit: max_tokens,
+                            "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}]}
+    if provider == OWN:  # a small model can loop on one line; vLLM takes these sampling settings
+        body.update(temperature=0, repetition_penalty=1.1, max_tokens=min(max_tokens, 700))
+        if not base_url(OWN):
+            raise AgentError("your Plovane model is not running: start it with 'python ml/training/vast_run.py serve'")
+    reply = http_json(f"{base_url(provider)}/chat/completions", {"authorization": f"Bearer {key}"}, body)
     if "_http_status" in reply or "choices" not in reply:
         raise AgentError(f"{provider} returned an error: {json.dumps(reply.get('error') or reply)[:400]}")
     usage = reply.get("usage") or {}

@@ -7,10 +7,11 @@ input (tree + docs), target (the authors' own picture, as /sketch lines).
 
     python -m ml.whiteboard_data.harvest --pages 2            # search, filter, write the manifest and examples
     python -m ml.whiteboard_data.harvest --from-manifest      # rebuild the examples from the committed manifest
+    python -m ml.whiteboard_data.harvest --grow --pages 10    # add new repositories to the ones already collected
 
 Only kept:
 * permissive licences (MIT, Apache-2.0, BSD, ISC, 0BSD, Unlicense), recorded per example;
-* Python, JavaScript or TypeScript projects, not forks or archives, under 100 MB;
+* Python, JavaScript, TypeScript, Go, Java, Rust, C#, Ruby, PHP or Kotlin projects, not forks or archives, under 100 MB;
 * "parts" diagrams (not processes) with 3 to 30 nodes;
 * diagrams grounded in the code: at least a quarter of the boxes name something in the file tree.
 
@@ -49,8 +50,16 @@ EXAMPLES = ROOT / "ml" / "data" / "whiteboard_examples.jsonl"
 QUERIES = ("mermaid flowchart filename:README.md", "mermaid graph TD filename:README.md",
            "mermaid flowchart LR architecture filename:README.md", "mermaid graph LR api database filename:README.md",
            "mermaid flowchart architecture filename:ARCHITECTURE.md")
+MORE_QUERIES = tuple(
+    f"{chart} {topic} filename:{name}"
+    for name in ("README.md", "ARCHITECTURE.md")
+    for chart in ("mermaid flowchart TB", "mermaid graph TB", "mermaid flowchart LR", "mermaid graph LR", "mermaid flowchart TD")
+    for topic in ("architecture", "database", "frontend backend", "api", "service", "redis", "worker", "docker"))
+"""--grow: more ways to ask the same question, since code search returns at most 1,000 results a query."""
+SEEN = ROOT / "ml" / "data" / "whiteboard_seen.json"
+"""Repositories already looked at (kept or not), so a later --grow run skips them. Stays out of git."""
 LICENSES = {"mit", "apache-2.0", "bsd-2-clause", "bsd-3-clause", "isc", "0bsd", "unlicense"}
-LANGUAGES = {"Python", "JavaScript", "TypeScript"}
+LANGUAGES = {"Python", "JavaScript", "TypeScript", "Go", "Java", "Rust", "C#", "Ruby", "PHP", "Kotlin"}
 MAX_KB = 100_000
 MAX_TREE = 400
 MAX_README = 8000
@@ -60,10 +69,10 @@ EVAL_SHARE = 5  # one repository in five is held out
 
 # Input: args (list[str]), retries (int)
 # Output: Any
-# Processing: Call the GitHub API through gh and parse the JSON; waits and retries when rate limited, None when refused.
+# Processing: Call the GitHub API through gh and parse the JSON; waits for the rate limit to reset and retries, None when refused.
 # Changed by: Claude Code
-# Date: 2026-11-26
-def gh(args: list[str], retries: int = 3) -> Any:
+# Date: 2026-11-27
+def gh(args: list[str], retries: int = 5) -> Any:
     if shutil.which("gh") is None:
         return rest(args, retries)
     for attempt in range(retries):
@@ -71,10 +80,30 @@ def gh(args: list[str], retries: int = 3) -> Any:
         if result.returncode == 0:
             return json.loads(result.stdout or "null")
         if "rate limit" in result.stderr.lower() or "403" in result.stderr:
-            time.sleep(20 * (attempt + 1))
+            wait_for_rate_limit(attempt)
             continue
         return None
     return None
+
+
+# Input: attempt (int)
+# Output: None
+# Processing: Sleep until GitHub lets us call again: until the limit that ran out resets (at most an hour), or a short back-off when it cannot tell.
+# Changed by: Claude Code
+# Date: 2026-11-27
+def wait_for_rate_limit(attempt: int) -> None:
+    result = subprocess.run(["gh", "api", "rate_limit"], capture_output=True, text=True, timeout=60)
+    try:
+        limits = json.loads(result.stdout)["resources"]
+        empty = [r["reset"] for r in (limits["core"], limits["search"], limits.get("code_search") or limits["search"]) if r["remaining"] == 0]
+    except (ValueError, KeyError, TypeError):
+        empty = []
+    if empty:
+        pause = min(3600, max(5, min(empty) - time.time() + 5))
+        print(f"GitHub rate limit reached; waiting {round(pause)} s", file=sys.stderr, flush=True)
+        time.sleep(pause)
+    else:
+        time.sleep(20 * (attempt + 1))
 
 
 # Input: args (list[str]), retries (int)
@@ -224,7 +253,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--pages", type=int, default=1, help="search result pages per query (100 each)")
     parser.add_argument("--limit", type=int, default=400, help="most repositories to look at")
     parser.add_argument("--from-manifest", action="store_true", help="rebuild examples from the committed manifest")
+    parser.add_argument("--grow", action="store_true", help="keep what is collected and add new repositories to it")
     args = parser.parse_args(argv)
+    if args.grow:
+        return grow(args.pages, args.limit)
     if args.from_manifest:
         entries = json.loads(MANIFEST.read_text())["repositories"]
     else:
@@ -247,6 +279,51 @@ def main(argv: list[str] | None = None) -> int:
             handle.write(json.dumps(example) + "\n")
     splits = {s: sum(e["split"] == s for e in examples) for s in ("train", "eval")}
     print(json.dumps({"repositories": len(kept), "examples": len(examples), **splits}))
+    return 0
+
+
+# Input: kept (list[dict[str, Any]])
+# Output: None
+# Processing: Write the manifest, sorted by repository name.
+# Changed by: Claude Code
+# Date: 2026-11-27
+def write_manifest(kept: list[dict[str, Any]]) -> None:
+    MANIFEST.parent.mkdir(parents=True, exist_ok=True)
+    MANIFEST.write_text(json.dumps({"format": "plovane-whiteboard-sources", "version": 1,
+                                    "repositories": sorted(kept, key=lambda e: e["repo"].lower())}, indent=1) + "\n")
+
+
+# Input: pages (int), limit (int)
+# Output: int
+# Processing: Add new repositories to the collection: search with every query, skip repositories already looked at, qualify and harvest the rest, appending examples and saving the manifest and the seen list as it goes (so stopping loses nothing).
+# Changed by: Claude Code
+# Date: 2026-11-27
+def grow(pages: int, limit: int) -> int:
+    kept = json.loads(MANIFEST.read_text())["repositories"] if MANIFEST.exists() else []
+    seen = set(json.loads(SEEN.read_text())) if SEEN.exists() else set()
+    seen |= {e["repo"].lower() for e in kept}
+    names = [n for n in search(QUERIES + MORE_QUERIES, pages) if n.lower() not in seen][:limit]
+    print(f"{len(names)} new repositories mention a Mermaid flowchart", file=sys.stderr)
+    added = examples_added = 0
+    with EXAMPLES.open("a", encoding="utf-8") as handle:
+        for index, name in enumerate(names, start=1):
+            seen.add(name.lower())
+            entry = qualify(name)
+            found = examples_for(entry) if entry else []
+            if found:
+                for example in found:
+                    handle.write(json.dumps(example) + "\n")
+                handle.flush()
+                kept.append({k: entry[k] for k in ("repo", "commit", "license", "language", "stars")})
+                added, examples_added = added + 1, examples_added + len(found)
+            if index % 20 == 0 or index == len(names):
+                write_manifest(kept)
+                SEEN.write_text(json.dumps(sorted(seen)))
+                print(f"{index}/{len(names)} looked at, {added} kept, {examples_added} new examples", file=sys.stderr, flush=True)
+    write_manifest(kept)
+    SEEN.write_text(json.dumps(sorted(seen)))
+    total = sum(1 for _ in EXAMPLES.open(encoding="utf-8"))
+    print(json.dumps({"repositories": len(kept), "new_repositories": added, "new_examples": examples_added, "examples": total}))
     return 0
 
 

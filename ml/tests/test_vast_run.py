@@ -161,3 +161,17 @@ class TestFinalWeights:
         script = vast.build_onstart("run1", max_hours=1)
         commands = [l for l in script.splitlines() if not l.lstrip().startswith("#")]
         assert not any(" -v " in l or l.rstrip().endswith(" -v") or "--verbose" in l for l in commands)
+
+
+# Input: none
+# Output: None
+# Processing: The serving box fetches the adapter, serves it under the whiteboard's model name behind the key, and destroys itself when idle or when the server stops.
+# Changed by: Claude Code
+# Date: 2026-11-27
+def test_serving_box_stops_itself_when_idle(vast):
+    script = vast.build_serve_onstart("https://example.com/a.tar.gz", idle_minutes=30, max_hours=4)
+    assert 'curl -sSL -o adapter.tar.gz "https://example.com/a.tar.gz"' in script
+    assert "--lora-modules plovane-whiteboard=/root/adapter" in script and '--api-key "$VLLM_KEY"' in script
+    assert "timeout 14400 " in script and "-gt 1800 ]" in script and "kill -0 $SERVER" in script
+    assert script.rstrip().endswith('"https://console.vast.ai/api/v0/instances/${CONTAINER_ID}/" || true')
+    assert "VLLM_KEY=" not in script  # the key travels in the environment, never in the script

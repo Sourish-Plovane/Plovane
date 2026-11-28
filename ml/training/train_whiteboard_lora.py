@@ -38,9 +38,9 @@ def read_rows(path: Path) -> list[dict]:
 
 # Input: argv (list[str] | None)
 # Output: int
-# Processing: Train LoRA adapters, generate answers for the held-out prompts, score them, and save adapter, predictions and metrics.
+# Processing: Train LoRA adapters, generate answers for the held-out prompts the way the whiteboard will (greedy, repetition penalty, repeated lines dropped), score them overall and on the first eval set, and save adapter, predictions and metrics.
 # Changed by: Claude Code
-# Date: 2026-11-26
+# Date: 2026-11-27
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--model", default="Qwen/Qwen2.5-Coder-1.5B-Instruct")
@@ -109,9 +109,11 @@ def main(argv: list[str] | None = None) -> int:
         prompt = tokenizer.apply_chat_template(row["messages"][:2], tokenize=False, add_generation_prompt=True)
         inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=args.max_length).to(trainer.model.device)
         with torch.no_grad():
+            # Same decoding as when the whiteboard calls the served model: greedy, with a repetition penalty.
             output = trainer.model.generate(**inputs, max_new_tokens=40 if args.smoke else 600, do_sample=False,
-                                            pad_token_id=tokenizer.pad_token_id)
+                                            repetition_penalty=1.1, pad_token_id=tokenizer.pad_token_id)
         answer = tokenizer.decode(output[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True)
+        answer = "\n".join(list(dict.fromkeys(l.strip() for l in answer.splitlines() if l.strip()))[:40])  # as board_ai.draw does
         score = score_sketch(answer, charts[(row["repo"], row["diagram"])])
         scores.append(score)
         predictions.append({"repo": row["repo"], "diagram": row["diagram"], "answer": answer, **score})
@@ -120,10 +122,14 @@ def main(argv: list[str] | None = None) -> int:
             handle.write(json.dumps(p) + "\n")
     keys = ("parts_recall", "parts_precision", "parts_f1", "arrow_recall", "bad_lines")
     mean = {k: round(sum(s[k] for s in scores) / len(scores), 3) for k in keys} if scores else {}
+    first = set(json.loads((ROOT / "ml" / "whiteboard_data" / "eval_v1.json").read_text())["repositories"])
+    v1 = [p for p in predictions if p["repo"] in first]  # the projects the DeepSeek baseline was scored on
+    mean_v1 = {k: round(sum(p[k] for p in v1) / len(v1), 3) for k in keys} if v1 else {}
     metrics = {"model": args.model, "settings": vars(args), "train_examples": len(train_rows),
                "eval_examples": len(eval_rows), "train_loss": round(result.training_loss, 4),
                "train_seconds": train_seconds, "gpu": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
-               "held_out": mean}
+               "held_out": mean, "held_out_v1": {**mean_v1, "examples": len(v1)},
+               "baseline_v1": {"deepseek-chat": {"parts_f1": 0.382, "arrow_recall": 0.155}}}
     (OUT / "metrics.json").write_text(json.dumps(metrics, indent=1) + "\n")
     print(json.dumps(metrics))
     return 0

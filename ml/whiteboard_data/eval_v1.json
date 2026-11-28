@@ -1,0 +1,31 @@
+{
+ "about": "The held-out repositories the first fine-tune and the DeepSeek baseline (parts F1 0.382, arrow recall 0.155) were scored on; later runs report this subset too so results stay comparable.",
+ "repositories": [
+  "AAH20/apex-treecompute",
+  "AakarGupta-coder/Darshan-QML",
+  "DaveSimoes/VercelZero",
+  "FOMO-RUN/codex-desktop-zh-cn-portable",
+  "Harri-Llewelyn/Aber",
+  "Jahataa/jaha-eye",
+  "Kunnatam/V1R4",
+  "Muhammad-Hassan12/Zauq",
+  "N1ghthill/merlin-ia",
+  "Praneetha1844/Metamorph",
+  "PranithChowdary/Real-time-web-search-RAG-with-MCP",
+  "ResDream/MindPilot",
+  "chaitanyayad/DeployGate",
+  "daddi1987/DynamicAxisControl",
+  "eran-broder/jev-skills",
+  "hasibshahriyar/CacheRoute",
+  "helloimbea/MyCozyBookshelf",
+  "jiayu-here/stm32-vision-robot-arm-sorter",
+  "jylhakos/Data-Analysis-and-Visualizations",
+  "mayukh4/jansky",
+  "mdmurphy822/Ed4All",
+  "mirmisbahali/deakin_rover",
+  "shadowliying/agenticrl-literature",
+  "shekratul10/Agents",
+  "timothystewart6/techno-boto-chat",
+  "travisjneuman/.claude"
+ ]
+}

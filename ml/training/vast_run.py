@@ -54,6 +54,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
+from pathlib import Path
 
 API = "https://console.vast.ai/api/v0"
 REPO_PATH = "github.com/Sourish-Plovane/Plovane.git"
@@ -289,11 +290,18 @@ if [ -d ml/artifacts/whiteboard_lora/adapter ]; then
     > "$OUT"/release_wb.json
   WB_RELEASE=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("id", ""))' "$OUT"/release_wb.json)
   if [ -n "$WB_RELEASE" ]; then
-    curl -s -X POST -H "Authorization: Bearer ${{GH_TOKEN}}" \\
-      -H "Content-Type: application/gzip" \\
-      --data-binary @/root/whiteboard_lora_adapter.tar.gz \\
-      "https://uploads.github.com/repos/{REPO_SLUG}/releases/$WB_RELEASE/assets?name=whiteboard_lora_adapter.tar.gz" \\
-      > "$OUT"/release_wb_asset.json
+    # Retried, and the HTTP status and curl's own error kept: the first run's upload failed without a word.
+    ls -l /root/whiteboard_lora_adapter.tar.gz > "$OUT"/release_wb_upload.log 2>&1
+    for attempt in 1 2 3; do
+      CODE=$(curl -sS --retry 3 --retry-delay 10 --max-time 900 -o "$OUT"/release_wb_asset.json -w '%{{http_code}}' \\
+        -X POST -H "Authorization: Bearer ${{GH_TOKEN}}" -H "Content-Type: application/gzip" \\
+        --data-binary @/root/whiteboard_lora_adapter.tar.gz \\
+        "https://uploads.github.com/repos/{REPO_SLUG}/releases/$WB_RELEASE/assets?name=whiteboard_lora_adapter.tar.gz" \\
+        2>> "$OUT"/release_wb_upload.log)
+      echo "attempt $attempt: HTTP $CODE" >> "$OUT"/release_wb_upload.log
+      [ "$CODE" = "201" ] && break
+      sleep 20
+    done
   fi
 fi
 cp ml/artifacts/whiteboard_lora/metrics.json ml/artifacts/whiteboard_lora/predictions.jsonl "$OUT"/ 2>/dev/null
@@ -417,7 +425,8 @@ def run(args: argparse.Namespace) -> int:
         "runtype": "ssh",
         "onstart": build_onstart(run_id, max_hours=args.max_hours, job=job),
         "env": {"GH_TOKEN": secret("GH_RESULTS_TOKEN") or "<GH_RESULTS_TOKEN>",
-                **{k: v for k, v in (("WB_MODEL", getattr(args, "model", None)), ("WB_EPOCHS", getattr(args, "epochs", None)))
+                **{k: v for k, v in (("WB_MODEL", getattr(args, "model", None)), ("WB_EPOCHS", getattr(args, "epochs", None)),
+                                     ("WB_FLAGS", getattr(args, "flags", None)))
                    if v}},
     }
     if args.dry_run:
@@ -504,6 +513,170 @@ def run(args: argparse.Namespace) -> int:
     return 0
 
 
+SERVE_IMAGE = "vllm/vllm-openai:latest"
+"""The OpenAI-compatible model server; the whiteboard talks to it like any provider."""
+SERVED_NAME = "plovane-whiteboard"
+MODEL_FILE = Path(os.path.expanduser("~")) / ".config" / "plovane" / "model.json"
+"""Where the whiteboard finds the running model (backend/whiteboard/llm_agent.py reads it). Mode 600: it holds the key."""
+
+
+# Input: tag (str | None)
+# Output: tuple[str, str]
+# Processing: The release tag and download URL of the newest (or the named) whiteboard LoRA adapter on GitHub.
+# Changed by: Claude Code
+# Date: 2026-11-27
+def adapter_release(tag: str | None = None) -> tuple[str, str]:
+    path = f"releases/tags/{tag}" if tag else "releases?per_page=50"
+    with urllib.request.urlopen(urllib.request.Request(f"https://api.github.com/repos/{REPO_SLUG}/{path}",
+                                                       headers={"Accept": "application/vnd.github+json"}), timeout=30) as reply:
+        found = json.loads(reply.read())
+    for release in [found] if tag else found:
+        for asset in release.get("assets") or []:
+            if release.get("tag_name", "").startswith("whiteboard-lora-") and asset["name"] == "whiteboard_lora_adapter.tar.gz":
+                return release["tag_name"], asset["browser_download_url"]
+    raise RuntimeError("no whiteboard LoRA release with an adapter attached yet: train one first (run --job whiteboard)")
+
+
+# Input: adapter_url (str), idle_minutes (int), max_hours (float)
+# Output: str
+# Processing: The box's start-up script for serving: fetch the adapter, start vLLM with it under SERVED_NAME behind the key in VLLM_KEY, and destroy the box after idle_minutes without a request, when the server dies, or at max_hours.
+# Changed by: Claude Code
+# Date: 2026-11-27
+def build_serve_onstart(adapter_url: str, *, idle_minutes: int, max_hours: float) -> str:
+    return f"""#!/bin/bash
+exec > /root/onstart.log 2>&1
+cd /root
+curl -sSL -o adapter.tar.gz "{adapter_url}" && tar xzf adapter.tar.gz || echo "adapter download failed"
+BASE=$(python3 -c 'import json; print(json.load(open("/root/adapter/adapter_config.json"))["base_model_name_or_path"])')
+echo "base model: $BASE"
+timeout {int(max_hours * 3600)} python3 -m vllm.entrypoints.openai.api_server --model "$BASE" \\
+  --enable-lora --lora-modules {SERVED_NAME}=/root/adapter --max-lora-rank 64 --max-model-len 8192 \\
+  --api-key "$VLLM_KEY" --host 0.0.0.0 --port 8000 > /root/vllm.log 2>&1 &
+SERVER=$!
+# Idle watchdog: every answered request resets the clock; nothing for {idle_minutes} minutes ends the box.
+last=$(date +%s); seen=0
+while sleep 60; do
+  now_seen=$(grep -c 'POST /v1/chat/completions' /root/vllm.log 2>/dev/null || echo 0)
+  [ "$now_seen" != "$seen" ] && seen=$now_seen && last=$(date +%s)
+  kill -0 $SERVER 2>/dev/null || {{ echo "model server stopped"; break; }}
+  [ $(( $(date +%s) - last )) -gt {idle_minutes * 60} ] && {{ echo "idle for {idle_minutes} minutes"; break; }}
+done
+curl -s -X DELETE -H "Authorization: Bearer ${{CONTAINER_API_KEY}}" "{API}/instances/${{CONTAINER_ID}}/" || true
+"""
+
+
+# Input: args (argparse.Namespace)
+# Output: int
+# Processing: Rent a GPU, serve the trained whiteboard model on it, wait until it answers, and write MODEL_FILE so the whiteboard uses it; destroys the box if it never comes up.
+# Changed by: Claude Code
+# Date: 2026-11-27
+def serve(args: argparse.Namespace) -> int:
+    import secrets
+
+    if MODEL_FILE.exists():
+        print(f"a model is already being served ({MODEL_FILE}); stop it first with: vast_run.py stop")
+        return 2
+    try:
+        tag, adapter_url = adapter_release(args.release)
+    except (RuntimeError, urllib.error.URLError) as exc:
+        print(f"not serving: {exc}")
+        return 2
+    offer = choose_offer(search_offers("whiteboard"), max_price=args.max_price)
+    print(f"adapter {tag}; cheapest suitable: {offer['gpu_name']} at ${offer['dph_total']:.3f}/hr "
+          f"(offer {offer['id']}, {offer.get('geolocation', '?')}); stops itself after {args.idle_minutes} idle minutes "
+          f"or {args.max_hours} h (at most ${offer['dph_total'] * args.max_hours:.2f})")
+    key_for_model = secrets.token_urlsafe(24)
+    body = {"client_id": "me", "image": SERVE_IMAGE, "disk": 50, "label": f"plovane-serve-{tag}", "runtype": "ssh",
+            "onstart": build_serve_onstart(adapter_url, idle_minutes=args.idle_minutes, max_hours=args.max_hours),
+            "env": {"-p 8000:8000": "1", "VLLM_KEY": key_for_model}}
+    if args.dry_run:
+        print(json.dumps({k: v for k, v in dict(body, env={**body["env"], "VLLM_KEY": "<redacted>"}).items() if k != "onstart"}, indent=2))
+        print("\n-- onstart --\n" + body["onstart"])
+        return 0
+    if not args.yes:
+        print("\nnot renting without --yes")
+        return 2
+    key = secret("VAST_API_KEY")
+    if not key:
+        print("not set in this session's environment: VAST_API_KEY")
+        return 2
+    created = api("PUT", f"/asks/{offer['id']}/", key=key, body=body)
+    instance = created.get("new_contract")
+    if not created.get("success") or not instance:
+        print(f"rent failed: {created}")
+        return 1
+    print(f"rented instance {instance}; loading the model (usually 5-10 minutes)", flush=True)
+    deadline, url = time.time() + args.wait_minutes * 60, None
+    try:
+        while time.time() < deadline:
+            info = api("GET", f"/instances/{instance}/", key=key).get("instances") or {}
+            port = ((info.get("ports") or {}).get("8000/tcp") or [{}])[0].get("HostPort")
+            if info.get("public_ipaddr") and port:
+                url = f"http://{info['public_ipaddr'].strip()}:{port}/v1"
+                try:
+                    with urllib.request.urlopen(urllib.request.Request(f"{url}/models", headers={"Authorization": f"Bearer {key_for_model}"}), timeout=10) as reply:
+                        if SERVED_NAME in reply.read().decode():
+                            break
+                except (urllib.error.URLError, OSError):
+                    pass
+            print(f"{datetime.now(timezone.utc):%H:%M:%S}  instance {instance}: {info.get('actual_status') or 'starting'}", flush=True)
+            time.sleep(30)
+        else:
+            raise RuntimeError(f"the model did not answer within {args.wait_minutes} minutes")
+    except BaseException as exc:
+        print(f"not serving: {exc}")
+        print(destroy(instance, key))
+        return 1
+    MODEL_FILE.parent.mkdir(parents=True, exist_ok=True)
+    handle = os.open(MODEL_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)  # it holds the model's key
+    with os.fdopen(handle, "w") as out:
+        json.dump({"url": url, "key": key_for_model, "model": SERVED_NAME, "instance": str(instance), "adapter": tag,
+                   "price_per_hour": offer["dph_total"], "started": datetime.now(timezone.utc).isoformat()}, out, indent=1)
+    print(f"your model is answering at {url} (saved to {MODEL_FILE}). Builds now draw with it.")
+    print("stop it with: python ml/training/vast_run.py stop  (it also stops itself when idle)")
+    return 0
+
+
+# Input: none
+# Output: int
+# Processing: Destroy the box serving the model and forget it, so the whiteboard stops using it.
+# Changed by: Claude Code
+# Date: 2026-11-27
+def stop_serving() -> int:
+    if not MODEL_FILE.exists():
+        print("no model is being served")
+        return 0
+    served = json.loads(MODEL_FILE.read_text())
+    key = secret("VAST_API_KEY")
+    if not key:
+        print("not set in this session's environment: VAST_API_KEY")
+        return 2
+    print(destroy(int(served["instance"]), key))
+    MODEL_FILE.unlink()
+    return 0
+
+
+# Input: none
+# Output: int
+# Processing: Say whether the served model's box is still there and what it costs (never the key).
+# Changed by: Claude Code
+# Date: 2026-11-27
+def serve_status() -> int:
+    if not MODEL_FILE.exists():
+        print("no model is being served")
+        return 0
+    served = json.loads(MODEL_FILE.read_text())
+    key = secret("VAST_API_KEY")
+    info = api("GET", f"/instances/{served['instance']}/", key=key).get("instances") or {} if key else {}
+    print(json.dumps({"url": served["url"], "adapter": served.get("adapter"), "instance": served["instance"],
+                      "status": info.get("actual_status") or ("gone" if key else "unknown (no VAST_API_KEY)"),
+                      "price_per_hour": served.get("price_per_hour"), "started": served.get("started")}, indent=1))
+    if key and not info:
+        MODEL_FILE.unlink()  # the box stopped itself (idle): forget it so builds fall back cleanly
+        print("the box is gone (it stops itself when idle); forgot it")
+    return 0
+
+
 # Input: none
 # Output: int
 # Processing: CLI entry point.
@@ -519,13 +692,30 @@ def main() -> int:
                             help="cross-encoder (Stage 2 ranking) or whiteboard (LoRA fine-tune of the whiteboard model)")
     run_parser.add_argument("--model", default=None, help="whiteboard job: base model (default Qwen2.5-Coder-1.5B-Instruct)")
     run_parser.add_argument("--epochs", default=None, help="whiteboard job: training epochs (default 3)")
+    run_parser.add_argument("--flags", default=None, help="whiteboard job: extra training flags, e.g. \"--four-bit\" for a 7B model")
     run_parser.add_argument("--yes", action="store_true", help="actually rent (costs money)")
     run_parser.add_argument("--dry-run", action="store_true", help="show the request, rent nothing")
     run_parser.add_argument("--max-price", type=float, default=0.20, help="$/hr cap (default 0.20)")
     run_parser.add_argument("--max-hours", type=float, default=5.0, help="time cap (default 5)")
     run_parser.add_argument("--poll-seconds", type=int, default=60)
+    serve_parser = sub.add_parser("serve", help="rent a GPU and serve the trained whiteboard model for the whiteboard")
+    serve_parser.add_argument("--release", default=None, help="adapter release tag (default: the newest)")
+    serve_parser.add_argument("--idle-minutes", type=int, default=30, help="stop after this long without a request (default 30)")
+    serve_parser.add_argument("--max-hours", type=float, default=4.0, help="stop after this long in any case (default 4)")
+    serve_parser.add_argument("--max-price", type=float, default=0.25, help="$/hr cap (default 0.25)")
+    serve_parser.add_argument("--wait-minutes", type=int, default=25, help="give up if it is not answering by then")
+    serve_parser.add_argument("--yes", action="store_true", help="actually rent (costs money)")
+    serve_parser.add_argument("--dry-run", action="store_true", help="show the request, rent nothing")
+    sub.add_parser("stop", help="stop serving the whiteboard model")
+    sub.add_parser("status", help="is the whiteboard model being served")
     args = parser.parse_args()
 
+    if args.command == "serve":
+        return serve(args)
+    if args.command == "stop":
+        return stop_serving()
+    if args.command == "status":
+        return serve_status()
     if args.command == "search":
         print_offers(search_offers(args.job))
         return 0

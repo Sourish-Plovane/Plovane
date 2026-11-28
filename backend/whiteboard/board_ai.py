@@ -173,15 +173,17 @@ def ensure_board_ai(ws: Any) -> None:
 
 # Input: provider (str | None), model (str | None)
 # Output: tuple[str, str]
-# Processing: The provider and model the whiteboard AI uses: explicit, then PLOVANE_BOARD_AI_*, then the first provider with a key on its lightweight model.
+# Processing: The provider and model the whiteboard AI uses: explicit, then PLOVANE_BOARD_AI_*, then the first provider with a key on its lightweight model; the own model keeps the name it is served under.
 # Changed by: Claude Code
-# Date: 2026-11-25
+# Date: 2026-11-27
 def provider_and_model(provider: str | None = None, model: str | None = None) -> tuple[str, str]:
     chosen = provider or os.environ.get("PLOVANE_BOARD_AI_PROVIDER")
     if chosen:
         name = llm_agent.canonical(chosen)
     else:
         name = next((p for p in llm_agent.PROVIDERS if llm_agent.api_key(p)), "anthropic")
+    if name == llm_agent.OWN:  # the served model's own name, whatever the board AI's default is
+        return name, model or llm_agent.model_for(name)
     return name, model or os.environ.get("PLOVANE_BOARD_AI_MODEL") or DEFAULT_MODELS[name]
 
 
@@ -279,6 +281,7 @@ outside APIs, the user), named in plain words. Join them in the direction data o
 requests flow, with a few-word label where it helps. Usually 4 to 12 blocks."""
 """The one-shot draw prompt. The whiteboard model is trained on exactly this (ml/whiteboard_data/prepare.py)."""
 MAX_TREE_LINES = 200
+MAX_DRAW_LINES = 40  # a drawing longer than this is a model repeating itself
 MAX_DRAW_DOCS = 5000
 SKETCH_LINE = re.compile(r'^\s*(?:(?:service|database|queue|external|server)\s+"[^"]+"|"[^"]+"\s*->\s*"[^"]+"(?:\s+"[^"]*")?)\s*$',
                          re.IGNORECASE)
@@ -311,9 +314,9 @@ def project_tree(root: Path) -> list[str]:
 
 # Input: ws (Workspace), lock (Any), provider (str | None), model (str | None)
 # Output: dict[str, Any]
-# Processing: One call draws the architecture from the file tree and README; the valid /sketch lines go on the board as the whiteboard AI (line by line if the batch is refused).
+# Processing: One call draws the architecture from the file tree and README; the valid /sketch lines go on the board as the whiteboard AI (line by line if the batch is refused); repeated lines are dropped and at most MAX_DRAW_LINES kept.
 # Changed by: Claude Code
-# Date: 2026-11-26
+# Date: 2026-11-27
 def draw(ws: Any, *, lock: Any = None, provider: str | None = None, model: str | None = None) -> dict[str, Any]:
     lock = lock or threading.RLock()
     name, chosen = provider_and_model(provider or os.environ.get("PLOVANE_BOARD_AI_DRAW_PROVIDER"),
@@ -321,7 +324,7 @@ def draw(ws: Any, *, lock: Any = None, provider: str | None = None, model: str |
     readme_path = next((p for p in sorted(ws.root.glob("README*")) if p.is_file()), None)
     readme = readme_path.read_text(encoding="utf-8", errors="replace") if readme_path else ""
     text, usage = llm_agent.complete(name, chosen, DRAW_SYSTEM, draw_prompt(ws.root.name, project_tree(ws.root), readme))
-    lines = [line.strip() for line in text.splitlines() if SKETCH_LINE.match(line)]
+    lines = list(dict.fromkeys(line.strip() for line in text.splitlines() if SKETCH_LINE.match(line)))[:MAX_DRAW_LINES]
     applied, failed = 0, []
     with lock:
         ensure_board_ai(ws)
@@ -373,7 +376,7 @@ def project_docs(root: Path) -> str:
 
 # Input: ws (Workspace), lock (threading.RLock | None), provider (str | None), model (str | None), on_step (Callable | None), organise (bool)
 # Output: dict[str, Any]
-# Processing: Build the board: import the project from the code, then (in its turn in the whiteboard AI's line) draw its main parts in one call and let the whiteboard AI check and finish it (skipped, with a note, when no AI key is set).
+# Processing: Build the board: import the project from the code, then (in its turn in the whiteboard AI's line) draw its main parts in one call and let the whiteboard AI check and finish it (skipped, with a note, when no AI key is set). When the project's own model is running or asked for, it draws and the checking step is skipped, so nothing goes to an outside AI.
 # Changed by: Claude Code
 # Date: 2026-11-27
 def build(ws: Any, *, lock: Any = None, provider: str | None = None, model: str | None = None,
@@ -387,6 +390,10 @@ def build(ws: Any, *, lock: Any = None, provider: str | None = None, model: str 
     out: dict[str, Any] = {"status": "done", "import": imported["data"]["result"], "organise": None}
     if not organise:
         return out
+    # The project's own model, when it is running (or asked for), draws; nothing then goes to an outside AI.
+    own = llm_agent.canonical(provider) == llm_agent.OWN if provider else llm_agent.own_status()["running"]
+    if own:
+        provider = llm_agent.OWN
     name, _ = provider_and_model(provider, model)
     if not llm_agent.api_key(name):
         out["note"] = (f"organising skipped: no API key for {name}; run "
@@ -413,7 +420,7 @@ def build(ws: Any, *, lock: Any = None, provider: str | None = None, model: str 
 
 # Input: ws (Any), out (dict[str, Any]), task_id (str), display (Any), lock (Any), provider (str | None), model (str | None), on_step (Callable | None)
 # Output: dict[str, Any]
-# Processing: Draw the architecture, let the loop check it, take its "About:" line as the project's one-line description (unless a person or agent wrote one), and report each stage on the temporary display.
+# Processing: Draw the architecture, let the loop check it (not for the project's own model, which only draws), take its "About:" line as the project's one-line description (unless a person or agent wrote one), and report each stage on the temporary display.
 # Changed by: Claude Code
 # Date: 2026-11-27
 def build_steps(ws: Any, out: dict[str, Any], task_id: str, display: Any, *, lock: Any, provider: str | None,
@@ -423,6 +430,14 @@ def build_steps(ws: Any, out: dict[str, Any], task_id: str, display: Any, *, loc
         out["draw"] = draw(ws, lock=lock, provider=provider, model=model)
     except llm_agent.AgentError as exc:  # the loop below can still draw
         out["draw"] = {"error": str(exc)}
+    if provider and llm_agent.canonical(provider) == llm_agent.OWN:
+        # Your own model only draws (it was not trained to run the checking loop), so the build ends here.
+        out["note"] = out["draw"].get("error") if "error" in out["draw"] else None
+        out["checked"] = "no: drawn by your own model; the checking step is off so nothing goes to an outside AI"
+        display.finish(task["id"], by=BOARD_AI, failed=bool(out["note"]), message=out["note"] or "drawn by your model")
+        if not out["note"]:
+            out.pop("note")
+        return out
     display.update(task["id"], by=BOARD_AI, progress=0.5, message="checking the drawing")
     try:
         out["organise"] = ask(ws, ORGANISE.replace("{docs}", project_docs(ws.root)), requester=BOARD_AI, lock=lock,
