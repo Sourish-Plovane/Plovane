@@ -14,7 +14,7 @@ Date: 2026-11-14
   <script>
     // Served by the whiteboard server under /whiteboard/, or opened straight from disk (file://).
     const whiteboardAssetRoot = location.protocol === 'file:' ? './' : '/whiteboard/';
-    for (const name of ['whiteboard', 'agent-chat', 'code-view', 'workbench', 'agent-studio', 'library', 'live-view', 'overlays', 'readable', 'open-view', 'tasks']) {
+    for (const name of ['whiteboard', 'agent-chat', 'code-view', 'workbench', 'agent-studio', 'library', 'live-view', 'overlays', 'readable', 'open-view', 'tasks', 'sections']) {
       const sheet = document.createElement('link');
       sheet.rel = 'stylesheet';
       sheet.href = `${whiteboardAssetRoot}${name}.css`;
@@ -84,7 +84,7 @@ Date: 2026-11-14
   <dialog id="modal" class="modal"><div class="modal-head"><div><span class="eyebrow" id="modal-eyebrow">PLOVANE</span><h2 id="modal-title">Details</h2></div><button class="icon-btn" data-action="close-modal" aria-label="Close">×</button></div><div id="modal-body" class="modal-body"></div></dialog>
   <script>
     // whiteboard.js first: the others use the window.PlovaneWhiteboard API it defines.
-    for (const name of ['whiteboard', 'code-view', 'workbench', 'agent-studio', 'agent-chat', 'library', 'live-view', 'overlays', 'readable', 'open-view', 'tasks']) {
+    for (const name of ['whiteboard', 'code-view', 'workbench', 'agent-studio', 'agent-chat', 'library', 'live-view', 'overlays', 'readable', 'open-view', 'tasks', 'sections']) {
       const script = document.createElement('script');
       script.src = `${whiteboardAssetRoot}${name}.js`;
       script.async = false; // run in this order

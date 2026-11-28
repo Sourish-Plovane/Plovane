@@ -52,9 +52,9 @@ def python_modules(ctx: Context) -> dict[str, str]:
 
 # Input: ctx (Context), path (str), modules (dict[str, str] | None)
 # Output: list[str]
-# Processing: Project files a source file imports (Python and JavaScript/TypeScript). Pass ``modules`` (from python_modules) when checking many files, so the project is listed only once.
+# Processing: Project files a source file imports (Python, including absolute imports from a sub-folder's package, and JavaScript/TypeScript, including "@/" path aliases). Pass ``modules`` (from python_modules) when checking many files, so the project is listed only once.
 # Changed by: Claude Code
-# Date: 2026-11-21
+# Date: 2026-11-27
 def imports_of(ctx: Context, path: str, modules: dict[str, str] | None = None) -> list[str]:
     language = codegen.language_of(path)
     try:
@@ -77,17 +77,74 @@ def imports_of(ctx: Context, path: str, modules: dict[str, str] | None = None) -
                 module = resolve_from(path, node)
                 names = [module] + [f"{module}.{a.name}" for a in node.names] if module else []
             for name in names:
-                if name in modules and modules[name] != path:
-                    found.append(modules[name])
+                hit = python_target(name, path, modules)
+                if hit and hit != path:
+                    found.append(hit)
     elif language in ("javascript", "typescript"):
         base = os.path.dirname(path)
-        for match in JS_IMPORT.finditer(text):
-            target = os.path.normpath(os.path.join(base, match.group(1))).replace(os.sep, "/")
+        wanted = [os.path.join(base, m.group(1)) for m in JS_IMPORT.finditer(text)]
+        for match in JS_ALIAS.finditer(text):  # import x from "@/components/ui/button"
+            root = alias_root(ctx, path, match.group(1))
+            if root is not None:
+                wanted.append(os.path.join(root, match.group(2)))
+        for raw in wanted:
+            target = os.path.normpath(raw).replace(os.sep, "/")
             for ext in JS_EXTENSIONS:
                 if ctx.fs.path(target + ext).is_file():
                     found.append(target + ext)
                     break
     return sorted(set(found))
+
+
+JS_ALIAS = re.compile(r"""(?:from\s+|require\(\s*|import\s+|import\(\s*)['"]([@~#])/([^'"]+)['"]""")
+"""Path aliases: "@/x", "~/x" or "#/x" mean a source folder set in tsconfig.json (usually src/)."""
+
+
+# Input: name (str), path (str), modules (dict[str, str])
+# Output: str | None
+# Processing: The project file a Python import names: the module as written, else under one of the importing file's folders (``from app.models`` inside backend/ means backend/app/models.py), nearest folder first.
+# Changed by: Claude Code
+# Date: 2026-11-27
+def python_target(name: str, path: str, modules: dict[str, str]) -> str | None:
+    if name in modules:
+        return modules[name]
+    folder = os.path.dirname(path)
+    while folder:
+        hit = modules.get(f"{codegen.module_name(folder)}.{name}")
+        if hit:
+            return hit
+        folder = os.path.dirname(folder)
+    return None
+
+
+# Input: ctx (Context), path (str), sign (str)
+# Output: str | None
+# Processing: The folder an import alias like "@/" stands for: from the nearest tsconfig.json or jsconfig.json "paths" above the file, else the nearest src/ folder above it.
+# Changed by: Claude Code
+# Date: 2026-11-27
+def alias_root(ctx: Context, path: str, sign: str) -> str | None:
+    import json
+
+    folder = os.path.dirname(path)
+    while True:
+        for name in ("tsconfig.json", "jsconfig.json", "tsconfig.app.json"):
+            config = os.path.join(folder, name) if folder else name
+            if ctx.fs.path(config).is_file():
+                try:
+                    raw = re.sub(r"(?m)^\s*//.*$|/\*.*?\*/", "", ctx.fs.read(config), flags=re.S)
+                    paths = (json.loads(re.sub(r",(\s*[}\]])", r"\1", raw)).get("compilerOptions") or {}).get("paths") or {}
+                except (ValueError, OpError, AttributeError):
+                    paths = {}
+                targets = paths.get(f"{sign}/*")
+                if targets:
+                    return os.path.normpath(os.path.join(folder, str(targets[0]).rstrip("*").rstrip("/") or ".")).replace(os.sep, "/")
+        if os.path.basename(folder) == "src":
+            return folder
+        if ctx.fs.path(os.path.join(folder, "src") if folder else "src").is_dir() and sign == "@":
+            return os.path.join(folder, "src") if folder else "src"
+        if not folder:
+            return None
+        folder = os.path.dirname(folder)
 
 
 # Input: ctx (Context), path (str)

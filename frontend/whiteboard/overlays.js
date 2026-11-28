@@ -157,7 +157,7 @@ Date: 2026-11-25
    *   arrows (between two containers), so it takes the most urgent colour among them (red before green) and lists
    *   every message in its tooltip.
    * Changed by: Claude Code
-   * Date: 2026-11-25
+   * Date: 2026-11-27
    */
   function paintArrows() {
     const s = overlayState(), svg = document.getElementById('connections')
@@ -177,7 +177,8 @@ Date: 2026-11-25
       }
     }
     svg.querySelectorAll('path[data-source]').forEach(path => {
-      const text = path.nextElementSibling?.tagName === 'text' ? path.nextElementSibling : null
+      let text = path.nextElementSibling?.tagName === 'text' ? path.nextElementSibling : null
+      if (text?.classList.contains('wb-halo')) text = text.nextElementSibling // sections.js puts a white copy first
       path.style.stroke = ''
       path.classList.remove('ov-arrow')
       path.querySelector('title')?.remove()

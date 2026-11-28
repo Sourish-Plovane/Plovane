@@ -149,11 +149,25 @@ def free_summary(path: str, text: str) -> str:
     return f"{lines} lines of {language}" if lines else "Empty file"
 
 
+# Input: text (str)
+# Output: str
+# Processing: Markdown reduced to plain words: links and images to their text, no bold, code ticks, list bullets or leading emoji.
+# Changed by: Claude Code
+# Date: 2026-11-27
+def plain_markdown(text: str) -> str:
+    text = re.sub(r"!\[([^\]]*)\]\([^)]*\)", r"\1", text)          # ![alt](img)
+    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)           # [text](url)
+    text = re.sub(r"(\*\*|__|\*|_|`)(\S(?:.*?\S)?)\1", r"\2", text)   # **bold**, _em_, `code`
+    text = re.sub(r"^\s*(?:[-*+]|\d+[.)])\s+", "", text, flags=re.M)  # list bullets
+    text = re.sub(r"^[^\w(\"'“]+", "", text.strip())                 # leading emoji and symbols
+    return re.sub(r"\s+", " ", text).strip()
+
+
 # Input: ctx (Context)
 # Output: str
-# Processing: A free one-line description of the project from its README, package.json or pyproject.
+# Processing: A free one-line description of the project from its README, package.json or pyproject, as plain words (the README's first paragraph, or its first list item when it opens with a list).
 # Changed by: Claude Code
-# Date: 2026-11-18
+# Date: 2026-11-27
 def free_about(ctx: Context) -> str:
     for name in ("package.json",):
         path = ctx.root / name
@@ -174,8 +188,13 @@ def free_about(ctx: Context) -> str:
         if path.is_file():
             for para in re.split(r"\n\s*\n", path.read_text(encoding="utf-8", errors="replace")):
                 para = para.strip()
-                if para and not para.startswith(("#", "!", "[", "<", "```", "|")):
-                    return first_sentence(para)
+                if not para or para.startswith(("#", "!", "[", "<", "```", "|")):
+                    continue
+                if re.match(r"(?:[-*+]|\d+[.)])\s", para):  # the README opens with a list: its first item
+                    para = para.splitlines()[0]
+                line = first_sentence(plain_markdown(para))
+                if line:
+                    return line
     return ""
 
 
@@ -303,9 +322,9 @@ def summary_set(ctx: Context, target: str, text: str) -> dict[str, Any]:
 
 # Input: ctx (Context), text (str)
 # Output: dict[str, Any]
-# Processing: Set the one line saying what the whole project is, shown above every whiteboard.
+# Processing: Set the one line saying what the whole project is, shown above every whiteboard; an empty line clears it so a fresh one can be written.
 # Changed by: Claude Code
-# Date: 2026-11-21
+# Date: 2026-11-27
 @operation("project.describe", command="/project describe", tool="plovane_project_describe", group="plovane_project")
 def describe(ctx: Context, text: str = "") -> dict[str, Any]:
     """Sets the one line saying what the whole project is, shown at the top of the whiteboard."""
@@ -319,8 +338,9 @@ def describe(ctx: Context, text: str = "") -> dict[str, Any]:
     if line:
         ctx.board.view["about"] = line[:200]
         ctx.board.view["about_by"] = "person" if ctx.actor == USER else ctx.actor
-    else:
+    else:  # cleared: the next build or summary pass may write a fresh line
         ctx.board.view.pop("about", None)
+        ctx.board.view.pop("about_by", None)
     return {"about": ctx.board.view.get("about", "")}
 
 

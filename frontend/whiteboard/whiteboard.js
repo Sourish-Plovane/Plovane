@@ -339,13 +339,14 @@ Date: 2026-11-14
   /**
    * Input: none
    * Output: void
-   * Processing: Redraw the focus frame, its cards, their tiles and the arrows between cards; an empty board says what to do first.
+   * Processing: Redraw the focus frame, its cards, their tiles and the arrows between cards (the top of a project is split into sections by sections.js); an empty board says what to do first.
    * Changed by: Claude Code
-   * Date: 2026-11-21
+   * Date: 2026-11-27
    */
-  function render(){if(!state.data)return;const top=focusEntry(),all=boardBlocks(),focus=top.id?all[top.id]:null,kids=childrenOf(top.id);nest.items=new Map();
+  function render(){if(!state.data)return;const top=focusEntry(),all=boardBlocks(),focus=top.id?all[top.id]:null,kids=childrenOf(top.id);nest.items=new Map();nest.sectionHeaders=[];
     let frame={x:0,y:0,w:top.w,h:top.h},inner=innerOf(frame),html='',leafCode=!kids.length&&focus&&codeSource(focus);
     if(leafCode){if(top.h0==null)top.h0=top.h;const code=codeHTML(codeSource(focus),inner,true,innerOf({x:0,y:0,w:top.w,h:top.h0}));if(code.height){top.h=Math.max(top.h,inner.head+code.height+inner.w*.03);frame.h=top.h}html+=code.html}
+    else if(kids.length&&!focus&&window.PlovaneSections){const board=state.data.board||state.data,edges=Object.values(board.arrows||{}).map(a=>[a.source,a.target]),s=window.PlovaneSections.layout(kids,frame,inner,{childrenOf,cardHTML,esc,iconOf,summaryOf,badgeOf,overlayOf},edges);if(top.base==null)top.base=top.h;top.h=frame.h=Math.max(top.base,s.height);s.cards.forEach(c=>nest.items.set(c.id,{level:1,rect:c.rect}));nest.sectionHeaders=s.headers;html+=s.html}
     else if(kids.length)grid(kids.length,inner).forEach((cell,i)=>{nest.items.set(kids[i].id,{level:1,rect:cell});html+=cardHTML(kids[i],cell)});
     else html+=`<div class="nest-empty big" style="left:0;top:${frame.h*.42}px;width:${frame.w}px;font-size:${frame.w/55}px">${focus?'Nothing inside this block yet.<br><button data-action="generate-blocks">✦ Generate blocks with AI</button>':state.emptyProject?`This folder has no code yet.<div class="empty-steps">Start by <button data-action="new-file">＋ creating a file</button>, or describe what to build in the box below and press ↑.<br><small>Already have code somewhere else? Open that folder instead: <code>plovane open --dir &lt;folder&gt;</code></small></div>`:'No project files on the board yet.<br><button data-action="import">Import project files</button>'}</div>`;
     top.leaf=!!leafCode;
@@ -358,15 +359,18 @@ Date: 2026-11-14
    * Output: void
    * Processing: Arrows between the cards in view; an arrow to a block deeper inside goes to the card holding it.
    *   Arrows between the same two cards become one, labelled with its route or "N API routes"; a very short
-   *   arrow (cards side by side) curves up so it can be seen and clicked.
+   *   arrow (cards side by side) curves up so it can be seen and clicked. With sections.js loaded, arrows are routed through the gaps instead.
    * Changed by: Claude Code
-   * Date: 2026-11-21
+   * Date: 2026-11-27
    */
   function drawArrows(frame){const all=boardBlocks(),board=state.data.board||state.data,holder=id=>{let b=all[id],guard=0;while(b&&guard++<20){const it=nest.items.get(b.id);if(it&&it.level===1)return b.id;b=all[b.parent]}return null};
     const edge=(r,tx,ty)=>{const cx=r.x+r.w/2,cy=r.y+r.h/2,dx=tx-cx,dy=ty-cy,k=1/Math.max(Math.abs(dx)/(r.w/2)||0,Math.abs(dy)/(r.h/2)||0,1e-6);return [cx+dx*Math.min(k,1),cy+dy*Math.min(k,1)]};
     const seen=new Set(),arrows=state.data.arrows?.length?state.data.arrows:Object.values(board.arrows||{});
     const groups=new Map();arrows.forEach(a=>{const s=holder(a.source||a.from||a.source_node_id),t=holder(a.target||a.to||a.target_node_id);if(!s||!t||s===t)return;const key=s+'>'+t;if(!groups.has(key))groups.set(key,{s,t,first:a,endpoints:[]});if(a.endpoint&&!groups.get(key).endpoints.includes(a.endpoint))groups.get(key).endpoints.push(a.endpoint)});
     const short=ep=>String(ep).replace(/^[^:]*:/,'');
+    if(window.PlovaneSections){const list=[...groups.values()].map(({s,t,first:a,endpoints})=>({s,t,cls:`${a.type||'calls'} ${a.status||''}`,tag:`data-endpoint="${esc(endpoints.join('|'))}" data-source="${esc(s)}" data-target="${esc(t)}"`,label:endpoints.length>1?`${endpoints.length} API routes`:endpoints.length?short(endpoints[0]):(a.label||a.style?.label||(a.type==='api'?'API':''))}));
+      $('#connections').setAttribute('width',frame.w);$('#connections').setAttribute('height',frame.h);
+      $('#connections').innerHTML=window.PlovaneSections.arrows(list,id=>nest.items.get(id).rect,frame,nest.sectionHeaders||[])+`<defs><marker id="arrowhead" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="#8a82c4"/></marker></defs>`;return}
     const paths=[...groups.values()].map(({s,t,first:a,endpoints})=>{const A=nest.items.get(s).rect,B=nest.items.get(t).rect,[x1,y1]=edge(A,B.x+B.w/2,B.y+B.h/2),[x2,y2]=edge(B,A.x+A.w/2,A.y+A.h/2),bulge=Math.hypot(x2-x1,y2-y1)<frame.w*.05?frame.w*.035:0,cx=(x1+x2)/2,cy=(y1+y2)/2-bulge,label=endpoints.length>1?`${endpoints.length} API routes`:endpoints.length?short(endpoints[0]):(a.label||(a.type==='api'?'API':a.type||''));
       const tag=`data-endpoint="${esc(endpoints.join('|'))}" data-source="${esc(s)}" data-target="${esc(t)}"`;return `<path class="${esc(a.type||'calls')} ${esc(a.status||'')}" ${tag} d="${bulge?`M ${x1} ${y1} Q ${cx} ${cy-bulge} ${x2} ${y2}`:`M ${x1} ${y1} L ${x2} ${y2}`}" marker-end="url(#arrowhead)"/><text ${tag} x="${cx}" y="${cy-frame.w/250}" text-anchor="middle" style="font-size:${frame.w/130}px">${esc(label)}</text>`}).join('');
     $('#connections').setAttribute('width',frame.w);$('#connections').setAttribute('height',frame.h);

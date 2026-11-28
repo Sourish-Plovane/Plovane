@@ -48,7 +48,7 @@ from backend.whiteboard.store import SKIP_DIRS
 
 DEFAULT_MODELS = {"anthropic": "claude-haiku-5-5", "deepseek": "deepseek-chat", "openai": "gpt-5-mini"}
 MAX_ASK_STEPS = 20
-MAX_BUILD_STEPS = 10
+MAX_BUILD_STEPS = 14
 WATCHER = "project watcher"
 MAX_OVERLAY_STEPS = 6
 SIGNALS = {
@@ -143,10 +143,13 @@ their parts and arrows for the services, and draw each one as its own tab with /
    does, and databases, queues or outside APIs the code clearly talks to.
 2. Join them with arrows labelled in a few plain words ("stores orders", "charges cards").
 3. Do not remove or rename what the import made (a long file name can get a short label instead).
-4. Make what matters visible, without crowding: switch on for the person at most 2 overlays that
-   matter most here (templates are made with /overlay from, not /overlay on).
-Be brief: the drawing is mostly done. Use at most 10 commands, several lines per /sketch.
-Finish with two or three sentences on how the project is laid out."""
+4. At most one overlay, and only if it clearly helps here: one /overlay from <template> command,
+   no hand-written rules. Skip readability checks; the page lays the board out by itself.
+Be brief: the drawing is mostly done. Use at most 8 commands, several lines per /sketch, and
+spend them on the services and arrows first.
+Finish with two or three sentences on how the project is laid out, then one last line that starts
+"About:" and says in plain words, under 20 words, what the project is (for example
+"About: An online shop where customers pay by card and staff track orders.")."""
 
 
 # Input: ws (Workspace)
@@ -410,9 +413,9 @@ def build(ws: Any, *, lock: Any = None, provider: str | None = None, model: str 
 
 # Input: ws (Any), out (dict[str, Any]), task_id (str), display (Any), lock (Any), provider (str | None), model (str | None), on_step (Callable | None)
 # Output: dict[str, Any]
-# Processing: Draw the architecture, let the loop check it, and report each stage on the temporary display.
+# Processing: Draw the architecture, let the loop check it, take its "About:" line as the project's one-line description (unless a person or agent wrote one), and report each stage on the temporary display.
 # Changed by: Claude Code
-# Date: 2026-11-26
+# Date: 2026-11-27
 def build_steps(ws: Any, out: dict[str, Any], task_id: str, display: Any, *, lock: Any, provider: str | None,
                 model: str | None, on_step: Callable[[dict[str, Any]], None] | None) -> dict[str, Any]:
     task = {"id": task_id}
@@ -426,6 +429,14 @@ def build_steps(ws: Any, out: dict[str, Any], task_id: str, display: Any, *, loc
                               provider=provider, model=model, on_step=on_step, max_steps=MAX_BUILD_STEPS)
     except llm_agent.AgentError as exc:  # the import still stands; say why organising did not happen
         out["note"] = f"organising failed: {exc}"
+    summary = str((out.get("organise") or {}).get("summary") or "")
+    about = re.search(r"^\W*About:\s*(.+)$", summary, re.M | re.I)
+    if about and ws.board.view.get("about_by") in (None, "parser"):
+        # The AI's own one line on what the project is beats the line guessed from the README.
+        from backend.whiteboard.ops.readable import plain_markdown
+
+        with lock:
+            ws.execute("project.describe", {"text": plain_markdown(about.group(1))[:200]}, actor=BOARD_AI)
     display.finish(task["id"], by=BOARD_AI, failed="note" in out, message=out.get("note"))
     return out
 

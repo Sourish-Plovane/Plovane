@@ -1,0 +1,47 @@
+/* Sections at the top of a project, and arrows routed through the gaps (sections.js). */
+.wb-section { position:absolute; z-index:0; box-sizing:border-box; border-radius:18px; border:1.5px solid color-mix(in srgb, var(--accent) 16%, var(--line)); background:color-mix(in srgb, var(--accent-soft) 30%, #fff); }
+.wb-section.arch { background:color-mix(in srgb, #59a682 7%, #fff); border-color:color-mix(in srgb, #59a682 28%, var(--line)); }
+.wb-section > header { display:flex; align-items:baseline; gap:.6em; padding:.55em .9em 0; font-family:Manrope, sans-serif; overflow:hidden; white-space:nowrap; }
+.wb-section > header b { font-weight:800; color:var(--ink); }
+.wb-section > header small { font-size:.55em; color:var(--muted); overflow:hidden; text-overflow:ellipsis; }
+.wb-section > header[data-section-go] { cursor:zoom-in; }
+.wb-section > header[data-section-go]:hover b { color:var(--accent); }
+
+/* Architecture cards: big enough to read without zooming in. */
+.arch-card { display:flex; flex-direction:column; justify-content:center; gap:.25em; padding:0 .8em; box-sizing:border-box; font-family:Manrope, sans-serif; cursor:pointer; }
+.arch-card > header { display:flex; align-items:flex-start; gap:.4em; padding:0; overflow:hidden; white-space:nowrap; }
+.arch-card .nest-name, .section-card .nest-name { white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; line-height:1.15; }
+.arch-card .nest-name { font-weight:800; color:var(--ink); overflow:hidden; text-overflow:ellipsis; }
+.arch-card > small { font-size:.62em; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.arch-card.database-card { border-left:4px solid #59a682; }
+.arch-card.external-card { border-style:dashed; }
+.arch-card.service-card, .arch-card.server-card { border-left:4px solid var(--accent); }
+
+/* Folder and file cards inside a section: the name is what you read from afar. */
+.section-card { display:flex; flex-direction:column; gap:.3em; padding:.6em .8em; box-sizing:border-box; font-family:Manrope, sans-serif; overflow:hidden; }
+.section-card > header { display:flex; align-items:flex-start; gap:.4em; padding:0; overflow:hidden; white-space:nowrap; }
+.section-card .nest-name { font-weight:800; color:var(--ink); overflow:hidden; text-overflow:ellipsis; }
+.section-card .nest-name i { font-style:normal; font-weight:600; color:var(--muted); }
+.section-card > small { font-size:.6em; color:var(--muted); display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden; }
+.section-card .sc-kids { display:flex; flex-wrap:wrap; gap:.25em; margin-top:auto; font-size:.55em; overflow:hidden; max-height:1.6em; flex-shrink:0; }
+.section-card .sc-kids span { padding:.1em .5em; border-radius:999px; background:var(--accent-soft); color:var(--ink); white-space:nowrap; }
+.section-card .sc-kids .more { background:var(--line); color:var(--muted); }
+.section-card.folder-card { background:color-mix(in srgb, #f3a95f 7%, #fff); }
+
+/* Arrows above the cards (they run in the gaps, so they never cover one) and never hidden by them. */
+.canvas-world > .connections { z-index:3; }
+.connections path.routed { stroke-width:2; stroke-linejoin:round; transition:opacity .15s, stroke-width .15s; }
+.connections path.routed.import { stroke-width:1.4; }
+.connections text.wb-label, .connections text.wb-halo { font-family:Manrope, sans-serif; font-weight:700; transition:opacity .15s; }
+.connections text.wb-label { fill:#3f4555; stroke:none; }
+.connections text.wb-halo { fill:#fff; stroke:#fff; stroke-width:4px; stroke-linejoin:round; pointer-events:none; }
+.connections.wb-focus text.wb-halo { opacity:.15; }
+.connections path.wb-quiet { opacity:0; }
+.connections.wb-focus [data-source] { opacity:.15; }
+.connections.wb-focus path.wb-quiet { opacity:0; }
+.connections.wb-focus path.wb-quiet.wb-lit { opacity:1; }
+.connections.wb-focus [data-source].wb-lit { opacity:1; }
+.connections.wb-focus path.wb-lit { stroke-width:3; }
+body[data-theme="dark"] .wb-section { background:#1f232bcc; border-color:#343844; }
+body[data-theme="dark"] .connections text.wb-label { fill:#d6d9e2; }
+body[data-theme="dark"] .connections text.wb-halo { fill:#1d2027; stroke:#1d2027; }

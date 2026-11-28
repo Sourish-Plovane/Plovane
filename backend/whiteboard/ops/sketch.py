@@ -69,11 +69,12 @@ def need(ctx: Context, name: str) -> Block:
 
 # Input: text (str)
 # Output: list[str]
-# Processing: Comma-separated names, quotes allowed.
-# Changed by: Claude
-# Date: 2026-11-10
+# Processing: Comma-separated names; a comma inside quotes is part of the name ("Frontend (built, served by FastAPI)").
+# Changed by: Claude Code
+# Date: 2026-11-27
 def names(text: str) -> list[str]:
-    return [n.strip().strip("\"'") for n in text.split(",") if n.strip().strip("\"'")]
+    parts = re.findall(r'\s*("[^"]*"|\'[^\']*\'|[^,]+)\s*(?:,|$)', text)
+    return [n.strip().strip("\"'").strip() for n in parts if n.strip().strip("\"'").strip()]
 
 
 # Input: source (Block), target (Block)

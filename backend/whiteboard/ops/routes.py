@@ -66,16 +66,46 @@ def join_route(prefix: str, route: str) -> str:
 
 # Input: files (dict[str, str])
 # Output: dict[str, str]
-# Processing: Config values that look like URL prefixes (NAME_PREFIX = "/x") across the project's Python.
+# Processing: Config values that look like URL prefixes (NAME_PREFIX = "/x", API_V1_STR: str = "/api/v1") across the project's Python.
 # Changed by: Claude Code
-# Date: 2026-11-21
+# Date: 2026-11-27
 def config_prefixes(files: dict[str, str]) -> dict[str, str]:
     found: dict[str, str] = {}
     for path, text in files.items():
         if path.endswith(".py"):
-            for name, value in re.findall(r"^\s*(\w*PREFIX\w*)\s*=\s*['\"]([^'\"]*)['\"]", text, re.M):
+            for name, value in re.findall(r"^\s*(\w*PREFIX\w*)\s*(?::\s*[\w\[\], ]+)?=\s*['\"]([^'\"]*)['\"]", text, re.M):
+                found.setdefault(name, value)
+            # Settings like API_V1_STR: str = "/api/v1": an upper-case name holding a path.
+            for name, value in re.findall(r"^\s*([A-Z][A-Z0-9_]*)\s*(?::\s*[\w\[\], ]+)?=\s*['\"](/[^'\"]*)['\"]", text, re.M):
                 found.setdefault(name, value)
     return found
+
+
+MOUNT = re.compile(r"(\w+)\.include_router\(\s*(\w+)\s*,[^)]*?\bprefix\s*=\s*([\w.]+|['\"][^'\"]*['\"])")
+"""app.include_router(api_router, prefix=settings.API_V1_STR): a router from another file mounted under a prefix."""
+
+
+# Input: texts (dict[str, str]), config (dict[str, str])
+# Output: tuple[str, str] | None
+# Processing: The one prefix the app mounts routers from other files under (FastAPI's /api/v1), and the file that mounts them; None when there is not exactly one.
+# Changed by: Claude Code
+# Date: 2026-11-27
+def mount_prefix(texts: dict[str, str], config: dict[str, str]) -> tuple[str, str] | None:
+    mounts: set[tuple[str, str]] = set()
+    for path, text in texts.items():
+        if not path.endswith(".py") or "include_router" not in text:
+            continue
+        for _owner, name, raw in MOUNT.findall(text):
+            if re.search(rf"^\s*{re.escape(name)}\s*=\s*APIRouter\(", text, re.M):
+                continue  # a router made in this same file: python_routes already joins its prefix
+            value = raw.strip("'\"") if raw[:1] in "'\"" else config.get(raw.split(".")[-1])
+            if value and value.startswith("/"):
+                mounts.add((value, path))
+    prefixes = {value for value, _ in mounts}
+    if len(prefixes) != 1:
+        return None
+    value = prefixes.pop()
+    return value, sorted(path for v, path in mounts if v == value)[0]
 
 
 # Input: node (ast.AST | None), config (dict[str, str])
@@ -191,14 +221,19 @@ def python_routes(path: str, text: str, config: dict[str, str]) -> tuple[list[tu
 JS_SERVER = re.compile(r"\b([\w$]+)\.(get|post|put|patch|delete|all)\(\s*(['\"`])(/[^'\"`]*)\3")
 JS_FETCH = re.compile(r"\bfetch\(\s*(['\"`])(.+?)\1")
 JS_METHOD = re.compile(r"method\s*:\s*['\"](\w+)['\"]", re.I)
+JS_OBJECT_CALL = re.compile(r"\.(get|post|put|patch|delete)\s*(?:<[^()]*?>)?\s*\(\s*\{[^()]{0,400}?\burl\s*:\s*(['\"`])(/[^'\"`]*)\2",
+                            re.S | re.I)
+"""Generated API clients: client.get<...>({ ..., url: '/api/v1/items/' })."""
+JS_REQUEST = re.compile(r"\bmethod\s*:\s*['\"](\w+)['\"]\s*,\s*url\s*:\s*(['\"`])(/[^'\"`]*)\2", re.I)
+"""request({ method: 'GET', url: '/api/v1/items/' })."""
 NEXT_EXPORT = re.compile(r"export\s+(?:async\s+)?(?:function\s+|const\s+)(GET|POST|PUT|PATCH|DELETE)\b")
 
 
 # Input: path (str), text (str)
 # Output: tuple[list[tuple[str, str]], list[tuple[str, str]]]
-# Processing: Routes and calls in one JavaScript or TypeScript file (Express, Next.js, fetch, axios).
+# Processing: Routes and calls in one JavaScript or TypeScript file (Express, Next.js, fetch, axios, generated API clients).
 # Changed by: Claude Code
-# Date: 2026-11-21
+# Date: 2026-11-27
 def js_routes(path: str, text: str) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
     routes: list[tuple[str, str]] = []
     calls: list[tuple[str, str]] = []
@@ -223,6 +258,10 @@ def js_routes(path: str, text: str) -> tuple[list[tuple[str, str]], list[tuple[s
     for match in JS_FETCH.finditer(text):
         nearby = JS_METHOD.search(text, match.end(), match.end() + 300)
         calls.append(((nearby.group(1).upper() if nearby else "GET"), match.group(2)))
+    for match in JS_OBJECT_CALL.finditer(text):
+        calls.append((match.group(1).upper(), match.group(3)))
+    for match in JS_REQUEST.finditer(text):
+        calls.append((match.group(1).upper(), match.group(3)))
     return routes, calls
 
 
@@ -251,9 +290,9 @@ def block_of(index: dict[str, str], path: str) -> str | None:
 
 # Input: ctx (Context), under (str)
 # Output: dict[str, Any]
-# Processing: Find routes and their callers in the code; add endpoints and API arrows for them.
+# Processing: Find routes and their callers in the code (routers mounted under one app-wide prefix get it); add endpoints and API arrows for them, dropping routes an earlier scan found that are gone.
 # Changed by: Claude Code
-# Date: 2026-11-21
+# Date: 2026-11-27
 @operation("endpoint.scan", command="/endpoint scan", tool="plovane_endpoint_scan", group="plovane_endpoint")
 def scan(ctx: Context, under: str = "") -> dict[str, Any]:
     """Finds the app's API routes and the code calling them; adds endpoints and API arrows (no AI)."""
@@ -269,12 +308,16 @@ def scan(ctx: Context, under: str = "") -> dict[str, Any]:
             if len(text) <= MAX_BYTES:
                 texts[path] = text
     config = config_prefixes(texts)
+    mounted = mount_prefix(texts, config)
     index = blocks_by_path(ctx.board)
     found: dict[str, Endpoint] = {}
     callers: list[tuple[str, str, str]] = []
     unplaced = 0
     for path, text in texts.items():
         routes, calls = python_routes(path, text, config) if path.endswith(".py") else js_routes(path, text)
+        if mounted and path.endswith(".py") and path != mounted[1]:
+            routes = [(m, r if r.startswith(mounted[0] + "/") or r == mounted[0] else join_route(mounted[0], r))
+                      for m, r in routes]
         owner = block_of(index, path)
         unplaced += 0 if owner else len(routes)
         for method, route in routes:
@@ -283,6 +326,10 @@ def scan(ctx: Context, under: str = "") -> dict[str, Any]:
                 found.setdefault(key, Endpoint(id=key, service=owner, method=method, path=route, status="built",
                                                handler=path))
         callers += [(path, method, url) for method, url in calls]
+    for key in [k for k, e in ctx.board.endpoints.items()  # routes an earlier scan found that are gone (or moved)
+                if e.status == "built" and e.handler and k not in found and k.startswith(f"{e.service}:")
+                and (not base or e.handler.startswith(base.rstrip("/") + "/"))]:
+        del ctx.board.endpoints[key]
     for key, endpoint in found.items():
         if key not in ctx.board.endpoints:
             ctx.board.endpoints[key] = endpoint
